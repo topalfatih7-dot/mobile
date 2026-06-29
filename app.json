@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Yeni Form",
+    "slug": "yeniform",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "scheme": "yeniform",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yeniform.app",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Mesaj, seans ve hatırlatma bildirimleri göndermek için bildirim izni gerekir."
+      }
+    },
+    "android": {
+      "package": "com.yeniform.app",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#2478a8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f0f7fb",
+          "image": "./assets/brand/brand-mark.png",
+          "resizeMode": "contain",
+          "imageWidth": 120
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#2478a8",
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
