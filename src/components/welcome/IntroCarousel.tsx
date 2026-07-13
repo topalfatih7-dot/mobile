@@ -27,6 +27,8 @@ type IntroCarouselProps = {
   onLogin: () => void;
 };
 
+const SLIDE_COUNT = WELCOME_SLIDES.length;
+
 export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
   const insets = useSafeAreaInsets();
   const { width: slideWidth } = useWindowDimensions();
@@ -36,8 +38,6 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
   const [viewport, setViewport] = useState(0);
   const scrollRef = useRef<Animated.ScrollView>(null);
 
-  const isLast = index === WELCOME_SLIDES.length - 1;
-
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {
       scrollX.value = e.contentOffset.x;
@@ -46,16 +46,18 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
 
   const onMomentumEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setIndex(Math.round(e.nativeEvent.contentOffset.x / slideWidth));
+      const next = Math.round(e.nativeEvent.contentOffset.x / slideWidth);
+      setIndex(((next % SLIDE_COUNT) + SLIDE_COUNT) % SLIDE_COUNT);
     },
     [slideWidth],
   );
 
+  /** Sonsuz döngü: son slayttan ileri → 0, ilkten geri → son. */
   const goTo = useCallback(
     (target: number) => {
-      const clamped = Math.max(0, Math.min(target, WELCOME_SLIDES.length - 1));
-      scrollRef.current?.scrollTo({ x: clamped * slideWidth, animated: true });
-      setIndex(clamped);
+      const wrapped = ((target % SLIDE_COUNT) + SLIDE_COUNT) % SLIDE_COUNT;
+      scrollRef.current?.scrollTo({ x: wrapped * slideWidth, animated: true });
+      setIndex(wrapped);
     },
     [slideWidth],
   );
@@ -63,7 +65,7 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
   useEffect(() => {
     if (viewport <= 0) return;
     scrollRef.current?.scrollTo({ x: index * slideWidth, animated: false });
-  }, [slideWidth, viewport, index]);
+  }, [slideWidth, viewport]);
 
   const onViewportLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -118,14 +120,12 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
             <Pressable
               accessibilityLabel="Önceki"
               accessibilityRole="button"
-              disabled={index === 0}
               hitSlop={10}
               onPress={() => goTo(index - 1)}
               style={[
                 styles.arrow,
                 styles.arrowLeft,
-                { top: viewport * (isLandscape ? 0.2 : 0.26), left: headerPad },
-                index === 0 && styles.arrowDisabled,
+                { top: viewport * (isLandscape ? 0.18 : 0.22), left: headerPad },
               ]}>
               <Ionicons color={colors.white} name="chevron-back" size={24} />
             </Pressable>
@@ -133,14 +133,12 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
             <Pressable
               accessibilityLabel="Sonraki"
               accessibilityRole="button"
-              disabled={isLast}
               hitSlop={10}
               onPress={() => goTo(index + 1)}
               style={[
                 styles.arrow,
                 styles.arrowRight,
-                { top: viewport * (isLandscape ? 0.2 : 0.26), right: headerPad },
-                isLast && styles.arrowDisabled,
+                { top: viewport * (isLandscape ? 0.18 : 0.22), right: headerPad },
               ]}>
               <Ionicons color={colors.white} name="chevron-forward" size={24} />
             </Pressable>
@@ -151,7 +149,7 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
       <View style={[styles.footer, { paddingBottom: insets.bottom + footerPad }]}>
         <ResponsiveCenter>
           <WelcomeFooter
-            count={WELCOME_SLIDES.length}
+            count={SLIDE_COUNT}
             isLandscape={isLandscape}
             onLogin={onLogin}
             onRegister={onStart}
@@ -217,9 +215,6 @@ const styles = StyleSheet.create({
   },
   arrowLeft: {},
   arrowRight: {},
-  arrowDisabled: {
-    opacity: 0.32,
-  },
   footer: {
     paddingHorizontal: 0,
   },

@@ -10,7 +10,7 @@ import Animated, {
 import type { WelcomeSlide } from '@/data/welcomeSlides';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 
-const BUBBLE_SIZE = 46;
+const BUBBLE_SIZE = 42;
 
 type IntroSlideProps = {
   slide: WelcomeSlide;
@@ -42,9 +42,10 @@ export function IntroSlide({
   slideWidth,
   isLandscape = false,
 }: IntroSlideProps) {
-  const heroHeight = Math.min(slideHeight * (isLandscape ? 0.68 : 0.52), isLandscape ? 240 : 330);
-  const heroWidth = slideWidth - spacing.lg * 2;
-  const ring = Math.min(heroHeight * 0.82, isLandscape ? 200 : 238);
+  // Kompakt hero — metin bloğunu yukarı çeker (web/mobil)
+  const heroHeight = Math.min(slideHeight * (isLandscape ? 0.55 : 0.38), isLandscape ? 200 : 220);
+  const heroWidth = Math.min(slideWidth - spacing.lg * 2, isLandscape ? 360 : 300);
+  const ring = Math.min(heroHeight * 0.88, isLandscape ? 170 : 188);
   const core = ring * 0.7;
   const accent = slide.gradient[0];
 
@@ -60,7 +61,7 @@ export function IntroSlide({
   const textStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolation.CLAMP),
     transform: [
-      { translateY: interpolate(scrollX.value, inputRange, [34, 0, 34], Extrapolation.CLAMP) },
+      { translateY: interpolate(scrollX.value, inputRange, [18, 0, 18], Extrapolation.CLAMP) },
     ],
   }));
 
@@ -169,7 +170,7 @@ function Bubble({
 
   return (
     <Animated.View style={[styles.bubble, { left, top }, style]}>
-      <Ionicons color={accent} name={icon} size={20} />
+      <Ionicons color={accent} name={icon} size={18} />
     </Animated.View>
   );
 }
@@ -177,13 +178,15 @@ function Bubble({
 const styles = StyleSheet.create({
   slide: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
+    justifyContent: 'flex-start',
   },
   hero: {
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    marginBottom: spacing.md,
   },
   center: {
     alignItems: 'center',
@@ -221,18 +224,18 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   textZone: {
-    flex: 1,
     alignItems: 'center',
-    paddingTop: spacing.sm,
+    paddingTop: 0,
+    flexGrow: 0,
   },
   badge: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: radius.full,
     backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.28)',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   badgeText: {
     fontFamily: fonts.semibold,
@@ -242,33 +245,33 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.displayExtra,
-    fontSize: 30,
-    lineHeight: 37,
+    fontSize: 28,
+    lineHeight: 34,
     textAlign: 'center',
     color: colors.white,
     marginBottom: spacing.sm,
   },
   subtitle: {
     fontFamily: fonts.regular,
-    fontSize: 15.5,
-    lineHeight: 23,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
     color: 'rgba(255,255,255,0.9)',
-    maxWidth: 330,
+    maxWidth: 340,
   },
   highlights: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderRadius: radius.full,
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,

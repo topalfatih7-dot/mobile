@@ -1,5 +1,10 @@
+import { env } from '@/config/env';
+
 export const BRAND = {
   name: 'Yeni Form',
+  shortName: 'Yeni Form',
+  domain: 'yeniform.com',
+  siteUrl: env.siteUrl,
   tagline: 'Herkes için çevrimiçi koçluk ve wellness',
   assets: {
     logo: require('../../assets/brand/brand-logo.png'),
@@ -7,7 +12,10 @@ export const BRAND = {
   },
 } as const;
 
-/** Web `Adsız/src/config/brand.js` ile aynı admin tanımı. */
+/** Admin e-postası — şifre kodda tutulmaz; web `brand.js` ile aynı varsayılan. */
+export const ADMIN_EMAIL = env.adminEmail;
+
 export const ADMIN_CREDENTIALS = {
-  email: 'admin@serenova.fit',
+  email: ADMIN_EMAIL,
+  name: 'Yeni Form Admin',
 } as const;

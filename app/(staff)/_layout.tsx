@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router';
+import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { StaffForcePasswordChange } from '@/components/auth/StaffForcePasswordChange';
 import { TabBarIcon } from '@/components/navigation/TabBarIcon';
+import { useApp } from '@/context/AppContext';
 import { StaffDashboardProvider, useStaffDashboard } from '@/hooks/useStaffDashboard';
 import { useProtectedRoute } from '@/hooks/useAuthGuard';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -89,9 +92,22 @@ function StaffTabs() {
 
 export default function StaffLayout() {
   useProtectedRoute('staff');
+  const { staff, refresh } = useApp();
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const mustChangePassword =
+    Boolean(staff?.tempPasswordIssued) && !passwordChanged;
 
   return (
     <StaffDashboardProvider>
+      {mustChangePassword && staff ? (
+        <StaffForcePasswordChange
+          staff={staff}
+          onDone={() => {
+            setPasswordChanged(true);
+            void refresh();
+          }}
+        />
+      ) : null}
       <StaffTabs />
     </StaffDashboardProvider>
   );

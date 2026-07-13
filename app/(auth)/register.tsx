@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useApp } from '@/context/AppContext';
@@ -120,6 +121,8 @@ export default function RegisterScreen() {
         onPress={onRegister}
         rightIcon="arrow-forward"
       />
+
+      <SocialAuthButtons flow="signup" position="bottom" />
     </AuthScaffold>
   );
 }

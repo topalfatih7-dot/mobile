@@ -11,6 +11,8 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
+  identities?: { provider: string }[];
+  app_metadata?: { provider?: string; [key: string]: unknown };
 };
 
 export type MemberProfile = {

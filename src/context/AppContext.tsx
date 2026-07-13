@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import type { Conversation } from '@/data/messages';
@@ -17,9 +19,22 @@ import type {
   TodayItem,
 } from '@/data/dashboard';
 import type { FeaturedProgramData } from '@/data/programs';
-import { fetchMemberChatThreads, type DbChatThread } from '@/services/db/chat';
+import {
+  fetchChatMessages,
+  fetchMemberChatThreads,
+  markChatThreadRead as dbMarkChatThreadRead,
+  sendChatMessage as dbSendChatMessage,
+  type DbChatMessage,
+  type DbChatThread,
+} from '@/services/db/chat';
 import { saveMemberPatch, markNotificationRead as dbMarkNotificationRead, markAllNotificationsRead as dbMarkAllNotificationsRead } from '@/services/db/members';
 import { fetchMemberPrograms, type DbProgram } from '@/services/db/programs';
+import {
+  hydrateSharedRemote,
+  type MembershipPlan,
+  type SharedRemoteDb,
+  type SiteContentBundle,
+} from '@/services/hydrateShared';
 import {
   buildDailyGoal,
   buildDailyStats,
@@ -40,7 +55,17 @@ import {
   parseMemberSettings,
   type MemberSettings,
 } from '@/services/pushNotifications';
+import { loadRememberMePreference } from '@/services/authStorage';
 import {
+  registerActiveSession,
+  verifyActiveSessionOrSignOut,
+} from '@/services/singleSession';
+import {
+  signInWithSocial,
+  type SignInWithSocialOpts,
+} from '@/services/oauthAuth';
+import {
+  AUTH_EVENTS_REQUIRING_HYDRATE,
   hydrateAuthState,
   login as authLogin,
   logout as authLogout,
@@ -49,18 +74,49 @@ import {
   routeForRole,
   type RegisterProfile,
 } from '@/services/supabaseAuth';
+import { syncAutoRefresh } from '@/services/supabaseClient';
 import { completionKey } from '@/utils/programSchedule';
+import { hasRegisteredMember } from '@/utils/memberProfile';
 import type { AppSession, AuthUser, MemberProfile, SessionType, StaffProfile } from '@/types/session';
+
+type LoginWithGoogleResult =
+  | {
+      success: true;
+      role: SessionType;
+      needsOnboarding: boolean;
+      redirecting?: false;
+    }
+  | {
+      success: true;
+      redirecting: true;
+    }
+  | {
+      success: false;
+      error?: string;
+      cancelled?: boolean;
+      providerNotConfigured?: boolean;
+      redirectMisconfigured?: boolean;
+      expectedRedirect?: string;
+    };
 
 type AppContextValue = {
   loading: boolean;
   syncing: boolean;
+  loggingOut: boolean;
   session: AppSession | null;
   sessionType: SessionType | null;
   authUser: AuthUser | null;
   member: MemberProfile | null;
   staff: StaffProfile | null;
-  user: { id?: string; name: string; email: string };
+  /** Directory/list of staff (shared hydrate). */
+  staffDirectory: StaffProfile[];
+  plans: MembershipPlan[];
+  posts: SharedRemoteDb['posts'];
+  exerciseCount: number;
+  testimonials: SiteContentBundle['testimonials'];
+  faqs: SiteContentBundle['faqs'];
+  successStories: SiteContentBundle['successStories'];
+  user: { id?: string; name: string; email: string; phone?: string; joinedAt?: string; profileComplete?: boolean };
   isAuthenticated: boolean;
   isAdmin: boolean;
   isStaff: boolean;
@@ -69,6 +125,7 @@ type AppContextValue = {
   featuredProgram: FeaturedProgramData | null;
   conversations: Conversation[];
   chatUnreadCount: number;
+  chatMessages: Record<string, DbChatMessage[]>;
   dailyGoal: ReturnType<typeof buildDailyGoal>;
   dailyStats: DailyStat[];
   todayPlan: TodayItem[];
@@ -77,12 +134,19 @@ type AppContextValue = {
   notifications: AppNotification[];
   notificationUnreadCount: number;
   login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string; role?: SessionType }>;
+  loginWithGoogle: (opts?: SignInWithSocialOpts) => Promise<LoginWithGoogleResult>;
   register: (profile: RegisterProfile) => Promise<{ success: boolean; error?: string; role?: SessionType }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateProfile: (patch: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+  loadChatMessages: (threadId: string) => Promise<DbChatMessage[]>;
+  sendChatMessage: (
+    thread: DbChatThread,
+    text: string,
+  ) => Promise<{ success: boolean; error?: string; message?: DbChatMessage }>;
+  markChatThreadRead: (threadId: string) => Promise<void>;
   memberSettings: MemberSettings;
   updateSettings: (
     patch: Partial<MemberSettings>,
@@ -109,6 +173,14 @@ const EMPTY_MEMBER_DATA = {
   notificationUnreadCount: 0,
 };
 
+const EMPTY_SHARED: SharedRemoteDb = {
+  staff: [],
+  plans: [],
+  posts: [],
+  exerciseCount: 0,
+  content: { testimonials: [], faqs: [], successStories: [], exerciseTaxonomy: null },
+};
+
 function buildMemberViewModels(member: MemberProfile | null, dbPrograms: DbProgram[], threads: DbChatThread[]) {
   const programs = mapProgramsToMobile(dbPrograms, member);
   return {
@@ -129,17 +201,22 @@ function buildMemberViewModels(member: MemberProfile | null, dbPrograms: DbProgr
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [session, setSession] = useState<AppSession | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [member, setMember] = useState<MemberProfile | null>(null);
   const [staff, setStaff] = useState<StaffProfile | null>(null);
+  const [shared, setShared] = useState<SharedRemoteDb>(EMPTY_SHARED);
   const [memberData, setMemberData] = useState(EMPTY_MEMBER_DATA);
+  const [chatMessages, setChatMessages] = useState<Record<string, DbChatMessage[]>>({});
+  const sessionTypeRef = useRef<SessionType | null>(null);
 
   const applyAuthState = useCallback((state: Awaited<ReturnType<typeof hydrateAuthState>>) => {
     setSession(state.session);
     setAuthUser(state.authUser);
     setMember(state.member);
     setStaff(state.staff);
+    sessionTypeRef.current = state.session?.type ?? null;
   }, []);
 
   const loadMemberData = useCallback(async (memberId: string, profile: MemberProfile | null) => {
@@ -152,13 +229,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearMemberData = useCallback(() => {
     setMemberData(EMPTY_MEMBER_DATA);
+    setChatMessages({});
   }, []);
 
   const refresh = useCallback(async () => {
     setSyncing(true);
     try {
-      const state = await hydrateAuthState();
+      const [state, sharedDb] = await Promise.all([hydrateAuthState(), hydrateSharedRemote()]);
       applyAuthState(state);
+      setShared(sharedDb);
       if (state.session?.type === 'member' && state.session.memberId) {
         await loadMemberData(state.session.memberId, state.member);
       } else {
@@ -171,11 +250,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+
     void (async () => {
       try {
-        const state = await hydrateAuthState();
+        const remember = await loadRememberMePreference();
+        syncAutoRefresh(remember);
+        const [state, sharedDb] = await Promise.all([hydrateAuthState(), hydrateSharedRemote()]);
         if (!active) return;
         applyAuthState(state);
+        setShared(sharedDb);
         if (state.session?.type === 'member' && state.session.memberId) {
           await loadMemberData(state.session.memberId, state.member);
         }
@@ -185,15 +268,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
 
     const unsub = onAuthChange(async (event) => {
-      if (
-        event === 'SIGNED_OUT' ||
-        event === 'TOKEN_REFRESHED' ||
-        event === 'SIGNED_IN' ||
-        event === 'USER_UPDATED'
-      ) {
-        const state = await hydrateAuthState();
+      if (event === 'SIGNED_IN') {
+        await registerActiveSession();
+      }
+      if (event === 'TOKEN_REFRESHED') {
+        await verifyActiveSessionOrSignOut();
+        return;
+      }
+      if ((AUTH_EVENTS_REQUIRING_HYDRATE as readonly string[]).includes(event)) {
+        const [state, sharedDb] = await Promise.all([hydrateAuthState(), hydrateSharedRemote()]);
         if (!active) return;
         applyAuthState(state);
+        setShared(sharedDb);
         if (state.session?.type === 'member' && state.session.memberId) {
           await loadMemberData(state.session.memberId, state.member);
         } else {
@@ -202,9 +288,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    const pollId = setInterval(() => {
+      if (sessionTypeRef.current) void verifyActiveSessionOrSignOut();
+    }, 60_000);
+
+    const onAppState = (next: AppStateStatus) => {
+      if (next === 'active' && sessionTypeRef.current) {
+        void verifyActiveSessionOrSignOut();
+      }
+    };
+    const appSub = AppState.addEventListener('change', onAppState);
+
     return () => {
       active = false;
       unsub();
+      clearInterval(pollId);
+      appSub.remove();
     };
   }, [applyAuthState, loadMemberData, clearMemberData]);
 
@@ -214,6 +313,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!result.success) return { success: false, error: result.error };
       await refresh();
       return { success: true, role: result.role };
+    },
+    [refresh],
+  );
+
+  const loginWithGoogle = useCallback(
+    async (opts: SignInWithSocialOpts = {}): Promise<LoginWithGoogleResult> => {
+      const result = await signInWithSocial('google', opts);
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          cancelled: 'cancelled' in result ? result.cancelled : undefined,
+          providerNotConfigured:
+            'providerNotConfigured' in result ? result.providerNotConfigured : undefined,
+          redirectMisconfigured:
+            'redirectMisconfigured' in result ? result.redirectMisconfigured : undefined,
+          expectedRedirect:
+            'expectedRedirect' in result ? result.expectedRedirect : undefined,
+        };
+      }
+
+      // Expo web: browser navigates to Google; session returns via /auth/callback
+      if ('redirecting' in result && result.redirecting) {
+        return { success: true, redirecting: true };
+      }
+
+      await registerActiveSession();
+      await refresh();
+
+      const state = await hydrateAuthState();
+      const role = state.session?.type || 'member';
+      const needsOnboarding =
+        role === 'member' && !hasRegisteredMember(state.member);
+
+      return { success: true, role, needsOnboarding };
     },
     [refresh],
   );
@@ -229,9 +363,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await authLogout();
-    applyAuthState({ session: null, authUser: null, member: null, staff: null });
-    clearMemberData();
+    setLoggingOut(true);
+    try {
+      await authLogout();
+      applyAuthState({ session: null, authUser: null, member: null, staff: null });
+      clearMemberData();
+      const sharedDb = await hydrateSharedRemote();
+      setShared(sharedDb);
+    } finally {
+      setLoggingOut(false);
+    }
   }, [applyAuthState, clearMemberData]);
 
   const updateProfile = useCallback(
@@ -270,6 +411,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await loadMemberData(session.memberId, result.member);
     }
   }, [member, session, loadMemberData]);
+
+  const loadChatMessages = useCallback(async (threadId: string) => {
+    const msgs = await fetchChatMessages(threadId);
+    setChatMessages((prev) => ({ ...prev, [threadId]: msgs }));
+    return msgs;
+  }, []);
+
+  const sendChatMessage = useCallback(
+    async (thread: DbChatThread, text: string) => {
+      if (!session) return { success: false, error: 'Oturum yok.' };
+      const senderType = session.type === 'staff' ? 'staff' : 'member';
+      const senderId =
+        session.type === 'staff'
+          ? session.staffId
+          : session.type === 'member'
+            ? session.memberId
+            : null;
+      const result = await dbSendChatMessage({
+        thread,
+        senderType,
+        senderId,
+        text,
+      });
+      if (!result.success || !result.message) return result;
+
+      setChatMessages((prev) => ({
+        ...prev,
+        [thread.id]: [...(prev[thread.id] || []), result.message!],
+      }));
+
+      if (session.type === 'member' && session.memberId) {
+        await loadMemberData(session.memberId, member);
+      }
+      return result;
+    },
+    [session, member, loadMemberData],
+  );
+
+  const markChatThreadRead = useCallback(
+    async (threadId: string) => {
+      if (!session) return;
+      const readerType = session.type === 'staff' ? 'staff' : 'member';
+      await dbMarkChatThreadRead(threadId, readerType);
+      if (session.type === 'member' && session.memberId) {
+        await loadMemberData(session.memberId, member);
+      }
+    },
+    [session, member, loadMemberData],
+  );
 
   const memberSettings = useMemo(
     () => parseMemberSettings(member?.settings),
@@ -319,7 +509,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const user = useMemo(() => {
     if (isStaff && staff) return { id: staff.id, name: staff.name, email: staff.email };
     if (isAdmin) return { name: authUser?.name || 'Admin', email: authUser?.email || '' };
-    if (member) return { id: member.id, name: member.name, email: member.email };
+    if (member) {
+      return {
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        phone: member.phone as string | undefined,
+        joinedAt: member.joinedAt as string | undefined,
+        profileComplete: member.profileComplete as boolean | undefined,
+      };
+    }
     if (authUser) return { id: authUser.id, name: authUser.name, email: authUser.email };
     return { name: '', email: '' };
   }, [isStaff, isAdmin, staff, member, authUser]);
@@ -328,24 +527,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       loading,
       syncing,
+      loggingOut,
       session,
       sessionType,
       authUser,
       member,
       staff,
+      staffDirectory: shared.staff,
+      plans: shared.plans,
+      posts: shared.posts,
+      exerciseCount: shared.exerciseCount,
+      testimonials: shared.content.testimonials,
+      faqs: shared.content.faqs,
+      successStories: shared.content.successStories,
       user,
       isAuthenticated,
       isAdmin,
       isStaff,
       isMember,
       ...memberData,
+      chatMessages,
       login,
+      loginWithGoogle,
       register,
       logout,
       refresh,
       updateProfile,
       markNotificationRead,
       markAllNotificationsRead,
+      loadChatMessages,
+      sendChatMessage,
+      markChatThreadRead,
       memberSettings,
       updateSettings,
       toggleTask,
@@ -355,24 +567,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       loading,
       syncing,
+      loggingOut,
       session,
       sessionType,
       authUser,
       member,
       staff,
+      shared,
       user,
       isAuthenticated,
       isAdmin,
       isStaff,
       isMember,
       memberData,
+      chatMessages,
       login,
+      loginWithGoogle,
       register,
       logout,
       refresh,
       updateProfile,
       markNotificationRead,
       markAllNotificationsRead,
+      loadChatMessages,
+      sendChatMessage,
+      markChatThreadRead,
       memberSettings,
       updateSettings,
       toggleTask,

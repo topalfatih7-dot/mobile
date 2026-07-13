@@ -1,18 +1,20 @@
 # Yeni Form — Mobil
 
-Mobil öncelikli Expo uygulaması. Web (`../Adsız/`) iş mantığı ve marka referansı.
+Expo (SDK 56) React Native uygulaması. Kaynak: web `Serenova-F-t` + blueprint `docs/rn-migration/`.
+
+## AI / devam
+
+Durum raporu: [`docs/AI_MOBILE_PROGRESS.md`](./docs/AI_MOBILE_PROGRESS.md)
 
 ## Çalıştırma
 
 ```bash
+cp .env.example .env
+# EXPO_PUBLIC_SUPABASE_* ve EXPO_PUBLIC_SITE_URL doldur
 npm install
-npm start
+npm run start:go
 ```
 
-Expo Go ile QR kodu tara (Android SDK gerekmez).
+## Blueprint durumu
 
-## İlk ekran
-
-3 slaytlı **welcome intro** (Noom / Headspace tarzı) → Kayıt / Giriş.
-
-Rehber: `../AI_PROJECT_GUIDE.md`
+Uygulama `Serenova-F-t/docs/rn-migration/` ✅ dokümanlarına göre temellendirilir. Eksik blueprint dosyaları (08–20, task list) tamamlanmadan ekran-ekran tam parity yapılmaz.

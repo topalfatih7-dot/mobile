@@ -1,9 +1,11 @@
 import type { User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 
-import { ADMIN_CREDENTIALS } from '@/config/brand';
+import { ADMIN_EMAIL } from '@/config/brand';
+import { apiUrl } from '@/config/env';
 import { clearAllAuthTokens, setRememberMe } from '@/services/authStorage';
 import { memberToRow, rowToMember, rowToStaff } from '@/services/db/mappers';
+import { formatPasswordAuthError } from '@/services/password';
 import { supabase, syncAutoRefresh } from '@/services/supabaseClient';
 import type {
   AppSession,
@@ -13,11 +15,18 @@ import type {
   StaffProfile,
   UserRole,
 } from '@/types/session';
+import { notifyTelegram } from '@/services/telegramNotify';
 import { normalizeEmailAddress, sanitizeEmailInput } from '@/utils/emailAddress';
 
-const ADMIN_EMAIL = ADMIN_CREDENTIALS.email.toLowerCase();
 const today = () => new Date().toISOString().split('T')[0];
 const nowISO = () => new Date().toISOString();
+
+export const AUTH_EVENTS_REQUIRING_HYDRATE = [
+  'INITIAL_SESSION',
+  'SIGNED_IN',
+  'SIGNED_OUT',
+  'USER_UPDATED',
+] as const;
 
 export function findStaffMatch(user: User | null, staffList: StaffProfile[]): StaffProfile | null {
   if (!user) return null;
@@ -75,6 +84,8 @@ function toAuthUser(user: User): AuthUser {
     id: user.id,
     email: (user.email || '').toLowerCase(),
     name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+    identities: (user.identities || []).map((i) => ({ provider: i.provider })),
+    app_metadata: user.app_metadata || {},
   };
 }
 
@@ -91,7 +102,7 @@ function buildSession(user: User, role: UserRole, staffMatch: StaffProfile | nul
   return { type: 'member', memberId: user.id, email };
 }
 
-/** Oturum + rol + profil — mobil AppContext için yeterli auth durumu. */
+/** Oturum + rol + profil — mobil AppContext için auth durumu. */
 export async function hydrateAuthState(): Promise<AuthState> {
   const empty: AuthState = { session: null, authUser: null, member: null, staff: null };
   const user = await resolveAuthUser();
@@ -162,6 +173,10 @@ export async function login(
     role === 'member' ? data.user.id : null,
   );
 
+  const telegramEvent =
+    role === 'admin' ? 'admin_login' : role === 'staff' ? 'staff_login' : 'member_login';
+  void notifyTelegram(telegramEvent, { name: displayName, email: data.user.email, role });
+
   return { success: true, role };
 }
 
@@ -182,6 +197,9 @@ export async function logout(): Promise<void> {
           : `${displayName} çıkış yaptı`,
       role === 'member' ? user.id : null,
     );
+    const telegramEvent =
+      role === 'admin' ? 'admin_logout' : role === 'staff' ? 'staff_logout' : 'member_logout';
+    void notifyTelegram(telegramEvent, { name: displayName, email: user.email, role });
   }
 
   await supabase.auth.signOut();
@@ -193,12 +211,41 @@ export type RegisterProfile = {
   name: string;
   email: string;
   password: string;
+  phone?: string;
 };
+
+async function unlockSignupSession(email: string, password: string) {
+  try {
+    const res = await fetch(apiUrl('/api/auth'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'unlock-signup', email, password }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (res.ok && data.ok) return { success: true as const };
+    if (res.status === 503) {
+      return { success: false as const, error: data.error, unlockUnavailable: true as const };
+    }
+  } catch {
+    /* ağ hatası */
+  }
+  return { success: false as const };
+}
 
 async function signInAfterSignup(email: string, password: string) {
   if (!supabase) return { success: false as const, error: 'Supabase yapılandırması eksik.' };
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (!error) return { success: true as const };
+
+  if (/not confirmed|confirm/i.test(error.message)) {
+    const unlocked = await unlockSignupSession(email, password);
+    if (unlocked.success) {
+      const retry = await supabase.auth.signInWithPassword({ email, password });
+      if (!retry.error) return { success: true as const };
+      return { success: false as const, error: retry.error.message };
+    }
+  }
+
   return {
     success: false as const,
     error: 'Kayıt oluşturuldu ancak oturum açılamadı. Lütfen giriş yapmayı deneyin.',
@@ -212,8 +259,20 @@ async function ensureAuthForSignup(profile: RegisterProfile) {
   if (!email) {
     return {
       success: false as const,
-      error: 'Geçerli bir e-posta adresi girin (ör. ad@site.com).',
+      error: 'Geçerli bir e-posta adresi girin (ör. ad@site.com). Boşluk veya geçersiz karakter olmamalı.',
     };
+  }
+
+  if (profile.phone) {
+    const { data: phoneTaken, error: phoneErr } = await supabase.rpc('phone_in_use', {
+      p_phone: profile.phone,
+    });
+    if (!phoneErr && phoneTaken) {
+      return {
+        success: false as const,
+        error: 'Bu telefon numarası zaten kayıtlı. Lütfen farklı bir numara kullanın.',
+      };
+    }
   }
 
   try {
@@ -222,10 +281,51 @@ async function ensureAuthForSignup(profile: RegisterProfile) {
     /* oturum yoksa yoksay */
   }
 
+  // Primary: /api/auth signup (service-role RPC) — docs/rn-migration/07 §3
+  try {
+    const signupRes = await fetch(apiUrl('/api/auth'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'signup',
+        email,
+        password: profile.password,
+        name: profile.name || '',
+      }),
+    });
+    const signupData = (await signupRes.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+    };
+
+    if (signupRes.ok && signupData.ok) {
+      const signIn = await signInAfterSignup(email, profile.password);
+      if (signIn.success) return { success: true as const };
+      return {
+        success: false as const,
+        error: signIn.error || 'Kayıt oluştu ancak giriş yapılamadı. Lütfen giriş sayfasından deneyin.',
+      };
+    }
+    if (signupData.error === 'already_registered' || signupRes.status === 409) {
+      const signIn = await signInAfterSignup(email, profile.password);
+      if (signIn.success) return { success: true as const };
+      return {
+        success: false as const,
+        error: signIn.error || 'Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın.',
+      };
+    }
+    if (signupData.error) {
+      return { success: false as const, error: formatPasswordAuthError(signupData.error) };
+    }
+  } catch {
+    /* API yoksa klasik signUp’a düş */
+  }
+
+  const redirectTo = Linking.createURL('/(auth)/callback');
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password: profile.password,
-    options: { data: { name: profile.name } },
+    options: { data: { name: profile.name }, emailRedirectTo: redirectTo },
   });
 
   if (signUpError) {
@@ -240,7 +340,10 @@ async function ensureAuthForSignup(profile: RegisterProfile) {
         error: signIn.error || 'Bu e-posta zaten kayıtlı. Lütfen giriş yapın.',
       };
     }
-    return { success: false as const, error: signUpError.message };
+    if (/known to be weak|pwned|hibp|leaked|easy to guess/i.test(signUpError.message)) {
+      return { success: false as const, error: formatPasswordAuthError(signUpError.message) };
+    }
+    return { success: false as const, error: formatPasswordAuthError(signUpError.message) };
   }
 
   if (!signUpData?.session) {
@@ -261,9 +364,10 @@ async function buildAndPersistMember(profile: RegisterProfile): Promise<
     id: user.id,
     email: normalizeEmailAddress(user.email) || normalizeEmailAddress(profile.email) || sanitizeEmailInput(user.email),
     name: profile.name.trim(),
-    phone: '',
+    phone: profile.phone?.trim() || '',
     membership: 'free',
     membershipStatus: 'active',
+    profileComplete: Boolean(profile.phone?.trim()),
     freeTrialExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
     joinedAt: today(),
     lastActiveAt: today(),
@@ -296,6 +400,7 @@ async function buildAndPersistMember(profile: RegisterProfile): Promise<
   if (error) return { success: false, error: error.message };
 
   await addActivity('signup', `${member.name} yeni kayıt (Ücretsiz)`, member.id);
+  void notifyTelegram('member_signup', { name: member.name, email: member.email, role: 'member' });
   return { success: true, member };
 }
 
@@ -322,8 +427,75 @@ export async function requestPasswordReset(email: string) {
   const clean = normalizeEmailAddress(email);
   if (!clean) return { success: false as const, error: 'Geçerli bir e-posta girin.' };
 
-  const redirectTo = Linking.createURL('/(auth)/reset-password');
+  const redirectTo = Linking.createURL('/(auth)/callback?next=reset-password');
   const { error } = await supabase.auth.resetPasswordForEmail(clean, { redirectTo });
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
+}
+
+/**
+ * OAuth / eksik profil tamamlaması — ProfileCompletionGate sonrası.
+ * Web `completeOAuthMember` çekirdeği (name+phone+joinedAt); tam sihirbaz 08'de.
+ */
+export async function completeMemberProfile(profile: {
+  name: string;
+  phone: string;
+  membership?: string;
+}) {
+  const user = await getUser();
+  if (!user || !supabase) return { success: false as const, error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' };
+
+  const email = normalizeEmailAddress(user.email);
+  if (!email) {
+    return { success: false as const, error: 'E-posta adresi alınamadı. Lütfen farklı bir giriş yöntemi deneyin.' };
+  }
+
+  const name = profile.name.trim();
+  if (!name) return { success: false as const, error: 'Ad soyad bilgisi gerekli.' };
+  const phone = profile.phone.trim();
+  if (!phone) return { success: false as const, error: 'Telefon numarası zorunludur.' };
+
+  const { data: phoneTaken, error: phoneErr } = await supabase.rpc('phone_in_use', { p_phone: phone });
+  if (!phoneErr && phoneTaken) {
+    const { data: existing } = await supabase.from('members').select('id').eq('phone', phone).maybeSingle();
+    if (existing?.id && existing.id !== user.id) {
+      return {
+        success: false as const,
+        error: 'Bu telefon numarası zaten kayıtlı. Lütfen farklı bir numara kullanın.',
+      };
+    }
+  }
+
+  const member: MemberProfile & Record<string, unknown> = {
+    id: user.id,
+    email,
+    name,
+    phone,
+    membership: profile.membership || 'free',
+    membershipStatus: 'active',
+    profileComplete: true,
+    freeTrialExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    joinedAt: today(),
+    lastActiveAt: today(),
+    streak: 0,
+    notifications: [
+      {
+        id: `n-${Date.now()}`,
+        type: 'reminder',
+        title: 'Yeni Form’a hoş geldiniz!',
+        message: 'Profiliniz hazır. Günlük görevlerinizi tamamlayarak serinizi büyütmeye başlayın.',
+        read: false,
+        createdAt: nowISO(),
+      },
+    ],
+    tasks: [
+      { id: `t1-${Date.now()}`, type: 'checkin', title: 'Günlük check-in', done: false, due: 'Bugün' },
+    ],
+    progress: { weight: [], workouts: [], mood: [] },
+    settings: { theme: 'light', language: 'tr', emailNotifs: true, pushNotifs: true, reminderNotifs: true },
+  };
+
+  const { error } = await supabase.from('members').upsert(memberToRow(member), { onConflict: 'id' });
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, member };
 }

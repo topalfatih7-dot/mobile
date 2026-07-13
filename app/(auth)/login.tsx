@@ -1,20 +1,31 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
+import { SettingsToggleRow } from '@/components/profile/SettingsToggleRow';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useApp } from '@/context/AppContext';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { consumeSessionRevokedMessage } from '@/services/singleSession';
 import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/emailAddress';
 
 export default function LoginScreen() {
   const { login, routeForRole } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [banner, setBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    void consumeSessionRevokedMessage().then((msg) => {
+      if (msg) setBanner(msg);
+    });
+  }, []);
 
   const onLogin = async () => {
     const cleanEmail = sanitizeEmailInput(email);
@@ -28,7 +39,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const result = await login(cleanEmail, password, true);
+      const result = await login(cleanEmail, password, remember);
       if (!result.success) {
         Alert.alert('Giriş başarısız', result.error || 'E-posta veya şifre hatalı.');
         return;
@@ -50,6 +61,12 @@ export default function LoginScreen() {
       }
       subtitle="Hesabına giriş yap, dönüşümüne kaldığın yerden devam et."
       title="Tekrar hoş geldin">
+      {banner ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{banner}</Text>
+        </View>
+      ) : null}
+
       <Input
         autoCapitalize="none"
         autoComplete="email"
@@ -74,11 +91,22 @@ export default function LoginScreen() {
         value={password}
       />
 
+      <View style={styles.rememberBox}>
+        <SettingsToggleRow
+          description="Kapalıysa uygulama kapanınca oturum silinir."
+          label="Beni hatırla"
+          onValueChange={setRemember}
+          value={remember}
+        />
+      </View>
+
       <Pressable hitSlop={8} onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgot}>
         <Text style={styles.forgotText}>Şifremi unuttum?</Text>
       </Pressable>
 
       <Button label="Giriş Yap" loading={loading} onPress={onLogin} rightIcon="arrow-forward" />
+
+      <SocialAuthButtons flow="login" position="bottom" remember={remember} />
     </AuthScaffold>
   );
 }
@@ -86,6 +114,28 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   gap: {
     height: spacing.md,
+  },
+  rememberBox: {
+    marginTop: spacing.md,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  banner: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  bannerText: {
+    fontFamily: fonts.medium,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.danger,
   },
   forgot: {
     alignSelf: 'flex-end',
