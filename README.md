@@ -1,10 +1,17 @@
 # Yeni Form — Mobil
 
-Expo (SDK 56) React Native uygulaması. Kaynak: web `Serenova-F-t` + blueprint `docs/rn-migration/`.
+Expo (**SDK 56**) React Native uygulaması. Kaynak: web `Serenova-F-t/Adsız` + (varsa) blueprint `docs/rn-migration/`.
 
-## AI / devam
+## AI / yazılımcı — nereden bakılır?
 
-Durum raporu: [`docs/AI_MOBILE_PROGRESS.md`](./docs/AI_MOBILE_PROGRESS.md)
+| Sıra | Dosya | İçerik |
+|------|--------|--------|
+| 1 | [`docs/README.md`](./docs/README.md) | Doküman indeksi |
+| 2 | [`docs/AI_MOBILE_PROGRESS.md`](./docs/AI_MOBILE_PROGRESS.md) | Durum, P0/P1, env, tuzaklar |
+| 3 | [`docs/CODEMAP.md`](./docs/CODEMAP.md) | “X hangi dosyada?” |
+| 4 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Stack, auth, chat, realtime |
+
+Kural: belgelenmeyen davranışı uydurma; web `src/services` ile parity.
 
 ## Çalıştırma
 
@@ -15,6 +22,15 @@ npm install
 npm run start:go
 ```
 
-## Blueprint durumu
+- Metro: http://localhost:8081  
+- Dev client: `npm start` (`--dev-client`)  
+- Ops: [`docs/MOBILE_OAUTH_SETUP.md`](./docs/MOBILE_OAUTH_SETUP.md), [`docs/MOBILE_TELEGRAM_SETUP.md`](./docs/MOBILE_TELEGRAM_SETUP.md)
 
-Uygulama `Serenova-F-t/docs/rn-migration/` ✅ dokümanlarına göre temellendirilir. Eksik blueprint dosyaları (08–20, task list) tamamlanmadan ekran-ekran tam parity yapılmaz.
+## Dizin özeti
+
+```
+app/           Expo Router (auth | app | staff | admin)
+src/context/   AppContext, Toast
+src/services/  Auth, realtime, presence, telegram, db/*
+docs/          Progress + CODEMAP + ARCHITECTURE + ops
+```

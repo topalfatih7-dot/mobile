@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
 import { SettingsToggleRow } from '@/components/profile/SettingsToggleRow';
+import { VerificationSection } from '@/components/profile/VerificationSection';
 import { Card } from '@/components/ui/Card';
 import { StackHeader } from '@/components/ui/StackHeader';
 import { useApp } from '@/context/AppContext';
@@ -104,6 +105,8 @@ export default function ProfileSettingsScreen() {
           ) : status ? (
             <Text style={styles.status}>{status}</Text>
           ) : null}
+
+          <VerificationSection />
 
           <View style={styles.note}>
             <Text style={styles.noteTitle}>Push altyapısı</Text>

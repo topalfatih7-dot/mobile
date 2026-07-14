@@ -3,9 +3,11 @@
  *
  * Kritik: redirectTo, Supabase Auth → Redirect URLs allow-list’te olmalı.
  * Değilse Supabase Site URL’e (`https://www.yeniform.com`) düşer → tarayıcıda web açılır.
+ *
+ * Not: expo-auth-session / expo-crypto kullanılmıyor — Expo Go / eski native binary’de
+ * `Cannot find native module 'ExpoCrypto'` ile tüm app ağacını düşürüyordu.
  */
-import { makeRedirectUri } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
@@ -15,6 +17,23 @@ import { establishAuthSessionFromUrl } from '@/services/authSessionFromUrl';
 import { supabase, syncAutoRefresh } from '@/services/supabaseClient';
 
 WebBrowser.maybeCompleteAuthSession();
+
+/** expo-auth-session QueryParams.getQueryParams eşleniği (hash + query). */
+function getQueryParams(url: string): { params: Record<string, string>; errorCode: string | null } {
+  try {
+    const hash = url.includes('#') ? url.slice(url.indexOf('#') + 1) : '';
+    const queryPart = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
+    const raw = hash || queryPart;
+    const params: Record<string, string> = {};
+    for (const [key, value] of new URLSearchParams(raw)) {
+      params[key] = value;
+    }
+    const errorCode = params.error_code || params.error || null;
+    return { params, errorCode };
+  } catch {
+    return { params: {}, errorCode: null };
+  }
+}
 
 const PROVIDERS = ['google'] as const;
 export type SocialProvider = (typeof PROVIDERS)[number];
@@ -48,10 +67,7 @@ export function getSupabaseRedirectUrlsDashboard() {
  * - Web (Expo): http://localhost:8081/auth/callback  (yeniform.com DEĞİL)
  */
 export function getOAuthRedirectTo(extraQuery?: Record<string, string>) {
-  const base = makeRedirectUri({
-    scheme: 'yeniform',
-    path: 'auth/callback',
-  });
+  const base = Linking.createURL('auth/callback', { scheme: 'yeniform' });
   if (!extraQuery || !Object.keys(extraQuery).length) return base;
   const qs = new URLSearchParams(extraQuery).toString();
   return `${base}${base.includes('?') ? '&' : '?'}${qs}`;
@@ -97,7 +113,7 @@ function looksLikeWebsiteRedirect(url: string | null | undefined) {
 
 async function createSessionFromUrl(url: string) {
   // Implicit hash tokens (bazı native redirect’ler)
-  const { params, errorCode } = QueryParams.getQueryParams(url);
+  const { params, errorCode } = getQueryParams(url);
   if (errorCode) {
     return { session: null, error: String(errorCode) };
   }

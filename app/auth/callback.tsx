@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useMemo } from 'react';
 
 /**
@@ -17,5 +17,5 @@ export default function AuthCallbackDeepLink() {
     return s ? `?${s}` : '';
   }, [params]);
 
-  return <Redirect href={`/(auth)/callback${qs}`} />;
+  return <Redirect href={`/(auth)/callback${qs}` as Href} />;
 }

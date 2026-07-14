@@ -3,6 +3,7 @@ export const PLAN_LABELS: Record<string, string> = {
   eko: 'Eko Paket',
   diyet: 'Diyet Paketi',
   spor: 'Spor Paketi',
+  doktor: 'Doktor Paketi',
   kurucu: '100 Kurucu Üye',
   vip: 'Vip Paket',
   gumus: 'Gümüş',
@@ -15,6 +16,7 @@ export const PAID_MEMBERSHIPS = [
   'eko',
   'diyet',
   'spor',
+  'doktor',
   'kurucu',
   'vip',
   'gumus',
@@ -22,6 +24,49 @@ export const PAID_MEMBERSHIPS = [
   'platinum',
   'premium',
 ];
+
+export const PLAN_DISPLAY_ORDER = ['free', 'eko', 'diyet', 'spor', 'doktor', 'vip'];
+
+export const DURATION_OPTIONS = [
+  { months: 1, label: 'Aylık' },
+  { months: 3, label: '3 Aylık' },
+  { months: 6, label: '6 Aylık' },
+] as const;
+
+/** Web `PLAN_PRICING` — API de aynı fallback’i kullanır. */
+export const PLAN_PRICING: Record<string, Record<number, number>> = {
+  eko: { 1: 1299, 3: 2999, 6: 3999 },
+  diyet: { 1: 2499, 3: 6499, 6: 9999 },
+  spor: { 1: 2499, 3: 6499, 6: 9999 },
+  doktor: { 1: 1500 },
+  vip: { 1: 4999, 3: 12999, 6: 19999 },
+};
+
+export const RECOMMENDED_PLAN = 'vip';
+export const RECOMMENDED_DURATION_MONTHS = 6;
+
+export function sortPlansForDisplay<T extends { id: string }>(plans: T[] = []): T[] {
+  return [...plans].sort((a, b) => {
+    const ia = PLAN_DISPLAY_ORDER.indexOf(a.id);
+    const ib = PLAN_DISPLAY_ORDER.indexOf(b.id);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
+
+export function getTierPrice(planId: string, months = 1): number {
+  const m = Number(months) || 1;
+  const tiers = PLAN_PRICING[planId];
+  if (!tiers) return 0;
+  return tiers[m] || tiers[1] || 0;
+}
+
+export function formatTry(amount: number): string {
+  return `${Number(amount || 0).toLocaleString('tr-TR')}₺`;
+}
+
+export function isOneTimeBillingPlan(planId?: string | null): boolean {
+  return planId === 'doktor';
+}
 
 export type PackageConfig = {
   coachMeetingsPerMonth?: number;

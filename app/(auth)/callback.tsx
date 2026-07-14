@@ -5,6 +5,11 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '@/context/AppContext';
 import { colors, fonts, spacing } from '@/constants/theme';
 import {
+  confirmEmailVerificationByEvt,
+  markEmailVerified,
+  markPhoneVerified,
+} from '@/services/authVerification';
+import {
   establishAuthSessionFromUrl,
   readAuthCallbackParams,
 } from '@/services/authSessionFromUrl';
@@ -14,16 +19,18 @@ import { hasRegisteredMember, isSocialAuthUser } from '@/utils/memberProfile';
 
 /**
  * Supabase auth redirect hedefi — web AuthCallbackPage transport eşdeğeri
- * (docs/rn-migration/05, 07).
+ * (docs/rn-migration/05, 07). E-posta doğrulama: evt / verify=email / verify=phone.
  */
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
     url?: string;
     next?: string;
     verify?: string;
+    evt?: string;
     plan?: string;
     error?: string;
     error_description?: string;
+    error_code?: string;
   }>();
   const { refresh } = useApp();
   const [message, setMessage] = useState('Oturum doğrulanıyor…');
@@ -33,7 +40,7 @@ export default function AuthCallbackScreen() {
     let active = true;
 
     void (async () => {
-      if (params.error || params.error_description) {
+      if (params.error || params.error_description || params.error_code === 'otp_expired') {
         if (!active) return;
         setFailed(true);
         setMessage(String(params.error_description || params.error || 'Doğrulama başarısız.'));
@@ -46,6 +53,7 @@ export default function AuthCallbackScreen() {
           : [
               params.next ? `next=${params.next}` : '',
               params.verify ? `verify=${params.verify}` : '',
+              params.evt ? `evt=${params.evt}` : '',
               params.plan ? `plan=${params.plan}` : '',
             ]
               .filter(Boolean)
@@ -58,6 +66,26 @@ export default function AuthCallbackScreen() {
             ? `yeniform://auth/callback?${sourceUrl}`
             : 'yeniform://auth/callback';
 
+      const callbackParams = readAuthCallbackParams(urlForExchange);
+      const evt = callbackParams.evt || (typeof params.evt === 'string' ? params.evt : '');
+      const verify =
+        callbackParams.verify || (typeof params.verify === 'string' ? params.verify : '');
+
+      if (evt) {
+        setMessage('E-posta doğrulanıyor…');
+        const evtResult = await confirmEmailVerificationByEvt(evt);
+        if (!active) return;
+        if (evtResult.success) {
+          await refresh();
+          setMessage('E-posta doğrulandı.');
+          router.replace(routeForRole('member'));
+          return;
+        }
+        setFailed(true);
+        setMessage(evtResult.error || 'Doğrulama tamamlanamadı.');
+        return;
+      }
+
       const session = await establishAuthSessionFromUrl(supabase, urlForExchange);
       if (!active) return;
 
@@ -67,11 +95,30 @@ export default function AuthCallbackScreen() {
         return;
       }
 
+      if (verify === 'email') {
+        setMessage('E-posta doğrulanıyor…');
+        await markEmailVerified({ id: session.user.id, email: session.user.email || undefined });
+        await refresh();
+        if (!active) return;
+        router.replace(routeForRole('member'));
+        return;
+      }
+
+      if (verify === 'phone') {
+        setMessage('Telefon doğrulanıyor…');
+        const state = await hydrateAuthState();
+        const pending = state.member?.pendingPhoneVerify as { phone?: string } | null | undefined;
+        await markPhoneVerified(state.member, pending?.phone || (state.member?.phone as string));
+        await refresh();
+        if (!active) return;
+        router.replace(routeForRole('member'));
+        return;
+      }
+
       await refresh();
       const state = await hydrateAuthState();
       if (!active) return;
 
-      const callbackParams = readAuthCallbackParams(urlForExchange);
       if (callbackParams.next === 'reset-password' || params.next === 'reset-password') {
         router.replace('/(auth)/reset-password');
         return;

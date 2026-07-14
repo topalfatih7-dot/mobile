@@ -434,6 +434,37 @@ export async function requestPasswordReset(email: string) {
 }
 
 /**
+ * Stripe öncesi profil + plan bilgisini auth metadata'da saklar (webhook üye/plan günceller).
+ * Web `savePendingRegistrationMetadata`.
+ */
+export async function savePendingRegistrationMetadata(
+  profile: { name?: string; phone?: string; phoneCountry?: string; gender?: string; fitnessLevel?: string },
+  membership: string,
+  durationMonths = 1,
+) {
+  if (!supabase) return { success: false as const, error: 'Supabase yapılandırılmadı.' };
+  const user = await getUser();
+  if (!user) return { success: false as const, error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' };
+
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      pending_registration: {
+        name: (profile.name || '').trim(),
+        phone: profile.phone || '',
+        phoneCountry: profile.phoneCountry || '',
+        gender: profile.gender || '',
+        membership: membership || 'free',
+        durationMonths: Number(durationMonths) || 1,
+        fitnessLevel: profile.fitnessLevel || 'beginner',
+        savedAt: new Date().toISOString(),
+      },
+    },
+  });
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}
+
+/**
  * OAuth / eksik profil tamamlaması — ProfileCompletionGate sonrası.
  * Web `completeOAuthMember` çekirdeği (name+phone+joinedAt); tam sihirbaz 08'de.
  */

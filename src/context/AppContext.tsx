@@ -55,15 +55,37 @@ import {
   parseMemberSettings,
   type MemberSettings,
 } from '@/services/pushNotifications';
+import { startPresenceTracker } from '@/services/presenceService';
+import { subscribeRealtimeSync } from '@/services/realtimeSync';
+import {
+  fetchAdminStaffMessages,
+  hydrateAdminStaffThreads,
+  markAdminStaffThreadRead,
+  sendAdminStaffMessage as dbSendAdminStaffMessage,
+  type AdminStaffMessage,
+  type AdminStaffThread,
+} from '@/services/db/adminChat';
+import {
+  fetchStaffCollabMessages,
+  hydrateStaffCollabThreads,
+  markStaffCollabThreadRead,
+  sendStaffCollabMessage as dbSendStaffCollabMessage,
+  type StaffCollabMessage,
+  type StaffCollabThread,
+} from '@/services/db/staffCollabChat';
+import { fetchAllMembers } from '@/services/db/members';
 import { loadRememberMePreference } from '@/services/authStorage';
+import { normalizeStaffRole } from '@/utils/staffAccess';
 import {
   registerActiveSession,
   verifyActiveSessionOrSignOut,
 } from '@/services/singleSession';
+import * as authVerification from '@/services/authVerification';
 import {
   signInWithSocial,
   type SignInWithSocialOpts,
 } from '@/services/oauthAuth';
+import { startStripeCheckout as openStripeCheckout } from '@/services/stripePayment';
 import {
   AUTH_EVENTS_REQUIRING_HYDRATE,
   hydrateAuthState,
@@ -147,11 +169,59 @@ type AppContextValue = {
     text: string,
   ) => Promise<{ success: boolean; error?: string; message?: DbChatMessage }>;
   markChatThreadRead: (threadId: string) => Promise<void>;
+  adminStaffThreads: AdminStaffThread[];
+  staffCollabThreads: StaffCollabThread[];
+  adminStaffMessages: Record<string, AdminStaffMessage[]>;
+  staffCollabMessages: Record<string, StaffCollabMessage[]>;
+  loadAdminStaffMessages: (threadId: string) => Promise<AdminStaffMessage[]>;
+  sendAdminStaffChat: (
+    thread: AdminStaffThread,
+    text: string,
+  ) => Promise<{ success: boolean; error?: string; message?: AdminStaffMessage }>;
+  markAdminStaffRead: (threadId: string) => Promise<void>;
+  loadStaffCollabMessages: (threadId: string) => Promise<StaffCollabMessage[]>;
+  sendStaffCollabChat: (
+    thread: StaffCollabThread,
+    text: string,
+  ) => Promise<{ success: boolean; error?: string; message?: StaffCollabMessage }>;
+  markStaffCollabRead: (threadId: string) => Promise<void>;
   memberSettings: MemberSettings;
   updateSettings: (
     patch: Partial<MemberSettings>,
     extra?: Record<string, unknown>,
   ) => Promise<{ success: boolean; error?: string }>;
+  verificationStatus: {
+    email: string;
+    phone: string;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+  } | null;
+  sendEmailVerification: () => Promise<{ success: boolean; error?: string; message?: string }>;
+  confirmEmailVerification: (
+    code: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  sendPhoneVerification: (
+    phone: string,
+    countryIso?: string,
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    message?: string;
+    phone?: string;
+    viaEmail?: boolean;
+  }>;
+  confirmPhoneVerification: (
+    code: string,
+    phone: string,
+    countryIso?: string,
+    viaEmail?: boolean,
+  ) => Promise<{ success: boolean; error?: string }>;
+  refreshVerification: () => Promise<{ success: boolean; error?: string }>;
+  startStripeCheckout: (
+    planId: string,
+    flow?: 'register' | 'change',
+    durationMonths?: number,
+  ) => Promise<{ success: boolean; error?: string; dismissed?: boolean }>;
   toggleTask: (taskId: string) => Promise<void>;
   toggleProgramEntry: (dateStr: string, entryId: string) => Promise<void>;
   routeForRole: typeof routeForRole;
@@ -209,7 +279,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [shared, setShared] = useState<SharedRemoteDb>(EMPTY_SHARED);
   const [memberData, setMemberData] = useState(EMPTY_MEMBER_DATA);
   const [chatMessages, setChatMessages] = useState<Record<string, DbChatMessage[]>>({});
+  const [adminStaffThreads, setAdminStaffThreads] = useState<AdminStaffThread[]>([]);
+  const [staffCollabThreads, setStaffCollabThreads] = useState<StaffCollabThread[]>([]);
+  const [adminStaffMessages, setAdminStaffMessages] = useState<Record<string, AdminStaffMessage[]>>({});
+  const [staffCollabMessages, setStaffCollabMessages] = useState<Record<string, StaffCollabMessage[]>>({});
   const sessionTypeRef = useRef<SessionType | null>(null);
+  const chatThreadIdsRef = useRef<Set<string>>(new Set());
+  const adminStaffThreadIdsRef = useRef<Set<string>>(new Set());
+  const staffCollabThreadIdsRef = useRef<Set<string>>(new Set());
+  const memberRef = useRef<MemberProfile | null>(null);
+  const authUserRef = useRef<AuthUser | null>(null);
+  const staffRef = useRef<StaffProfile | null>(null);
+
+  useEffect(() => {
+    memberRef.current = member;
+  }, [member]);
+  useEffect(() => {
+    authUserRef.current = authUser;
+  }, [authUser]);
+  useEffect(() => {
+    staffRef.current = staff;
+  }, [staff]);
 
   const applyAuthState = useCallback((state: Awaited<ReturnType<typeof hydrateAuthState>>) => {
     setSession(state.session);
@@ -224,13 +314,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fetchMemberPrograms(memberId),
       fetchMemberChatThreads(memberId),
     ]);
+    chatThreadIdsRef.current = new Set(threads.map((t) => t.id));
     setMemberData(buildMemberViewModels(profile, dbPrograms, threads));
   }, []);
 
   const clearMemberData = useCallback(() => {
     setMemberData(EMPTY_MEMBER_DATA);
     setChatMessages({});
+    chatThreadIdsRef.current = new Set();
   }, []);
+
+  const hydrateInternalChats = useCallback(
+    async (
+      sessionType: SessionType | null | undefined,
+      staffUser: StaffProfile | null,
+      staffList: StaffProfile[],
+    ) => {
+      if (sessionType !== 'admin' && sessionType !== 'staff') {
+        setAdminStaffThreads([]);
+        setStaffCollabThreads([]);
+        adminStaffThreadIdsRef.current = new Set();
+        staffCollabThreadIdsRef.current = new Set();
+        return;
+      }
+      const members = sessionType === 'staff' || sessionType === 'admin' ? await fetchAllMembers() : [];
+      const [adminThreads, collabThreads] = await Promise.all([
+        hydrateAdminStaffThreads(sessionType, staffList, staffUser),
+        hydrateStaffCollabThreads(sessionType, members, staffList, staffUser),
+      ]);
+      setAdminStaffThreads(adminThreads);
+      setStaffCollabThreads(collabThreads);
+      adminStaffThreadIdsRef.current = new Set(adminThreads.map((t) => t.id));
+      staffCollabThreadIdsRef.current = new Set(collabThreads.map((t) => t.id));
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     setSyncing(true);
@@ -243,10 +361,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         clearMemberData();
       }
+      await hydrateInternalChats(state.session?.type, state.staff, sharedDb.staff);
     } finally {
       setSyncing(false);
     }
-  }, [applyAuthState, loadMemberData, clearMemberData]);
+  }, [applyAuthState, loadMemberData, clearMemberData, hydrateInternalChats]);
 
   useEffect(() => {
     let active = true;
@@ -262,6 +381,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (state.session?.type === 'member' && state.session.memberId) {
           await loadMemberData(state.session.memberId, state.member);
         }
+        await hydrateInternalChats(state.session?.type, state.staff, sharedDb.staff);
       } finally {
         if (active) setLoading(false);
       }
@@ -285,6 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           clearMemberData();
         }
+        await hydrateInternalChats(state.session?.type, state.staff, sharedDb.staff);
       }
     });
 
@@ -305,7 +426,129 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clearInterval(pollId);
       appSub.remove();
     };
-  }, [applyAuthState, loadMemberData, clearMemberData]);
+  }, [applyAuthState, loadMemberData, clearMemberData, hydrateInternalChats]);
+
+  // Presence heartbeat — oturum tipi çözülmeden yazma
+  useEffect(() => {
+    if (!session?.type) return undefined;
+    return startPresenceTracker({
+      resolvePresenceInfo: async () => {
+        const type = sessionTypeRef.current;
+        if (!type) return null;
+        const user = authUserRef.current;
+        const m = memberRef.current;
+        const st = staffRef.current;
+        const userId =
+          type === 'member'
+            ? m?.id || user?.id
+            : type === 'staff'
+              ? st?.id || user?.id
+              : user?.id;
+        if (!userId) return null;
+        const name =
+          type === 'member'
+            ? m?.name || user?.name
+            : type === 'staff'
+              ? st?.name || user?.name
+              : user?.name || 'Admin';
+        const email = m?.email || st?.email || user?.email || '';
+        return { userId, email, name, role: type };
+      },
+      getPagePath: () => 'mobile',
+    });
+  }, [session?.type, session && 'memberId' in session ? session.memberId : null, session && 'staffId' in session ? session.staffId : null]);
+
+  // Realtime: chat + member + programs
+  useEffect(() => {
+    if (!session?.type) return undefined;
+    const memberId = session.type === 'member' ? session.memberId : member?.id ?? null;
+    const staffId = session.type === 'staff' ? session.staffId : staff?.id ?? null;
+
+    return subscribeRealtimeSync({
+      session: { type: session.type, memberId, staffId },
+      memberId,
+      staffId,
+      isChatMessageRelevant: (threadId) => {
+        if (!threadId) return false;
+        if (sessionTypeRef.current === 'admin') return true;
+        return chatThreadIdsRef.current.has(threadId);
+      },
+      isAdminStaffMessageRelevant: (threadId) => {
+        if (!threadId) return false;
+        if (sessionTypeRef.current === 'admin') return true;
+        return adminStaffThreadIdsRef.current.has(threadId);
+      },
+      isStaffCollabMessageRelevant: (threadId) => {
+        if (!threadId) return false;
+        if (sessionTypeRef.current === 'admin') return true;
+        return staffCollabThreadIdsRef.current.has(threadId);
+      },
+      onMemberChange: (nextMember) => {
+        setMember(nextMember);
+        if (session.type === 'member' && session.memberId) {
+          void loadMemberData(session.memberId, nextMember);
+        }
+      },
+      onChatThreadChange: (thread) => {
+        chatThreadIdsRef.current.add(thread.id);
+        if (session.type === 'member' && session.memberId) {
+          void loadMemberData(session.memberId, memberRef.current);
+        }
+      },
+      onChatMessageChange: (message) => {
+        setChatMessages((prev) => {
+          const list = prev[message.threadId] || [];
+          if (list.some((m) => m.id === message.id)) return prev;
+          return { ...prev, [message.threadId]: [...list, message] };
+        });
+        if (session.type === 'member' && session.memberId) {
+          void loadMemberData(session.memberId, memberRef.current);
+        }
+      },
+      onAdminStaffThreadChange: (thread) => {
+        adminStaffThreadIdsRef.current.add(thread.id);
+        setAdminStaffThreads((prev) => {
+          const idx = prev.findIndex((t) => t.id === thread.id);
+          if (idx >= 0) return prev.map((t, i) => (i === idx ? thread : t));
+          return [thread, ...prev];
+        });
+      },
+      onAdminStaffMessageChange: (message) => {
+        setAdminStaffMessages((prev) => {
+          const list = prev[message.threadId] || [];
+          if (list.some((m) => m.id === message.id)) return prev;
+          return { ...prev, [message.threadId]: [...list, message] };
+        });
+      },
+      onStaffCollabThreadChange: (thread) => {
+        staffCollabThreadIdsRef.current.add(thread.id);
+        setStaffCollabThreads((prev) => {
+          const idx = prev.findIndex((t) => t.id === thread.id);
+          if (idx >= 0) return prev.map((t, i) => (i === idx ? thread : t));
+          return [thread, ...prev];
+        });
+      },
+      onStaffCollabMessageChange: (message) => {
+        setStaffCollabMessages((prev) => {
+          const list = prev[message.threadId] || [];
+          if (list.some((m) => m.id === message.id)) return prev;
+          return { ...prev, [message.threadId]: [...list, message] };
+        });
+      },
+      onProgramsChange: () => {
+        if (session.type === 'member' && session.memberId) {
+          void loadMemberData(session.memberId, memberRef.current);
+        }
+      },
+    });
+  }, [
+    session?.type,
+    session && 'memberId' in session ? session.memberId : null,
+    session && 'staffId' in session ? session.staffId : null,
+    member?.id,
+    staff?.id,
+    loadMemberData,
+  ]);
 
   const login = useCallback(
     async (email: string, password: string, remember = true) => {
@@ -461,6 +704,100 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [session, member, loadMemberData],
   );
 
+  const loadAdminStaffMessages = useCallback(async (threadId: string) => {
+    const msgs = await fetchAdminStaffMessages(threadId);
+    setAdminStaffMessages((prev) => ({ ...prev, [threadId]: msgs }));
+    return msgs;
+  }, []);
+
+  const sendAdminStaffChat = useCallback(
+    async (thread: AdminStaffThread, text: string) => {
+      if (!session || (session.type !== 'admin' && session.type !== 'staff')) {
+        return { success: false, error: 'Oturum yok.' };
+      }
+      const senderType = session.type === 'admin' ? 'admin' : 'staff';
+      const senderId = session.type === 'staff' ? session.staffId : authUser?.id || null;
+      const result = await dbSendAdminStaffMessage({ thread, senderType, senderId, text });
+      if (!result.success || !result.message) return result;
+      setAdminStaffMessages((prev) => ({
+        ...prev,
+        [thread.id]: [...(prev[thread.id] || []), result.message!],
+      }));
+      if (result.thread) {
+        setAdminStaffThreads((prev) => {
+          const idx = prev.findIndex((t) => t.id === result.thread!.id);
+          if (idx >= 0) return prev.map((t, i) => (i === idx ? result.thread! : t));
+          return [result.thread!, ...prev];
+        });
+      }
+      return result;
+    },
+    [session, authUser?.id],
+  );
+
+  const markAdminStaffRead = useCallback(
+    async (threadId: string) => {
+      if (!session || (session.type !== 'admin' && session.type !== 'staff')) return;
+      const readerType = session.type === 'admin' ? 'admin' : 'staff';
+      const updated = await markAdminStaffThreadRead(threadId, readerType);
+      if (updated) {
+        setAdminStaffThreads((prev) => prev.map((t) => (t.id === threadId ? updated : t)));
+      }
+    },
+    [session],
+  );
+
+  const loadStaffCollabMessages = useCallback(async (threadId: string) => {
+    const msgs = await fetchStaffCollabMessages(threadId);
+    setStaffCollabMessages((prev) => ({ ...prev, [threadId]: msgs }));
+    return msgs;
+  }, []);
+
+  const sendStaffCollabChat = useCallback(
+    async (thread: StaffCollabThread, text: string) => {
+      if (!session || session.type !== 'staff' || !staff) {
+        return { success: false, error: 'Oturum yok.' };
+      }
+      const role = normalizeStaffRole(staff.role);
+      if (role !== 'coach' && role !== 'dietitian') {
+        return { success: false, error: 'Geçersiz rol.' };
+      }
+      const result = await dbSendStaffCollabMessage({
+        thread,
+        senderType: role,
+        senderId: staff.id,
+        text,
+      });
+      if (!result.success || !result.message) return result;
+      setStaffCollabMessages((prev) => ({
+        ...prev,
+        [thread.id]: [...(prev[thread.id] || []), result.message!],
+      }));
+      if (result.thread) {
+        setStaffCollabThreads((prev) => {
+          const idx = prev.findIndex((t) => t.id === result.thread!.id);
+          if (idx >= 0) return prev.map((t, i) => (i === idx ? result.thread! : t));
+          return [result.thread!, ...prev];
+        });
+      }
+      return result;
+    },
+    [session, staff],
+  );
+
+  const markStaffCollabRead = useCallback(
+    async (threadId: string) => {
+      if (!session || session.type !== 'staff' || !staff) return;
+      const role = normalizeStaffRole(staff.role);
+      if (role !== 'coach' && role !== 'dietitian') return;
+      const updated = await markStaffCollabThreadRead(threadId, role);
+      if (updated) {
+        setStaffCollabThreads((prev) => prev.map((t) => (t.id === threadId ? updated : t)));
+      }
+    },
+    [session, staff],
+  );
+
   const memberSettings = useMemo(
     () => parseMemberSettings(member?.settings),
     [member?.settings],
@@ -473,6 +810,70 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return updateProfile({ settings, ...extra });
     },
     [member, updateProfile],
+  );
+
+  const verificationStatus = useMemo(() => {
+    if (!member) return null;
+    return {
+      email: member.email,
+      phone: (member.phone as string) || '',
+      emailVerified: Boolean(member.emailVerifiedAt),
+      phoneVerified: Boolean(member.phoneVerifiedAt),
+    };
+  }, [member]);
+
+  const sendEmailVerification = useCallback(
+    async () => authVerification.sendEmailVerification(),
+    [],
+  );
+
+  const confirmEmailVerification = useCallback(
+    async (code: string) => {
+      const res = await authVerification.confirmEmailVerification(code, member);
+      if (res.success) await refresh();
+      return res;
+    },
+    [member, refresh],
+  );
+
+  const sendPhoneVerification = useCallback(
+    async (phone: string, countryIso?: string) =>
+      authVerification.sendPhoneVerification(phone, countryIso, member),
+    [member],
+  );
+
+  const confirmPhoneVerification = useCallback(
+    async (code: string, phone: string, countryIso?: string, viaEmail?: boolean) => {
+      const res = await authVerification.confirmPhoneVerification(
+        code,
+        phone,
+        member,
+        countryIso,
+        viaEmail,
+      );
+      if (res.success) await refresh();
+      return res;
+    },
+    [member, refresh],
+  );
+
+  const refreshVerification = useCallback(async () => {
+    const res = await authVerification.refreshEmailVerification(member);
+    await refresh();
+    return res;
+  }, [member, refresh]);
+
+  const startStripeCheckout = useCallback(
+    async (planId: string, flow: 'register' | 'change' = 'change', durationMonths = 1) => {
+      const email =
+        (authUser?.email as string | undefined) ||
+        (member?.email as string | undefined) ||
+        null;
+      const result = await openStripeCheckout(planId, flow, durationMonths, email);
+      await refresh();
+      return result;
+    },
+    [authUser?.email, member?.email, refresh],
   );
 
   const toggleTask = useCallback(
@@ -558,8 +959,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadChatMessages,
       sendChatMessage,
       markChatThreadRead,
+      adminStaffThreads,
+      staffCollabThreads,
+      adminStaffMessages,
+      staffCollabMessages,
+      loadAdminStaffMessages,
+      sendAdminStaffChat,
+      markAdminStaffRead,
+      loadStaffCollabMessages,
+      sendStaffCollabChat,
+      markStaffCollabRead,
       memberSettings,
       updateSettings,
+      verificationStatus,
+      sendEmailVerification,
+      confirmEmailVerification,
+      sendPhoneVerification,
+      confirmPhoneVerification,
+      refreshVerification,
+      startStripeCheckout,
       toggleTask,
       toggleProgramEntry,
       routeForRole,
@@ -592,8 +1010,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadChatMessages,
       sendChatMessage,
       markChatThreadRead,
+      adminStaffThreads,
+      staffCollabThreads,
+      adminStaffMessages,
+      staffCollabMessages,
+      loadAdminStaffMessages,
+      sendAdminStaffChat,
+      markAdminStaffRead,
+      loadStaffCollabMessages,
+      sendStaffCollabChat,
+      markStaffCollabRead,
       memberSettings,
       updateSettings,
+      verificationStatus,
+      sendEmailVerification,
+      confirmEmailVerification,
+      sendPhoneVerification,
+      confirmPhoneVerification,
+      refreshVerification,
+      startStripeCheckout,
       toggleTask,
       toggleProgramEntry,
     ],

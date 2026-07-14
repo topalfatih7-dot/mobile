@@ -5,6 +5,8 @@ export default function StaffMessagesLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="[threadId]" />
+      <Stack.Screen name="admin/[threadId]" />
+      <Stack.Screen name="collab/[threadId]" />
     </Stack>
   );
 }

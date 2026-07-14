@@ -14,6 +14,8 @@ export default function AdminLayout() {
       }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="members/[id]" />
+      <Stack.Screen name="messages/index" />
+      <Stack.Screen name="messages/[threadId]" />
     </Stack>
   );
 }

@@ -1,10 +1,21 @@
 # Yeni Form Mobile — AI Progress Report
 
-> **Amaç:** Bu dosya, Cursor / diğer AI agent’ların kaldığı yerden devam etmesi için tek durum kaynağıdır.
-> Web blueprint: `../Serenova-F-t/docs/rn-migration/` (kaynak: `Serenova-F-t`).
-> **Kural (blueprint 00-INDEX):** Belgelenmeyen davranışı uydurma. `UNKNOWN` / ⬜ dokümanlarda tahmin etme; sor veya önce dokümanı tamamla.
+> **Tek durum kaynağı** — AI / yazılımcı kaldığı yerden buradan devam eder.  
+> İndeks: [`docs/README.md`](./README.md) · Harita: [`CODEMAP.md`](./CODEMAP.md) · Mimari: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 >
-> **Son güncelleme:** 2026-07-13 (Google OAuth website-redirect kök neden + Telegram ops checklist)
+> **Son güncelleme:** 2026-07-14 (Tur I — Stripe Checkout + üyelik yükseltme)
+
+---
+
+## 0. 60 saniyede başla
+
+1. Bu dosyayı oku (§5 sonraki iş, §8 runtime).
+2. [`CODEMAP.md`](./CODEMAP.md) — ilgili dosyaları bul.
+3. Web otorite: `../Serenova-F-t/Adsız/src/services/<aynı konu>.js` (blueprint klasörü yoksa sorun değil).
+4. Expo **v56**: https://docs.expo.dev/versions/v56.0.0/
+5. Bitince **bu dosyayı** güncelle (± CODEMAP gerekirse).
+
+**Kural:** Belgelenmeyen davranışı uydurma.
 
 ---
 
@@ -12,81 +23,80 @@
 
 | Öğe | Değer |
 |-----|--------|
-| Mobil repo | `c:\Users\opas2\OneDrive\Desktop\mobile` |
-| Web kaynak (doğruluk) | `c:\Users\opas2\OneDrive\Desktop\Serenova-F-t` |
-| Blueprint | `Serenova-F-t/docs/rn-migration/` |
-| Expo | SDK **56** — kod yazmadan önce https://docs.expo.dev/versions/v56.0.0/ |
-| Marka | Yeni Form (`yeniform`) |
+| Mobil repo | mac: `/Users/mac/Desktop/mobile` · win: OneDrive `mobile` |
+| Web kaynak | `Serenova-F-t/Adsız` |
+| Blueprint | `Serenova-F-t/docs/rn-migration/` (bazı makinelerde **yok**) |
+| Expo | SDK **56** |
+| Marka / scheme | Yeni Form · `yeniform://` |
 | Backend | Aynı Supabase + `https://www.yeniform.com/api/*` |
 
 ---
 
-## 2. Blueprint durumu (web `docs/rn-migration/`)
+## 2. Blueprint durumu
 
 | Dosya | Durum | Not |
 |-------|-------|-----|
-| `00-INDEX.md` | 🚧 | Okuma sırası + kurallar |
-| `01-architecture-overview.md` | ✅ | Stack, provider ağacı, env |
-| `02`–`03` | ⬜ | Yok |
-| `04-state-management.md` | ✅ | AppContext API yüzeyi |
-| `05-navigation-graph.md` | ✅ | 63 rota, guard’lar |
-| `06-api-analysis.md` | 🚧 | HTTP endpoints ✅; service derin okuma pending |
-| `07-authentication.md` | ✅ | Login/OAuth/single-session |
-| `08`–`20` | ⬜ | Ekran/task list yok |
+| `00-INDEX` … `07-authentication` | ✅/🚧 web’de tanımlandı | Bu Mac’te klasör yoksa web `src` kullan |
+| `08`–`20` ekran task list | ⬜ | Yok — ekran portunda web `pages/*` oku |
 
 ---
 
-## 3. Bu oturumda tamamlananlar
+## 3. Tamamlanan turlar (özet)
 
-### Tur A — Auth foundation (önceki)
-Toast, single-session, apiAuth, callback, onboarding gate, StaffForcePasswordChange, AsyncStorage 2.2.0, welcome UI fix.
+| Tur | Konu | Durum |
+|-----|------|-------|
+| A | Auth foundation (toast, single-session, callback, onboarding, AsyncStorage 2.2.0) | ✅ |
+| B | Google OAuth, hydrateShared, chat context, telegram client | ✅ |
+| C | OAuth website-redirect kök neden + `redirectMisconfigured` + ops doc | ✅ |
+| D | ExpoCrypto crash → Linking tabanlı OAuth | ✅ |
+| E | Email/phone verification port + Ayarlar UI | ✅ |
+| F | Presence + realtime (chat/member/programs/admin/collab) | ✅ |
+| G | Admin↔staff + staff collab chat UI + DB | ✅ |
+| H | Dokümantasyon paketi (README/CODEMAP/ARCHITECTURE/progress) | ✅ |
+| I | Stripe Checkout port + Üyeliğim yükseltme + ücretli onboarding düzeltmesi | ✅ |
 
-### Tur B — P0 (OAuth + hydrate + chat + telegram client)
-
-| Madde | Durum |
-|-------|-------|
-| Google OAuth + SocialAuthButtons | ✅ |
-| hydrateShared + chat context | ✅ |
-| telegramNotify client | ✅ |
-
-### Tur C — Google → website redirect (kök neden + düzeltme)
-
-| Bulgu | Detay |
-|-------|--------|
-| Kök neden | Supabase Redirect URLs yalnızca web (`https://www.yeniform.com/auth/callback`…). Mobil `yeniform://` / `exp://` yok → Site URL fallback |
-| Kod | `oauthAuth.ts`: `makeRedirectUri`, website-redirect tespiti → `redirectMisconfigured` + Dashboard alert |
-| Rota | `app/auth/callback.tsx` |
-| Ops doküman | `docs/MOBILE_OAUTH_SETUP.md` |
-| Kullanıcı aksiyonu | Dashboard’a `yeniform://**`, `exp://**`, `yeniform://auth/callback` ekle |
-
-### Telegram — ops
-
-| Madde | Durum |
-|-------|--------|
-| İstemci kodu | ✅ `telegramNotify.ts` |
-| Lokal web secret | `.env` içinde `VITE_TELEGRAM_NOTIFY_SECRET=""` (boş) — değer Vercel’de |
-| Kullanıcı aksiyonu | Vercel’den secret → `EXPO_PUBLIC_TELEGRAM_NOTIFY_SECRET` (`docs/MOBILE_TELEGRAM_SETUP.md`) |
-| Bot token | Yalnızca Vercel; mobilde yok |
+Detaylı satırlar için git history / önceki progress sürümleri.
 
 ---
 
-## 4. AppContext — güncel yüzey (özet)
+## 4. AppContext — güncel yüzey
 
-**State (ek):** `staffDirectory`, `plans`, `posts`, `exerciseCount`, `testimonials`, `faqs`, `successStories`, `chatMessages`, `loggingOut`
+Dosya: `src/context/AppContext.tsx` (tam liste: CODEMAP §4)
 
-**Actions (ek):** `loginWithGoogle`, `loadChatMessages`, `sendChatMessage`, `markChatThreadRead`
+**Auth / kullanıcı:** `session`, `sessionType`, `authUser`, `member`, `staff`, `user`, `loading`, `syncing`, `loggingOut`, `isAdmin|Staff|Member`
 
-Hâlâ eksik (doc 04): admin/collab chat, realtime, verification, Stripe…
+**Shared hydrate:** `staffDirectory`, `plans`, `posts`, `exerciseCount`, `testimonials`, `faqs`, `successStories`
+
+**Üye dashboard:** `programs`, `conversations`, `chatMessages`, `chatUnreadCount`, `dailyGoal`, `notifications`, …
+
+**Doğrulama:** `verificationStatus` + send/confirm/refresh e-posta & telefon
+
+**İç chat:** `adminStaffThreads`, `staffCollabThreads`, `adminStaffMessages`, `staffCollabMessages` + load/send/mark
+
+**Ödeme:** `startStripeCheckout(planId, flow?, durationMonths?)` → `stripePayment.ts` + WebBrowser
+
+**Auth actions:** `login`, `loginWithGoogle`, `register`, `logout`, `refresh`
+
+Mount: presence tracker + `subscribeRealtimeSync`.
+
+### Bilinçli eksikler
+
+- Ödeme geçmişi UI (web `PaymentManagementPage` / `platform.payments`)
+- Admin tickets UI (web’de realtime var)
+- Üye ekranlarının tam web parity’si (blueprint 08+)
+- Tam onboarding sihirbazı (süre seçimi register flow’da şimdilik 1 ay)
 
 ---
 
-## 5. Sonraki öncelik (P0 kalan / P1)
+## 5. Sonraki öncelik
 
-1. **Ops (kullanıcı):** Supabase Redirect URLs + Telegram secret (yukarıdaki dokümanlar)
-2. Email/phone verification (`authVerification.js` port)
-3. Realtime sync
-4. Admin↔staff + collab chat
-5. Blueprint `08`/üye ekranları
+| # | Madde | Not |
+|---|--------|-----|
+| 1 | **Ops (insan):** Supabase Redirect URLs + Telegram secret | `MOBILE_OAUTH_SETUP.md`, `MOBILE_TELEGRAM_SETUP.md` |
+| 2 | Üye ekran derinliği | web `pages` (profil, program, seans, randevu) parity |
+| 3 | Ödeme geçmişi | web `PaymentManagementPage` + payments hydrate |
+| 4 | Admin tickets / başvurular | web tickets + applications realtime |
+| 5 | Blueprint 08+ yazımı (opsiyonel) | task list netleşsin |
 
 ---
 
@@ -96,30 +106,52 @@ Hâlâ eksik (doc 04): admin/collab chat, realtime, verification, Stripe…
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 EXPO_PUBLIC_SITE_URL=https://www.yeniform.com
-# EXPO_PUBLIC_TELEGRAM_NOTIFY_SECRET=   # = Vercel VITE_TELEGRAM_NOTIFY_SECRET
+# EXPO_PUBLIC_ADMIN_EMAIL=
+# EXPO_PUBLIC_TELEGRAM_NOTIFY_SECRET=
+# EXPO_PUBLIC_PHONE_VERIFY_VIA_EMAIL=true
 ```
 
-OAuth Redirect URLs: `docs/MOBILE_OAUTH_SETUP.md`  
-Telegram: `docs/MOBILE_TELEGRAM_SETUP.md`
+Şablon: `.env.example`
 
 ---
 
-## 7. Agent handoff
+## 7. Kritik dosya kısayolları
 
-1. Bu dosyayı oku.
-2. `Serenova-F-t/docs/rn-migration/{00,01,04,05,06,07}` oku.
-3. Expo v56 docs.
-4. OAuth/Telegram ops kullanıcıda; kod tarafı hazır → §5 madde 2+.
-5. Bitince bu dosyayı güncelle.
-
----
-
-## 8. Runtime notları
-
-- AsyncStorage **2.2.0** (3.x Expo Go’da native-null).
-- Welcome: oklarla sonsuz wrap.
-- Google OAuth: allow-list yoksa Site URL’e düşer; kod artık `redirectMisconfigured` gösterir.
+| Konu | Mobil | Web |
+|------|-------|-----|
+| OAuth | `src/services/oauthAuth.ts` | `oauthAuth.js` |
+| Doğrulama | `src/services/authVerification.ts` | `authVerification.js` |
+| Üye chat | `src/services/db/chat.ts` | `chatDb.js` |
+| Admin chat | `src/services/db/adminChat.ts` | `adminChatDb.js` |
+| Collab | `src/services/db/staffCollabChat.ts` | `staffCollabChatDb.js` |
+| Realtime | `src/services/realtimeSync.ts` | `hooks/useRealtimeSync.js` |
+| Presence | `src/services/presenceService.ts` | `presenceService.js` |
+| Callback | `app/(auth)/callback.tsx` | `AuthCallbackPage.jsx` |
+| Stripe | `src/services/stripePayment.ts` | `stripePayment.js` + `/api/stripe-checkout` |
 
 ---
 
-*Otorite: `docs/rn-migration/` + bu dosya. `AI_PROJE_REHBERI.md` yalnızca çapraz referans.*
+## 8. Runtime / tuzaklar
+
+- AsyncStorage **2.2.0** (3.x Expo Go native-null).
+- OAuth: allow-list yoksa Site URL; kod `redirectMisconfigured`.
+- `expo-auth-session` OAuth yolunda **yok**; `expo-crypto` → `app.json` plugins’e **ekleme**.
+- `npm start` = dev-client; Expo Go için `npm run start:go`.
+- Admin mesaj linkleri: `/(admin)/messages` (grup çakışması).
+
+---
+
+## 9. Agent handoff checklist
+
+```
+[ ] docs/README.md + AI_MOBILE_PROGRESS.md okundu
+[ ] CODEMAP’ten hedef dosyalar işaretlendi
+[ ] Web Adsız/src/services karşılığı okundu
+[ ] Expo v56 docs (ilgili API) kontrol edildi
+[ ] .env mevcut / eksik key yok
+[ ] Değişiklik sonrası progress (+ gerekirse CODEMAP) güncellendi
+```
+
+---
+
+*Otorite sırası: (1) web `Adsız/src` + bu docs · (2) varsa `rn-migration` · (3) uydurma yok.*

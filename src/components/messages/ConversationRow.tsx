@@ -6,13 +6,20 @@ import { Card } from '@/components/ui/Card';
 import type { Conversation } from '@/data/messages';
 import { colors, fonts, spacing } from '@/constants/theme';
 
-export function ConversationRow({ item }: { item: Conversation; staffMode?: boolean }) {
+export function ConversationRow({
+  item,
+  href,
+}: {
+  item: Conversation;
+  staffMode?: boolean;
+  href?: Href;
+}) {
   const hasUnread = item.unread > 0;
 
   return (
     <Card
       contentStyle={styles.row}
-      onPress={() => router.push(`/messages/${item.id}` as Href)}
+      onPress={() => router.push((href || `/messages/${item.id}`) as Href)}
       padding={spacing.md}
       style={styles.card}>
       <Avatar gradient={item.gradient} name={item.name} online={item.online} size={54} />

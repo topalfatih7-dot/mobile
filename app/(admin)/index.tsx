@@ -76,6 +76,12 @@ export default function AdminHomeScreen() {
             </Card>
           )}
 
+          <Button
+            label="Personel Mesajları"
+            onPress={() => router.push('/(admin)/messages' as Href)}
+            style={styles.logout}
+            variant="secondary"
+          />
           <Button label="Çıkış Yap" onPress={onLogout} style={styles.logout} variant="secondary" />
         </ResponsiveCenter>
       </ScrollView>
