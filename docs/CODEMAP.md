@@ -1,7 +1,7 @@
 # Yeni Form Mobile — Code Map
 
 > Amaç: “Bu özellik hangi dosyada?” sorusuna tek bakışta cevap.  
-> Detaylı durum: [`AI_MOBILE_PROGRESS.md`](./AI_MOBILE_PROGRESS.md) · Mimari: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+> Durum: [`AI_MOBILE_PROGRESS.md`](./AI_MOBILE_PROGRESS.md) · Yol: [`ROADMAP.md`](./ROADMAP.md) · Parity: [`FEATURE_PARITY.md`](./FEATURE_PARITY.md) · Tasarım: [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) · Mimari: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
 ---
 
@@ -9,12 +9,14 @@
 
 | Ne | Dosya |
 |----|--------|
-| Root layout / font / provider | `app/_layout.tsx` |
+| Root layout / font / provider | `app/_layout.tsx` (Outfit + Manrope) |
 | Welcome | `app/index.tsx` |
 | Global state | `src/context/AppContext.tsx` |
 | Toast | `src/context/ToastContext.tsx` |
 | Env / API URL | `src/config/env.ts` → `apiUrl()`, `env.siteUrl` |
-| Tema | `src/constants/theme.ts` |
+| Tema (Lumina) | `src/constants/theme.ts` |
+| Brand | `src/config/brand.ts` |
+| UI kit | `src/components/ui/*`, `src/components/motion/*` |
 | Supabase client | `src/services/supabaseClient.ts` |
 
 ---
@@ -41,14 +43,19 @@ Guard: `src/hooks/useAuthGuard.ts` → `useProtectedRoute('member'\|'staff'\|'ad
 | Home | `(app)/index.tsx` |
 | Programs | `(app)/programs.tsx`, `(app)/program/[id].tsx` |
 | Messages (üye↔staff) | `(app)/messages/*` |
-| Profile | `(app)/profile/*` — settings içinde `VerificationSection` |
+| Daha (more) | `(app)/more.tsx` — hub to schedule/calorie/calendar/library/health-test/profile |
+| Schedule / calorie / calendar / library | `(app)/schedule|calorie|calendar|library.tsx` |
+| Health test | `(app)/health-test/*` |
+| Profile | `(app)/profile/*` — payments, settings, VerificationSection |
 | Video call | `(app)/call/[type]/[sessionId].tsx` |
 
 ### Staff — `app/(staff)/`
 
 | Alan | Dosyalar |
 |------|----------|
-| Özet / danışanlar / profil | `index`, `clients`, `profile` |
+| Özet / profil | `index`, `profile` (role kısayolları) |
+| Danışanlar | `clients/index`, `clients/[id]/health`, `clients/[id]/program` |
+| Programs / lists / library / payments | `programs`, `lists`, `library` (gate), `payments` |
 | Mesajlar (3 sekme) | `messages/index.tsx` → Danışanlar / Admin / Ekip |
 | Danışan sohbeti | `messages/[threadId].tsx` |
 | Admin sohbeti | `messages/admin/[threadId].tsx` |
@@ -60,10 +67,23 @@ Guard: `src/hooks/useAuthGuard.ts` → `useProtectedRoute('member'\|'staff'\|'ad
 
 | Alan | Dosyalar |
 |------|----------|
-| Panel | `(admin)/index.tsx` |
+| Hub | `(admin)/index.tsx` — web `adminNav` grid |
 | Üye detay | `(admin)/members/[id].tsx` |
+| Paneller | `plans`, `premium`, `applications`, `library`, `staff`, `blog`, `content`, `payments`, `sessions`, `support`, `analytics`, `activity`, `account` |
+| Subscriptions | `subscriptions.tsx` → `payments` |
 | Personel mesajları | `(admin)/messages/index.tsx`, `[threadId].tsx` |
 | Dashboard data | `src/hooks/useAdminDashboard.ts` |
+
+### Public — `app/(public)/`
+
+| Alan | Dosyalar |
+|------|----------|
+| Landing | `index.tsx` — Yeni Form hero + CTA |
+| Marketing | `membership`, `about`, `stories` |
+| Blog | `blog/index`, `blog/[id]` |
+| Team | `team/index` (role chips), `team/[id]`, `team/apply` |
+| Corporate | `corporate/index`, `corporate/apply` |
+| Legal | `legal/[slug]` + `src/data/legalDocuments.ts` |
 
 ---
 
@@ -113,10 +133,18 @@ Guard: `src/hooks/useAuthGuard.ts` → `useProtectedRoute('member'\|'staff'\|'ad
 | `adminChat.ts` | `admin_staff_*` | `adminChatDb.js` |
 | `staffCollabChat.ts` | `staff_collab_*` | `staffCollabChatDb.js` |
 | `members.ts` | `members` upsert/patch | `supabaseDb` member mutations |
-| `programs.ts` | `programs` | programs |
+| `programs.ts` | `programs` (+ create/update) | `createProgram` |
 | `staff.ts` | `staff` | staff |
 | `mappers.ts` | row ↔ profile | `rowToMember` vb. |
-| `support.ts` | destek | support |
+| `support.ts` | `tickets` (+ admin reply/status) | tickets |
+| `exercises.ts` | `exercises` CRUD | library |
+| `payments.ts` | `payments` (member/staff/admin) | payments |
+| `plans.ts` | `plans` get/upsert | `getPlans`/`upsertPlan` |
+| `blog.ts` | `posts` CRUD | `addPost`/`editPost`/`removePost` |
+| `content.ts` | `site_content` CRUD | content |
+| `applications.ts` | staff/corporate apps + resolve | applications |
+| `activities.ts` | `activities` log | activities |
+| `sessions.ts` | booking + admin session summaries | sessions |
 
 ---
 

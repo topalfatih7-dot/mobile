@@ -11,6 +11,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="settings" />
       <Stack.Screen name="measurements" />
       <Stack.Screen name="support" />
+      <Stack.Screen name="payments" />
     </Stack>
   );
 }

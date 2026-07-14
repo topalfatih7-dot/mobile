@@ -1,3 +1,4 @@
+import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -24,7 +25,13 @@ export default function StaffClientsScreen() {
         showsVerticalScrollIndicator={false}>
         <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
           {clients.length > 0 ? (
-            clients.map((client) => <StaffClientCard client={client} key={client.id} />)
+            clients.map((client) => (
+              <StaffClientCard
+                client={client}
+                key={client.id}
+                onPress={() => router.push(`/(staff)/clients/${client.id}/health` as Href)}
+              />
+            ))
           ) : (
             <EmptyState
               subtitle="Size atanmış aktif ücretli danışan olduğunda burada görünür."
@@ -40,7 +47,7 @@ export default function StaffClientsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingBottom: spacing.xxl,

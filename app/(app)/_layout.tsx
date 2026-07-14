@@ -20,6 +20,7 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
+        tabBarActiveTintColor: colors.teal[600],
         tabBarInactiveTintColor: colors.ink[400],
         tabBarLabelStyle: {
           fontFamily: fonts.semibold,
@@ -47,9 +48,8 @@ export default function AppLayout() {
         name="index"
         options={{
           title: 'Ana Sayfa',
-          tabBarActiveTintColor: colors.brand[600],
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.brand} name={focused ? 'home' : 'home-outline'} />
+            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'home' : 'home-outline'} />
           ),
         }}
       />
@@ -57,9 +57,8 @@ export default function AppLayout() {
         name="programs"
         options={{
           title: 'Program',
-          tabBarActiveTintColor: colors.coral[600],
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.coral} name={focused ? 'barbell' : 'barbell-outline'} />
+            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'barbell' : 'barbell-outline'} />
           ),
         }}
       />
@@ -67,26 +66,38 @@ export default function AppLayout() {
         name="messages"
         options={{
           title: 'Mesajlar',
-          tabBarActiveTintColor: colors.violet[600],
           tabBarBadge: messageBadge,
           tabBarBadgeStyle: { backgroundColor: colors.coral[500], fontFamily: fonts.bold, fontSize: 10 },
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.violet} name={focused ? 'chatbubbles' : 'chatbubbles-outline'} />
+            <TabBarIcon
+              focused={focused}
+              gradient={gradients.primary}
+              name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="more"
         options={{
-          title: 'Profil',
-          tabBarActiveTintColor: colors.teal[600],
+          title: 'Daha',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.teal} name={focused ? 'person' : 'person-outline'} />
+            <TabBarIcon
+              focused={focused}
+              gradient={gradients.primary}
+              name={focused ? 'grid' : 'grid-outline'}
+            />
           ),
         }}
       />
+      <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="call" options={{ href: null }} />
       <Tabs.Screen name="program" options={{ href: null }} />
+      <Tabs.Screen name="schedule" options={{ href: null }} />
+      <Tabs.Screen name="calorie" options={{ href: null }} />
+      <Tabs.Screen name="health-test" options={{ href: null }} />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
+      <Tabs.Screen name="library" options={{ href: null }} />
     </Tabs>
   );
 }

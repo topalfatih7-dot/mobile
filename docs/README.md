@@ -2,10 +2,13 @@
 
 > **İlk okuma sırası (AI / yeni yazılımcı):**
 > 1. Bu dosya  
-> 2. [`AI_MOBILE_PROGRESS.md`](./AI_MOBILE_PROGRESS.md) — durum + sonraki iş  
-> 3. [`CODEMAP.md`](./CODEMAP.md) — dosya → sorumluluk haritası  
-> 4. [`ARCHITECTURE.md`](./ARCHITECTURE.md) — stack, auth, realtime, chat  
-> 5. Ops: [`MOBILE_OAUTH_SETUP.md`](./MOBILE_OAUTH_SETUP.md), [`MOBILE_TELEGRAM_SETUP.md`](./MOBILE_TELEGRAM_SETUP.md)
+> 2. [`AI_MOBILE_PROGRESS.md`](./AI_MOBILE_PROGRESS.md) — durum  
+> 3. [`ROADMAP.md`](./ROADMAP.md) — yapılacaklar (Lumina + parity)  
+> 4. [`FEATURE_PARITY.md`](./FEATURE_PARITY.md) — web × mobil eksikler  
+> 5. [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — Lumina görsel dil  
+> 6. [`CODEMAP.md`](./CODEMAP.md) — dosya haritası  
+> 7. [`ARCHITECTURE.md`](./ARCHITECTURE.md) — stack / auth / realtime  
+> 8. Ops: [`MOBILE_OAUTH_SETUP.md`](./MOBILE_OAUTH_SETUP.md), [`MOBILE_TELEGRAM_SETUP.md`](./MOBILE_TELEGRAM_SETUP.md)
 
 ---
 
@@ -13,10 +16,12 @@
 
 | Kural | Açıklama |
 |-------|----------|
-| Belgelenmeyen davranışı uydurma | Web’de / bu dokümanlarda yoksa tahmin etme; sor veya önce kaynağı oku |
-| Web otorite | Parity için `Serenova-F-t/Adsız/src/services/*` (ve varsa `docs/rn-migration/`) |
-| Expo sürümü | **SDK 56** — https://docs.expo.dev/versions/v56.0.0/ |
-| Progress güncelle | İş bitince `AI_MOBILE_PROGRESS.md` güncelle |
+| Belgelenmeyen davranışı uydurma | Web / bu dokümanlarda yoksa tahmin etme |
+| Web otorite | `Serenova-F-t/Adsız/src/*` (+ `docs/rn-migration/`) |
+| Expo | **SDK 56** — https://docs.expo.dev/versions/v56.0.0/ |
+| Tasarım | **Lumina** — `DESIGN_SYSTEM.md`; web mavi/sage kopyalama |
+| Parity | Tüm web özellikleri; ekstra yok; sormadan silme yok |
+| Progress | İş bitince `AI_MOBILE_PROGRESS.md` + `ROADMAP.md` + `FEATURE_PARITY.md` |
 
 ---
 
@@ -24,9 +29,9 @@
 
 | Ortam | Yol |
 |-------|-----|
-| Mobil (bu repo) | `/Users/mac/Desktop/mobile` (veya Windows OneDrive `mobile`) |
-| Web kaynak | `../Serenova-F-t/Adsız` |
-| Blueprint (opsiyonel) | `../Serenova-F-t/docs/rn-migration/` — **bazı makinelerde yok**; yoksa web `src/services` otorite |
+| Mobil | Desktop / OneDrive `mobile` |
+| Web | `../Serenova-F-t/Adsız` |
+| Blueprint | `../Serenova-F-t/docs/rn-migration/` |
 
 ---
 
@@ -34,21 +39,21 @@
 
 | Dosya | Ne için |
 |-------|---------|
-| `AI_MOBILE_PROGRESS.md` | Tamamlanan turlar, P0/P1 sırası, env, runtime notları, handoff checklist |
-| `CODEMAP.md` | “X’i nerede bulurum?” — rota, servis, context haritası |
-| `ARCHITECTURE.md` | Provider ağacı, auth akışı, realtime, chat türleri, env |
-| `MOBILE_OAUTH_SETUP.md` | Supabase Redirect URLs (mobil) |
-| `MOBILE_TELEGRAM_SETUP.md` | Telegram notify secret |
+| `AI_MOBILE_PROGRESS.md` | Tur durumu, sonraki iş, env, tuzaklar |
+| `ROADMAP.md` | Faz 0–5 checklist |
+| `FEATURE_PARITY.md` | Rota bazlı ✅/🟡/❌ matrix |
+| `DESIGN_SYSTEM.md` | Lumina token, tipografi, motion, kit |
+| `CODEMAP.md` | Dosya → sorumluluk |
+| `ARCHITECTURE.md` | Provider, auth, chat, realtime |
+| `MOBILE_OAUTH_SETUP.md` | Supabase Redirect URLs |
+| `MOBILE_TELEGRAM_SETUP.md` | Telegram secret |
 
 ---
 
 ## Hızlı komutlar
 
 ```bash
-cp .env.example .env   # değerleri doldur
+cp .env.example .env
 npm install
-npm run start:go       # Expo Go
-# veya: npx expo start -c
+npm run start:go
 ```
-
-Metro: `http://localhost:8081`

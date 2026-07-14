@@ -6,6 +6,7 @@ export const BRAND = {
   domain: 'yeniform.com',
   siteUrl: env.siteUrl,
   tagline: 'Herkes için çevrimiçi koçluk ve wellness',
+  design: 'Lumina',
   assets: {
     logo: require('../../assets/brand/brand-logo.png'),
     mark: require('../../assets/brand/brand-mark.png'),

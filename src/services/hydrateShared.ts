@@ -189,7 +189,7 @@ export async function hydrateSharedRemote(): Promise<SharedRemoteDb> {
     if (r.kind === 'testimonial') content.testimonials.push(item);
     else if (r.kind === 'faq') content.faqs.push(item);
     else if (r.kind === 'success_story') content.successStories.push(item);
-    else if (r.kind === 'exercise_taxonomy') content.exerciseTaxonomy = { id: r.id, ...item };
+    else if (r.kind === 'exercise_taxonomy') content.exerciseTaxonomy = item;
   });
 
   const plans =

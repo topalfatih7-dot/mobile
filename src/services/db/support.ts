@@ -95,6 +95,35 @@ export async function createSupportTicket(
   return { success: true, ticket: rowToTicket(data as TicketRow) };
 }
 
+export async function fetchAllTickets(limit = 80): Promise<SupportTicket[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((row) => rowToTicket(row as TicketRow));
+}
+
+export async function setTicketStatus(
+  id: string,
+  status: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (!supabase) return { success: false, error: 'Supabase bağlantısı yok.' };
+  const { error } = await supabase.from('tickets').update({ status }).eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function sendTicketReply(
+  id: string,
+  from: 'member' | 'admin' | string,
+  text: string,
+): Promise<{ success: true; ticket: SupportTicket } | { success: false; error: string }> {
+  return sendSupportTicketReply(id, from === 'admin' ? 'admin' : 'member', text);
+}
+
 export async function sendSupportTicketReply(
   ticketId: string,
   from: 'member' | 'admin',
@@ -116,15 +145,16 @@ export async function sendSupportTicketReply(
     ...(ticket.messages || []),
     { id: `m-${Date.now()}`, from, text: text.trim(), createdAt: nowISO() },
   ];
+  const status = from === 'admin' && ticket.status === 'open' ? 'in-progress' : ticket.status;
 
   const { error } = await supabase
     .from('tickets')
     .update({
-      status: ticket.status,
+      status,
       data: { ...(current.data || {}), messages },
     })
     .eq('id', ticketId);
 
   if (error) return { success: false, error: error.message };
-  return { success: true, ticket: { ...ticket, messages } };
+  return { success: true, ticket: { ...ticket, messages, status } };
 }

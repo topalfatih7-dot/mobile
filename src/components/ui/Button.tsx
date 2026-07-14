@@ -14,7 +14,7 @@ import { PressableScale } from '@/components/ui/PressableScale';
 import { colors, fonts, glow, gradients, radius, type Gradient } from '@/constants/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-type Variant = 'primary' | 'solid' | 'secondary' | 'ghost' | 'glass';
+type Variant = 'primary' | 'solid' | 'secondary' | 'ghost' | 'glass' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
 type ButtonProps = {
@@ -45,8 +45,8 @@ export function Button({
   onPress,
   variant = 'primary',
   size = 'md',
-  gradient = gradients.brand,
-  color = colors.brand[600],
+  gradient = gradients.primary,
+  color = colors.teal[600],
   leftIcon,
   rightIcon,
   loading = false,
@@ -58,9 +58,9 @@ export function Button({
 
   const textColor =
     variant === 'secondary'
-      ? colors.brand[700]
+      ? colors.teal[700]
       : variant === 'ghost'
-        ? colors.brand[600]
+        ? colors.teal[600]
         : colors.white;
 
   const content = (
@@ -83,24 +83,25 @@ export function Button({
 
   const baseStyle: StyleProp<ViewStyle> = [
     styles.base,
-    { height: dims.height, paddingHorizontal: dims.padH, borderRadius: radius.full },
+    { height: dims.height, paddingHorizontal: dims.padH, borderRadius: radius.lg },
     fullWidth ? styles.fullWidth : styles.auto,
     disabled && styles.disabled,
     style,
   ];
 
-  if (variant === 'primary') {
+  if (variant === 'primary' || variant === 'danger') {
+    const g = variant === 'danger' ? gradients.energy : gradient;
     return (
       <PressableScale
         accessibilityRole="button"
         disabled={disabled || loading}
         onPress={onPress}
-        style={[baseStyle, !disabled && glow(gradient[0], 0.32)]}>
+        style={[baseStyle, !disabled && glow(g[0], 0.32)]}>
         <LinearGradient
-          colors={gradient}
+          colors={g}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.full }]}
+          style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
         />
         {content}
       </PressableScale>
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.brand[200],
+    borderColor: colors.teal[200],
   },
   glass: {
     backgroundColor: 'rgba(255,255,255,0.18)',

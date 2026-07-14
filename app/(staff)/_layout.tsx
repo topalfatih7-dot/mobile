@@ -21,6 +21,7 @@ function StaffTabs() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarActiveTintColor: colors.teal[600],
         tabBarInactiveTintColor: colors.ink[400],
         tabBarLabelStyle: {
           fontFamily: fonts.semibold,
@@ -43,9 +44,8 @@ function StaffTabs() {
         name="index"
         options={{
           title: 'Özet',
-          tabBarActiveTintColor: colors.brand[600],
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.brand} name={focused ? 'grid' : 'grid-outline'} />
+            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'grid' : 'grid-outline'} />
           ),
         }}
       />
@@ -53,9 +53,8 @@ function StaffTabs() {
         name="clients"
         options={{
           title: 'Danışanlar',
-          tabBarActiveTintColor: colors.coral[600],
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.coral} name={focused ? 'people' : 'people-outline'} />
+            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'people' : 'people-outline'} />
           ),
         }}
       />
@@ -65,11 +64,10 @@ function StaffTabs() {
           title: 'Mesajlar',
           tabBarBadge: badge,
           tabBarBadgeStyle: { backgroundColor: colors.coral[500], fontFamily: fonts.bold, fontSize: 10 },
-          tabBarActiveTintColor: colors.violet[600],
           tabBarIcon: ({ focused }) => (
             <TabBarIcon
               focused={focused}
-              gradient={gradients.violet}
+              gradient={gradients.primary}
               name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
             />
           ),
@@ -79,12 +77,15 @@ function StaffTabs() {
         name="profile"
         options={{
           title: 'Profil',
-          tabBarActiveTintColor: colors.teal[600],
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.teal} name={focused ? 'person' : 'person-outline'} />
+            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'person' : 'person-outline'} />
           ),
         }}
       />
+      <Tabs.Screen name="programs" options={{ href: null }} />
+      <Tabs.Screen name="lists" options={{ href: null }} />
+      <Tabs.Screen name="library" options={{ href: null }} />
+      <Tabs.Screen name="payments" options={{ href: null }} />
       <Tabs.Screen name="call" options={{ href: null }} />
     </Tabs>
   );

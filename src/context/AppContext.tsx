@@ -87,6 +87,12 @@ import {
 } from '@/services/oauthAuth';
 import { startStripeCheckout as openStripeCheckout } from '@/services/stripePayment';
 import {
+  bookStaffSession,
+  getStaffBookedSlots as fetchStaffBookedSlots,
+  sessionKey,
+  type BookingSessionType,
+} from '@/services/db/sessions';
+import {
   AUTH_EVENTS_REQUIRING_HYDRATE,
   hydrateAuthState,
   login as authLogin,
@@ -99,12 +105,18 @@ import {
 import { syncAutoRefresh } from '@/services/supabaseClient';
 import { completionKey } from '@/utils/programSchedule';
 import { hasRegisteredMember } from '@/utils/memberProfile';
-import type { AppSession, AuthUser, MemberProfile, SessionType, StaffProfile } from '@/types/session';
+import type {
+  AppSession,
+  AuthUser,
+  MemberProfile,
+  SessionType as AuthSessionType,
+  StaffProfile,
+} from '@/types/session';
 
 type LoginWithGoogleResult =
   | {
       success: true;
-      role: SessionType;
+      role: AuthSessionType;
       needsOnboarding: boolean;
       redirecting?: false;
     }
@@ -126,7 +138,7 @@ type AppContextValue = {
   syncing: boolean;
   loggingOut: boolean;
   session: AppSession | null;
-  sessionType: SessionType | null;
+  sessionType: AuthSessionType | null;
   authUser: AuthUser | null;
   member: MemberProfile | null;
   staff: StaffProfile | null;
@@ -155,9 +167,9 @@ type AppContextValue = {
   weeklyActivity: { day: string; value: number }[];
   notifications: AppNotification[];
   notificationUnreadCount: number;
-  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string; role?: SessionType }>;
+  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string; role?: AuthSessionType }>;
   loginWithGoogle: (opts?: SignInWithSocialOpts) => Promise<LoginWithGoogleResult>;
-  register: (profile: RegisterProfile) => Promise<{ success: boolean; error?: string; role?: SessionType }>;
+  register: (profile: RegisterProfile) => Promise<{ success: boolean; error?: string; role?: AuthSessionType }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateProfile: (patch: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
@@ -224,6 +236,23 @@ type AppContextValue = {
   ) => Promise<{ success: boolean; error?: string; dismissed?: boolean }>;
   toggleTask: (taskId: string) => Promise<void>;
   toggleProgramEntry: (dateStr: string, entryId: string) => Promise<void>;
+  bookSession: (
+    type: 'coach' | 'dietitian' | 'doctor',
+    startsAtISO: string,
+    duration?: number,
+  ) => Promise<{ success: boolean; error?: string }>;
+  cancelSession: (id: string, type: 'coach' | 'dietitian' | 'doctor') => Promise<void>;
+  rescheduleSession: (
+    id: string,
+    type: 'coach' | 'dietitian' | 'doctor',
+    newDate: string,
+  ) => Promise<void>;
+  getStaffBookedSlots: (
+    staffId: string,
+    type: 'coach' | 'dietitian' | 'doctor',
+    fromISO: string,
+    toISO: string,
+  ) => Promise<string[]>;
   routeForRole: typeof routeForRole;
 };
 
@@ -283,7 +312,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [staffCollabThreads, setStaffCollabThreads] = useState<StaffCollabThread[]>([]);
   const [adminStaffMessages, setAdminStaffMessages] = useState<Record<string, AdminStaffMessage[]>>({});
   const [staffCollabMessages, setStaffCollabMessages] = useState<Record<string, StaffCollabMessage[]>>({});
-  const sessionTypeRef = useRef<SessionType | null>(null);
+  const sessionTypeRef = useRef<AuthSessionType | null>(null);
   const chatThreadIdsRef = useRef<Set<string>>(new Set());
   const adminStaffThreadIdsRef = useRef<Set<string>>(new Set());
   const staffCollabThreadIdsRef = useRef<Set<string>>(new Set());
@@ -326,7 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const hydrateInternalChats = useCallback(
     async (
-      sessionType: SessionType | null | undefined,
+      sessionType: AuthSessionType | null | undefined,
       staffUser: StaffProfile | null,
       staffList: StaffProfile[],
     ) => {
@@ -428,7 +457,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [applyAuthState, loadMemberData, clearMemberData, hydrateInternalChats]);
 
-  // Presence heartbeat — oturum tipi çözülmeden yazma
+  // Presence heartbeat â€” oturum tipi Ã§Ã¶zÃ¼lmeden yazma
   useEffect(() => {
     if (!session?.type) return undefined;
     return startPresenceTracker({
@@ -620,7 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(
     async (patch: Record<string, unknown>) => {
-      if (!member) return { success: false, error: 'Üye oturumu bulunamadı.' };
+      if (!member) return { success: false, error: 'Ãœye oturumu bulunamadÄ±.' };
       const result = await saveMemberPatch(member, patch);
       if (!result.success) return result;
       setMember(result.member);
@@ -760,7 +789,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const role = normalizeStaffRole(staff.role);
       if (role !== 'coach' && role !== 'dietitian') {
-        return { success: false, error: 'Geçersiz rol.' };
+        return { success: false, error: 'GeÃ§ersiz rol.' };
       }
       const result = await dbSendStaffCollabMessage({
         thread,
@@ -805,7 +834,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateSettings = useCallback(
     async (patch: Partial<MemberSettings>, extra?: Record<string, unknown>) => {
-      if (!member) return { success: false, error: 'Üye oturumu bulunamadı.' };
+      if (!member) return { success: false, error: 'Ãœye oturumu bulunamadÄ±.' };
       const settings = { ...parseMemberSettings(member.settings), ...patch };
       return updateProfile({ settings, ...extra });
     },
@@ -901,6 +930,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [member, updateProfile],
   );
 
+  const bookSession = useCallback(
+    async (type: BookingSessionType, startsAtISO: string, duration = 30) => {
+      const result = await bookStaffSession(type, startsAtISO, duration);
+      if (result.success) await refresh();
+      return { success: result.success, error: result.error };
+    },
+    [refresh],
+  );
+
+  const cancelSession = useCallback(
+    async (id: string, type: BookingSessionType) => {
+      if (!member) return;
+      const key = sessionKey(type);
+      const sessions = ((member[key] as { id?: string; status?: string }[] | undefined) || []).map((s) =>
+        s.id === id ? { ...s, status: 'cancelled' } : s,
+      );
+      await updateProfile({ [key]: sessions });
+    },
+    [member, updateProfile],
+  );
+
+  const rescheduleSession = useCallback(
+    async (id: string, type: BookingSessionType, newDate: string) => {
+      if (!member) return;
+      const key = sessionKey(type);
+      const sessions = ((member[key] as { id?: string; date?: string; status?: string }[] | undefined) || []).map(
+        (s) => (s.id === id ? { ...s, date: newDate, status: 'rescheduled' } : s),
+      );
+      await updateProfile({ [key]: sessions });
+    },
+    [member, updateProfile],
+  );
+
+  const getStaffBookedSlots = useCallback(
+    (staffId: string, type: BookingSessionType, fromISO: string, toISO: string) =>
+      fetchStaffBookedSlots(staffId, type, fromISO, toISO),
+    [],
+  );
+
   const sessionType = session?.type ?? null;
   const isAuthenticated = !!session;
   const isAdmin = sessionType === 'admin';
@@ -980,6 +1048,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startStripeCheckout,
       toggleTask,
       toggleProgramEntry,
+      bookSession,
+      cancelSession,
+      rescheduleSession,
+      getStaffBookedSlots,
       routeForRole,
     }),
     [
@@ -1031,10 +1103,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startStripeCheckout,
       toggleTask,
       toggleProgramEntry,
+      bookSession,
+      cancelSession,
+      rescheduleSession,
+      getStaffBookedSlots,
     ],
   );
 
-  if (loading) return <LoadingScreen label="Oturum kontrol ediliyor…" />;
+  if (loading) return <LoadingScreen label="Oturum kontrol ediliyorâ€¦" />;
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

@@ -4,6 +4,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandMark } from '@/components/brand/BrandMark';
+import { AdminNavGrid } from '@/components/admin/AdminPanelScreen';
 import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
 import { StaffStatCard } from '@/components/staff/StaffStatCard';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +14,25 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { useResponsive } from '@/hooks/useResponsive';
 import { getPlanLabel } from '@/data/membershipPlans';
 import { colors, fonts, gradients, spacing } from '@/constants/theme';
+
+/** Web `adminNav` sırası (Genel Bakış hariç hub maddeleri). */
+const ADMIN_NAV = [
+  { label: 'Üyeler', href: '/(admin)/' as Href, icon: 'people' as const, hint: 'Aşağıda son üyeler' },
+  { label: 'Paketler', href: '/(admin)/plans' as Href, icon: 'cube' as const },
+  { label: 'Premium', href: '/(admin)/premium' as Href, icon: 'diamond' as const },
+  { label: 'Başvurular', href: '/(admin)/applications' as Href, icon: 'person-add' as const },
+  { label: 'Kütüphane', href: '/(admin)/library' as Href, icon: 'library' as const },
+  { label: 'Kadromuz', href: '/(admin)/staff' as Href, icon: 'medkit' as const },
+  { label: 'Finans', href: '/(admin)/payments' as Href, icon: 'wallet' as const },
+  { label: 'Seanslar', href: '/(admin)/sessions' as Href, icon: 'calendar' as const },
+  { label: 'Mesajlar', href: '/(admin)/messages' as Href, icon: 'chatbubbles' as const },
+  { label: 'Destek', href: '/(admin)/support' as Href, icon: 'help-buoy' as const },
+  { label: 'Blog', href: '/(admin)/blog' as Href, icon: 'book' as const },
+  { label: 'İçerik', href: '/(admin)/content' as Href, icon: 'sparkles' as const },
+  { label: 'Analitik', href: '/(admin)/analytics' as Href, icon: 'bar-chart' as const },
+  { label: 'Aktivite', href: '/(admin)/activity' as Href, icon: 'pulse' as const },
+  { label: 'Hesap', href: '/(admin)/account' as Href, icon: 'shield-checkmark' as const },
+];
 
 export default function AdminHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -57,16 +77,19 @@ export default function AdminHomeScreen() {
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Son Üyeler</Text>
+          <Text style={styles.sectionTitle}>Yönetim</Text>
+          <AdminNavGrid items={ADMIN_NAV.filter((item) => item.label !== 'Üyeler')} />
+
+          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Son Üyeler</Text>
           {members.length > 0 ? (
             members.map((member) => (
               <Pressable key={member.id} onPress={() => router.push(`/members/${member.id}` as Href)}>
                 <Card padding={spacing.md} style={styles.memberCard}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberMeta}>
-                  {getPlanLabel(member.membership)} · {member.membershipStatus}
-                </Text>
-                <Text style={styles.memberEmail}>{member.email}</Text>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberMeta}>
+                    {getPlanLabel(member.membership)} · {member.membershipStatus}
+                  </Text>
+                  <Text style={styles.memberEmail}>{member.email}</Text>
                 </Card>
               </Pressable>
             ))
@@ -76,12 +99,6 @@ export default function AdminHomeScreen() {
             </Card>
           )}
 
-          <Button
-            label="Personel Mesajları"
-            onPress={() => router.push('/(admin)/messages' as Href)}
-            style={styles.logout}
-            variant="secondary"
-          />
           <Button label="Çıkış Yap" onPress={onLogout} style={styles.logout} variant="secondary" />
         </ResponsiveCenter>
       </ScrollView>
@@ -90,7 +107,7 @@ export default function AdminHomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.canvas },
   content: { flexGrow: 1 },
   title: {
     marginTop: spacing.md,

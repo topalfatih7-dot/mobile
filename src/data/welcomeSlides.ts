@@ -23,7 +23,7 @@ export const WELCOME_SLIDES: WelcomeSlide[] = [
   {
     id: 'coach',
     icon: 'barbell',
-    gradient: gradients.brand,
+    gradient: gradients.primary,
     bubbles: ['heart', 'flash', 'medal'],
     badge: 'KİŞİSEL KOÇLUK',
     title: 'Kişisel koçun\nher an yanında',
@@ -37,7 +37,7 @@ export const WELCOME_SLIDES: WelcomeSlide[] = [
   {
     id: 'nutrition',
     icon: 'nutrition',
-    gradient: gradients.forest,
+    gradient: gradients.champagne,
     bubbles: ['leaf', 'water', 'restaurant'],
     badge: 'BESLENME DESTEĞİ',
     title: 'Sana özel\nbeslenme planı',
@@ -51,7 +51,7 @@ export const WELCOME_SLIDES: WelcomeSlide[] = [
   {
     id: 'progress',
     icon: 'trending-up',
-    gradient: gradients.violet,
+    gradient: gradients.energy,
     bubbles: ['trophy', 'sparkles', 'flame'],
     badge: 'GERÇEK SONUÇLAR',
     title: 'İlerlemeni gör,\nhedefe ulaş',

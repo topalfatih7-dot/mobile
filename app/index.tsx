@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { IntroCarousel } from '@/components/welcome/IntroCarousel';
@@ -11,6 +11,7 @@ export default function WelcomeScreen() {
     <>
       <StatusBar style="light" />
       <IntroCarousel
+        onExplore={() => router.push('/(public)' as Href)}
         onLogin={() => router.push('/(auth)/login')}
         onStart={() => router.push('/(auth)/register')}
       />

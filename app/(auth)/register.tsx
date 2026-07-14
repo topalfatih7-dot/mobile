@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -8,10 +8,13 @@ import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useApp } from '@/context/AppContext';
+import { isPaidMembership } from '@/data/membershipPlans';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/emailAddress';
 
 export default function RegisterScreen() {
+  const { plan: planParam } = useLocalSearchParams<{ plan?: string }>();
+  const planId = typeof planParam === 'string' && planParam ? planParam : 'free';
   const { register, routeForRole } = useApp();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -45,6 +48,10 @@ export default function RegisterScreen() {
         return;
       }
 
+      if (isPaidMembership(planId)) {
+        router.replace(`/(auth)/onboarding?plan=${encodeURIComponent(planId)}` as Href);
+        return;
+      }
       router.replace(routeForRole(result.role || 'member'));
     } finally {
       setLoading(false);

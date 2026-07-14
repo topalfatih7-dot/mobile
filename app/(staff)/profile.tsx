@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,14 +11,32 @@ import { Card } from '@/components/ui/Card';
 import { useApp } from '@/context/AppContext';
 import { useStaffDashboard } from '@/hooks/useStaffDashboard';
 import { useResponsive } from '@/hooks/useResponsive';
-import { staffRoleLabel } from '@/utils/staffAccess';
+import { normalizeStaffRole, staffRoleLabel } from '@/utils/staffAccess';
 import { colors, fonts, gradients, radius, spacing } from '@/constants/theme';
+
+type QuickLink = { label: string; href: Href; icon: keyof typeof Ionicons.glyphMap };
+
+function staffProfileLinks(role?: string | null): QuickLink[] {
+  const normalized = normalizeStaffRole(role);
+  const links: QuickLink[] = [];
+
+  if (normalized === 'dietitian') {
+    links.push({ label: 'Listeler', href: '/(staff)/lists' as Href, icon: 'list' });
+  } else {
+    links.push({ label: 'Programlar', href: '/(staff)/programs' as Href, icon: 'clipboard' });
+    links.push({ label: 'Kütüphane', href: '/(staff)/library' as Href, icon: 'library' });
+  }
+
+  links.push({ label: 'Ödeme Yönetimi', href: '/(staff)/payments' as Href, icon: 'wallet' });
+  return links;
+}
 
 export default function StaffProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, staff, logout } = useApp();
   const { roleLabel, stats } = useStaffDashboard();
   const { horizontalPadding } = useResponsive();
+  const links = staffProfileLinks(staff?.role);
 
   const onLogout = async () => {
     await logout();
@@ -48,8 +66,24 @@ export default function StaffProfileScreen() {
           <Card padding={spacing.lg} style={styles.card}>
             <Text style={styles.cardTitle}>Panel Özeti</Text>
             <Text style={styles.cardLine}>{roleLabel}</Text>
-            <Text style={styles.cardLine}>{stats.clientCount} danışan · {stats.programCount} program</Text>
+            <Text style={styles.cardLine}>
+              {stats.clientCount} danışan · {stats.programCount} program
+            </Text>
           </Card>
+
+          <Text style={styles.sectionTitle}>Kısayollar</Text>
+          {links.map((link) => (
+            <Pressable
+              key={link.label}
+              onPress={() => router.push(link.href)}
+              style={styles.linkRow}>
+              <View style={styles.linkIcon}>
+                <Ionicons color={colors.teal[600]} name={link.icon} size={18} />
+              </View>
+              <Text style={styles.linkLabel}>{link.label}</Text>
+              <Ionicons color={colors.ink[300]} name="chevron-forward" size={18} />
+            </Pressable>
+          ))}
 
           <Button label="Çıkış Yap" onPress={onLogout} style={styles.logout} variant="secondary" />
         </ResponsiveCenter>
@@ -59,7 +93,7 @@ export default function StaffProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.canvas },
   content: { flexGrow: 1 },
   header: { alignItems: 'center', marginBottom: spacing.xl },
   name: {
@@ -94,5 +128,37 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: 20,
   },
-  logout: { marginTop: spacing.sm },
+  sectionTitle: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  linkIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.teal[50],
+    marginRight: spacing.md,
+  },
+  linkLabel: {
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.text.primary,
+  },
+  logout: { marginTop: spacing.xl },
 });

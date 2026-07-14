@@ -39,7 +39,7 @@ function AuthHero({
 
   return (
     <LinearGradient
-      colors={gradients.brand}
+      colors={gradients.primary}
       end={{ x: 1, y: 1 }}
       start={{ x: 0, y: 0 }}
       style={[
@@ -60,6 +60,7 @@ function AuthHero({
       </Pressable>
 
       <View style={styles.heroContent}>
+        <Text style={styles.brandLabel}>Yeni Form</Text>
         <BrandMark size={compact ? 40 : 44} />
         <Text style={[styles.title, compact && styles.titleCompact]}>{title}</Text>
         <Text style={[styles.subtitle, compact && styles.subtitleCompact]}>{subtitle}</Text>
@@ -116,7 +117,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.canvas,
   },
   flex: {
     flex: 1,
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(196, 165, 116, 0.2)',
     bottom: 10,
     left: -30,
   },
@@ -174,9 +175,17 @@ const styles = StyleSheet.create({
   heroContent: {
     marginTop: spacing.md,
   },
+  brandLabel: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 13,
+    letterSpacing: 1.2,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
   title: {
     fontFamily: fonts.displayExtra,
-    fontSize: 24,
+    fontSize: 26,
     color: colors.white,
     marginTop: spacing.sm,
   },
@@ -202,6 +211,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     ...shadows.card,
   },
   footer: {

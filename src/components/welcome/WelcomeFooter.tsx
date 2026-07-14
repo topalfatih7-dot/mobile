@@ -16,6 +16,7 @@ type WelcomeFooterProps = {
   isLandscape?: boolean;
   onRegister: () => void;
   onLogin: () => void;
+  onExplore?: () => void;
 };
 
 function Dot({
@@ -45,6 +46,7 @@ export function WelcomeFooter({
   isLandscape = false,
   onRegister,
   onLogin,
+  onExplore,
 }: WelcomeFooterProps) {
   return (
     <View style={[styles.wrap, isLandscape && styles.wrapLandscape]}>
@@ -56,12 +58,11 @@ export function WelcomeFooter({
 
       <View style={[styles.actions, isLandscape && styles.actionsLandscape]}>
         <Button
-          label="Kayıt Ol"
+          label="Başla"
           onPress={onRegister}
           rightIcon="arrow-forward"
           size={isLandscape ? 'md' : 'lg'}
           style={isLandscape ? styles.actionHalf : undefined}
-          variant="secondary"
         />
         <Button
           label="Zaten hesabım var"
@@ -72,10 +73,15 @@ export function WelcomeFooter({
         />
       </View>
 
+      {onExplore && !isLandscape ? (
+        <Text onPress={onExplore} style={styles.explore}>
+          Uygulamayı keşfet
+        </Text>
+      ) : null}
+
       {!isLandscape ? (
         <Text style={styles.legal}>
-          Devam ederek <Text style={styles.legalLink}>Kullanım Koşulları</Text> ve{' '}
-          <Text style={styles.legalLink}>Gizlilik Politikası</Text>&apos;nı kabul edersin.
+          Devam ederek Kullanım Koşulları ve Gizlilik Politikası&apos;nı kabul edersin.
         </Text>
       ) : null}
     </View>
@@ -114,6 +120,14 @@ const styles = StyleSheet.create({
   },
   secondary: {
     marginTop: spacing.sm,
+  },
+  explore: {
+    marginTop: spacing.md,
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    textAlign: 'center',
+    color: colors.white,
+    textDecorationLine: 'underline',
   },
   legal: {
     marginTop: spacing.md,

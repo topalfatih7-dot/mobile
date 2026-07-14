@@ -25,11 +25,12 @@ import { colors, fonts, spacing } from '@/constants/theme';
 type IntroCarouselProps = {
   onStart: () => void;
   onLogin: () => void;
+  onExplore?: () => void;
 };
 
 const SLIDE_COUNT = WELCOME_SLIDES.length;
 
-export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
+export function IntroCarousel({ onStart, onLogin, onExplore }: IntroCarouselProps) {
   const insets = useSafeAreaInsets();
   const { width: slideWidth } = useWindowDimensions();
   const { isLandscape, isTablet } = useResponsive();
@@ -151,6 +152,7 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
           <WelcomeFooter
             count={SLIDE_COUNT}
             isLandscape={isLandscape}
+            onExplore={onExplore}
             onLogin={onLogin}
             onRegister={onStart}
             scrollWidth={slideWidth}
@@ -165,7 +167,7 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.brand[600],
+    backgroundColor: colors.teal[700],
   },
   header: {
     flexDirection: 'row',
