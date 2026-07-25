@@ -1,41 +1,66 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-type EmptyStateProps = {
+export function EmptyState({
+  title,
+  description,
+  icon = 'folder-open-outline',
+  iconSize = 56,
+  iconBg = colors.brand[50],
+  iconColor = colors.brand[500],
+}: {
   title: string;
-  subtitle?: string;
-};
-
-export function EmptyState({ title, subtitle }: EmptyStateProps) {
+  description?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconSize?: number;
+  iconBg?: string;
+  iconColor?: string;
+}) {
   return (
     <View style={styles.wrap}>
+      <View
+        style={[
+          styles.icon,
+          { width: iconSize, height: iconSize, backgroundColor: iconBg },
+        ]}>
+        <Ionicons color={iconColor} name={icon} size={28} />
+      </View>
       <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {description ? <Text style={styles.desc}>{description}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+    alignItems: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.cream[200],
+    gap: spacing.sm,
+  },
+  icon: {
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   title: {
-    fontFamily: fonts.semibold,
-    fontSize: 15,
-    color: colors.text.primary,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    color: colors.cream[900],
     textAlign: 'center',
   },
-  subtitle: {
-    marginTop: spacing.sm,
-    fontFamily: fonts.regular,
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: colors.text.secondary,
+  desc: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.cream[800],
+    opacity: 0.7,
     textAlign: 'center',
   },
 });

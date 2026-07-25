@@ -1,134 +1,206 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, { FadeIn as ReFadeIn, SlideInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AdminFormModal } from '@/components/admin/AdminFormModal';
-import { AdminPanelScreen } from '@/components/admin/AdminPanelScreen';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { getPlans, upsertPlan } from '@/services/db/plans';
-import type { MembershipPlan } from '@/services/hydrateShared';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { TextField } from '@/components/ui/TextField';
+import { useToast } from '@/context/ToastContext';
+import { ALL_PLANS, formatTry, type PlanCard } from '@/data/membershipPlans';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function AdminPlansScreen() {
-  const [plans, setPlans] = useState<MembershipPlan[]>([]);
-  const [modal, setModal] = useState(false);
-  const [edit, setEdit] = useState<MembershipPlan | null>(null);
-  const [saving, setSaving] = useState(false);
+/** LOCK: docs/mobile/screens/admin/plans.md */
+export default function AdminPlans() {
+  const insets = useSafeAreaInsets();
+  const { toast } = useToast();
+  const [plans, setPlans] = useState<PlanCard[]>(() => ALL_PLANS.map((p) => ({ ...p })));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
+  const [blurbDraft, setBlurbDraft] = useState('');
 
-  const load = useCallback(async () => {
-    setPlans(await getPlans(false));
-  }, []);
+  const editing = plans.find((p) => p.id === editingId);
+  const parsedPrice = Number(priceDraft.replace(',', '.'));
+  const priceValid = priceDraft.trim() !== '' && !Number.isNaN(parsedPrice) && parsedPrice >= 0;
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const openEdit = (plan: PlanCard) => {
+    setPriceDraft(String(plan.price));
+    setBlurbDraft(plan.blurb);
+    setEditingId(plan.id);
+  };
 
-  const onSave = async (values: Record<string, string>) => {
-    const id = (values.id || edit?.id || '').trim().toLowerCase();
-    const name = values.name?.trim();
-    if (!id || !name) {
-      Alert.alert('Eksik bilgi', 'Plan id ve adı zorunlu.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const result = await upsertPlan({
-        id,
-        name,
-        price: Number(values.price) || 0,
-        period: values.period || 'ay',
-        badge: values.badge || null,
-        isActive: values.active !== 'hayır',
-        features: edit?.features || [],
-        limits: edit?.limits || [],
-        pricingTiers: edit?.pricingTiers || [],
-        color: edit?.color || 'sage',
-        sortOrder: Number(values.sortOrder) || edit?.sortOrder || 0,
-      });
-      if (!result.success) {
-        Alert.alert('Hata', result.error);
-        return;
-      }
-      setModal(false);
-      setEdit(null);
-      await load();
-    } finally {
-      setSaving(false);
-    }
+  const save = () => {
+    if (!editing || !priceValid) return;
+    const name = editing.name;
+    setPlans((prev) =>
+      prev.map((p) =>
+        p.id === editing.id ? { ...p, price: parsedPrice, blurb: blurbDraft.trim() } : p,
+      ),
+    );
+    setEditingId(null);
+    toast(`${name} güncellendi.`, 'success');
   };
 
   return (
-    <AdminPanelScreen emptyTitle="Paket yok" subtitle="Üyelik paketleri" title="Paketler">
-      <Button
-        label="Paket ekle / güncelle"
-        onPress={() => {
-          setEdit(null);
-          setModal(true);
-        }}
-        style={styles.cta}
-      />
-      {plans.map((plan) => (
-        <Card
-          key={plan.id}
-          onPress={() => {
-            setEdit(plan);
-            setModal(true);
-          }}
-          padding={spacing.lg}
-          style={styles.card}>
-          <Text style={styles.name}>{plan.name}</Text>
-          <Text style={styles.price}>
-            {plan.price === 0 ? 'Ücretsiz' : `${plan.price.toLocaleString('tr-TR')} ₺`}
-            {plan.period ? ` / ${plan.period}` : ''}
-          </Text>
-          <Text style={styles.meta}>
-            {plan.id} · {plan.isActive ? 'Aktif' : 'Pasif'}
-          </Text>
-        </Card>
-      ))}
+    <PanelScaffold showBack subtitle="Paket tanımları" title="Planlar">
+      {plans.map((p, i) => {
+        const isVip = p.id === 'vip';
+        const inner = (
+          <>
+            {isVip ? (
+              <View style={styles.vipBadge}>
+                <Text style={styles.vipBadgeText}>En kapsamlı</Text>
+              </View>
+            ) : null}
+            <View style={styles.cardTop}>
+              <Text style={styles.title}>{p.name}</Text>
+              <Pressable
+                hitSlop={6}
+                onPress={() => openEdit(p)}
+                style={({ pressed }) => [styles.editBtn, pressed && styles.editBtnPressed]}>
+                <Ionicons color={colors.brand[600]} name="create-outline" size={20} />
+              </Pressable>
+            </View>
+            <Animated.View
+              entering={ReFadeIn.duration(200)}
+              key={`${p.price}-${p.blurb}`}>
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>{formatTry(p.price)}</Text>
+                {p.price > 0 ? (
+                  <Text style={styles.period}>/ {p.period.toLocaleLowerCase('tr-TR')}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.blurb}>{p.blurb}</Text>
+            </Animated.View>
+          </>
+        );
+        return (
+          <FadeIn delay={i * 40} key={p.id}>
+            {isVip ? (
+              <LinearGradient
+                colors={[colors.warm[50], colors.white]}
+                end={{ x: 0.5, y: 1 }}
+                start={{ x: 0.5, y: 0 }}
+                style={[styles.card, styles.cardVip]}>
+                {inner}
+              </LinearGradient>
+            ) : (
+              <View style={styles.card}>{inner}</View>
+            )}
+          </FadeIn>
+        );
+      })}
 
-      {modal ? (
-        <AdminFormModal
-          fields={[
-            { key: 'id', label: 'Plan id', placeholder: 'eko', autoCapitalize: 'none' },
-            { key: 'name', label: 'Ad' },
-            { key: 'price', label: 'Fiyat (₺)', keyboardType: 'numeric' },
-            { key: 'period', label: 'Periyot', placeholder: 'Aylık' },
-            { key: 'badge', label: 'Rozet (opsiyonel)' },
-            { key: 'sortOrder', label: 'Sıra', keyboardType: 'number-pad' },
-            { key: 'active', label: 'Aktif? (evet/hayır)', placeholder: 'evet' },
-          ]}
-          initialValues={
-            edit
-              ? {
-                  id: edit.id,
-                  name: edit.name,
-                  price: String(edit.price),
-                  period: edit.period,
-                  badge: edit.badge || '',
-                  sortOrder: String(edit.sortOrder || 0),
-                  active: edit.isActive ? 'evet' : 'hayır',
-                }
-              : { active: 'evet' }
-          }
-          loading={saving}
-          onClose={() => {
-            setModal(false);
-            setEdit(null);
-          }}
-          onSubmit={onSave}
-          title={edit ? 'Paketi düzenle' : 'Yeni paket'}
-          visible
-        />
-      ) : null}
-    </AdminPanelScreen>
+      <Modal
+        animationType="none"
+        onRequestClose={() => setEditingId(null)}
+        transparent
+        visible={Boolean(editing)}>
+        <View style={styles.sheetRoot}>
+          <Animated.View entering={ReFadeIn.duration(180)} style={StyleSheet.absoluteFill}>
+            <Pressable onPress={() => setEditingId(null)} style={styles.scrim} />
+          </Animated.View>
+          {editing ? (
+            <Animated.View
+              entering={SlideInDown.springify().damping(18)}
+              style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <View style={styles.grabber} />
+                <Text style={styles.sheetTitle}>{editing.name} düzenle</Text>
+                <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+                  <TextField
+                    keyboardType="numeric"
+                    label="Fiyat (₺)"
+                    onChangeText={setPriceDraft}
+                    value={priceDraft}
+                  />
+                  <TextField
+                    label="Açıklama"
+                    multiline
+                    onChangeText={setBlurbDraft}
+                    style={styles.blurbInput}
+                    value={blurbDraft}
+                  />
+                  <Button disabled={!priceValid} label="Kaydet" onPress={save} />
+                  <Button label="Vazgeç" onPress={() => setEditingId(null)} variant="ghost" />
+                </ScrollView>
+              </KeyboardAvoidingView>
+            </Animated.View>
+          ) : null}
+        </View>
+      </Modal>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  cta: { marginBottom: spacing.md },
-  card: { marginBottom: spacing.md },
-  name: { fontFamily: fonts.display, fontSize: 17, color: colors.text.primary },
-  price: { fontFamily: fonts.semibold, fontSize: 14, color: colors.teal[600], marginTop: 4 },
-  meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.text.muted, marginTop: spacing.sm },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    overflow: 'hidden',
+  },
+  cardVip: {
+    backgroundColor: undefined,
+    borderColor: `${colors.gold[400]}66`,
+  },
+  vipBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: colors.gold[400],
+    borderBottomLeftRadius: radius.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  vipBadgeText: { fontFamily: fonts.sansSemi, fontSize: 10, color: colors.white },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  title: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  editBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtnPressed: { backgroundColor: colors.cream[100] },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  price: { fontFamily: fonts.displayExtra, fontSize: 22, color: colors.brand[700] },
+  period: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  blurb: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 4 },
+  sheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  scrim: { flex: 1, backgroundColor: 'rgba(26,35,50,0.4)' },
+  sheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    maxHeight: '85%',
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.cream[300],
+    marginBottom: spacing.sm,
+  },
+  sheetTitle: { fontFamily: fonts.displayExtra, fontSize: 18, color: colors.cream[900] },
+  sheetBody: { gap: spacing.md, paddingTop: spacing.md },
+  blurbInput: { minHeight: 80, textAlignVertical: 'top' },
 });

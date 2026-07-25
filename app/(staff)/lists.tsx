@@ -1,165 +1,131 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { AppHeader } from '@/components/ui/AppHeader';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Screen } from '@/components/ui/Screen';
-import { useApp } from '@/context/AppContext';
-import { fetchStaffNutritionLists, type DbProgram } from '@/services/db/programs';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-const MEAL_LABELS: Record<string, string> = {
-  breakfast: 'Kahvaltı',
-  lunch: 'Öğle',
-  dinner: 'Akşam',
-  snack: 'Ara öğün',
-  brunch: 'Brunch',
+type ListCard = {
+  id: string;
+  title: string;
+  memberName: string;
+  status: 'active' | 'expired';
+  summary: string;
 };
 
-/** Web `StaffListsPage` — personelin nutrition program listeleri. */
-export default function StaffListsScreen() {
-  const { staff } = useApp();
-  const [lists, setLists] = useState<DbProgram[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<string | null>(null);
+/** LOCK: docs/mobile/screens/staff/lists.md */
+export default function StaffLists() {
+  const { staff } = useAuth();
+  const { loading, programs, staffClients } = useData();
 
-  const load = useCallback(async () => {
-    if (!staff?.id) {
-      setLists([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      setLists(await fetchStaffNutritionLists(staff.id));
-    } finally {
-      setLoading(false);
-    }
-  }, [staff?.id]);
+  const cards = useMemo(() => {
+    const nameById = new Map(
+      staffClients.map((c) => [String(c.id), String(c.name || 'Danışan')]),
+    );
+    const clientIds = new Set(staffClients.map((c) => String(c.id)));
+    const staffId = staff?.id ? String(staff.id) : null;
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+    return programs
+      .filter((p) => {
+        if (String(p.type || '') !== 'nutrition') return false;
+        const mid = String(p.memberId || '');
+        if (clientIds.has(mid)) return true;
+        if (staffId && String((p as { staffId?: string }).staffId || '') === staffId) return true;
+        return false;
+      })
+      .map((p): ListCard => {
+        const entries = Array.isArray(p.entries) ? p.entries : [];
+        return {
+          id: String(p.id),
+          title: String(p.title || 'Beslenme'),
+          memberName: nameById.get(String(p.memberId || '')) || 'Danışan',
+          status: 'active',
+          summary: `14 günlük döngü · ${entries.length} öğün · her gün`,
+        };
+      });
+  }, [programs, staffClients, staff?.id]);
 
   return (
-    <Screen scroll contentStyle={styles.content} edges={{ top: true, bottom: true }}>
-      <AppHeader
-        showBack
-        subtitle={lists.length ? `${lists.length} liste · danışan takviminde görünür` : 'Beslenme listeleri'}
-        title="Listeler"
-      />
-      <View style={styles.body}>
-        {loading ? (
-          <ActivityIndicator color={colors.teal[600]} size="large" style={styles.loader} />
-        ) : lists.length === 0 ? (
-          <EmptyState
-            subtitle="Danışanlarım sayfasından bir danışan seçip beslenme listesi oluşturabilirsiniz."
-            title="Henüz liste oluşturulmadı"
-          />
-        ) : (
-          lists.map((p) => {
-            const open = expanded === p.id;
-            const mealCount = new Set(
-              (p.entries || []).map((e) => `${e.date ?? e.day}_${e.mealType}`),
-            ).size;
-            return (
-              <View key={p.id} style={styles.card}>
-                <Pressable onPress={() => setExpanded(open ? null : p.id)} style={styles.cardHead}>
-                  <View style={styles.flex}>
-                    <Text style={styles.title}>{p.title || 'Beslenme listesi'}</Text>
-                    <Text style={styles.meta}>
-                      {p.memberName || 'Danışan'}
-                      {p.createdAt
-                        ? ` · ${new Date(p.createdAt).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}`
-                        : ''}
+    <PanelScaffold subtitle="Beslenme listeleri" title="Listeler">
+      {loading && cards.length === 0 ? (
+        <InlineSpinner fill />
+      ) : cards.length === 0 ? (
+        <EmptyState
+          description="Danışan seçip oluşturduğunuzda burada görünür."
+          title="Henüz liste yok"
+        />
+      ) : (
+        cards.map((l, i) => (
+          <FadeIn key={l.id} delay={40 + i * 30}>
+            <View style={styles.card}>
+              <View style={styles.strip} />
+              <View style={styles.body}>
+                <Text style={styles.title}>{l.title}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.member}>{l.memberName}</Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      l.status === 'active' ? styles.badgeActive : styles.badgeExpired,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        l.status === 'active'
+                          ? styles.badgeTextActive
+                          : styles.badgeTextExpired,
+                      ]}>
+                      {l.status === 'active' ? 'Aktif' : 'Süresi doldu'}
                     </Text>
                   </View>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{mealCount || p.items.length} öğün</Text>
-                  </View>
-                </Pressable>
-                {open ? (
-                  <View style={styles.detail}>
-                    {p.description ? <Text style={styles.desc}>{p.description}</Text> : null}
-                    {p.entries?.length > 0
-                      ? p.entries.map((entry) => (
-                          <View key={entry.id} style={styles.entry}>
-                            <Text style={styles.meal}>
-                              {MEAL_LABELS[String(entry.mealType || '')] || entry.mealType || 'Öğün'}
-                            </Text>
-                            <Text style={styles.entryName}>{entry.name || '—'}</Text>
-                            {entry.note ? (
-                              <Text style={styles.note}>Not: {String(entry.note)}</Text>
-                            ) : null}
-                          </View>
-                        ))
-                      : (p.items || []).map((item, i) => (
-                          <Text key={i} style={styles.item}>
-                            · {String(item)}
-                          </Text>
-                        ))}
-                  </View>
-                ) : null}
+                </View>
+                <Text style={styles.summary}>{l.summary}</Text>
               </View>
-            );
-          })
-        )}
-      </View>
-    </Screen>
+            </View>
+          </FadeIn>
+        ))
+      )}
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 0 },
-  body: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, gap: spacing.sm },
-  loader: { marginTop: spacing.xxl },
   card: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  cardHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.lg,
-  },
-  flex: { flex: 1, minWidth: 0 },
-  title: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text.primary },
-  meta: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.text.muted, marginTop: 4 },
-  badge: {
-    backgroundColor: colors.teal[50],
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.teal[700] },
-  detail: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  desc: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.secondary, marginBottom: 4 },
-  entry: {
-    backgroundColor: colors.teal[50],
-    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    overflow: 'hidden',
   },
-  meal: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    color: colors.teal[700],
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+  strip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.sage[400],
   },
-  entryName: { fontFamily: fonts.medium, fontSize: 14, color: colors.text.primary, marginTop: 4 },
-  note: { fontFamily: fonts.regular, fontSize: 12, color: colors.text.muted, marginTop: 4 },
-  item: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.secondary, lineHeight: 22 },
+  body: { flex: 1, gap: 4 },
+  title: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  member: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  badge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeActive: { backgroundColor: colors.sage[100] },
+  badgeExpired: { backgroundColor: colors.cream[100] },
+  badgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
+  badgeTextActive: { color: colors.sage[700] },
+  badgeTextExpired: { color: colors.cream[800] },
+  summary: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800], opacity: 0.8 },
 });

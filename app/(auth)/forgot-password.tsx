@@ -1,88 +1,102 @@
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { requestPasswordReset } from '@/services/supabaseAuth';
-import { colors, fonts, spacing } from '@/constants/theme';
-import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/emailAddress';
+import { TextField } from '@/components/ui/TextField';
+import { sendPasswordReset } from '@/services/authPassword';
+import { colors, fonts, radius, spacing } from '@/theme';
 
+/** LOCK: docs/mobile/screens/public/forgot-password.md */
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
 
   const onSubmit = async () => {
-    const cleanEmail = sanitizeEmailInput(email);
-    if (cleanEmail !== email) setEmail(cleanEmail);
-    if (!isValidEmailAddress(cleanEmail)) {
-      setError('Geçerli bir e-posta girin');
-      return;
-    }
-
     setLoading(true);
-    setError('');
     try {
-      const result = await requestPasswordReset(cleanEmail);
-      if (!result.success) {
-        setError(result.error || 'İşlem başarısız.');
+      const r = await sendPasswordReset(email);
+      if (!r.success) {
+        Alert.alert('Şifre sıfırlama', r.error);
         return;
       }
       setSent(true);
-      Alert.alert(
-        'E-posta gönderildi',
-        'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Gelen kutunuzu kontrol edin.',
-      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthScaffold
-      footer={
-        <Text onPress={() => router.back()} style={styles.back}>
-          Giriş ekranına dön
-        </Text>
-      }
-      subtitle="Kayıtlı e-posta adresinize sıfırlama bağlantısı göndeririz."
+    <AuthScreenShell
+      subtitle="E-posta adresine sıfırlama bağlantısı gönderilir."
       title="Şifremi unuttum">
-      <Input
-        autoCapitalize="none"
-        autoComplete="email"
-        error={error}
-        icon="mail-outline"
-        keyboardType="email-address"
-        label="E-posta"
-        onChangeText={setEmail}
-        placeholder="ornek@eposta.com"
-        value={email}
-      />
-
-      {sent ? <Text style={styles.success}>Bağlantı gönderildi. E-postanızı kontrol edin.</Text> : null}
-
-      <View style={styles.gap} />
-      <Button label="Sıfırlama Bağlantısı Gönder" loading={loading} onPress={onSubmit} />
-    </AuthScaffold>
+      {sent ? (
+        <View style={styles.success}>
+          <View style={styles.checkCircle}>
+            <Ionicons color={colors.sage[600]} name="checkmark-circle" size={48} />
+          </View>
+          <Text style={styles.successTitle}>E-postanı kontrol et</Text>
+          <Text style={styles.successBody}>
+            Sıfırlama bağlantısı gönderildi. Gelen kutunu (ve spam’i) kontrol et; bağlantıdan yeni
+            şifreni belirle.
+          </Text>
+          <Button label="Girişe dön" onPress={() => router.replace('/(auth)/login')} />
+        </View>
+      ) : (
+        <View style={styles.form}>
+          <TextField
+            accent="brand"
+            autoComplete="email"
+            icon="mail-outline"
+            keyboardType="email-address"
+            label="E-posta"
+            onChangeText={setEmail}
+            placeholder="ornek@yeniform.com"
+            value={email}
+          />
+          <Button label="Bağlantı gönder" loading={loading} onPress={onSubmit} />
+          <Link asChild href="/(auth)/login">
+            <Pressable style={styles.back}>
+              <Text style={styles.backText}>Girişe dön</Text>
+            </Pressable>
+          </Link>
+        </View>
+      )}
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: { height: spacing.lg },
-  back: {
-    fontFamily: fonts.semibold,
-    fontSize: 14.5,
+  form: { gap: spacing.md },
+  back: { alignItems: 'center', paddingVertical: 10 },
+  backText: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 14,
     color: colors.brand[600],
-    textAlign: 'center',
   },
-  success: {
-    marginTop: spacing.md,
-    fontFamily: fonts.medium,
-    fontSize: 13.5,
-    color: colors.success,
-    lineHeight: 20,
+  success: { alignItems: 'center', gap: spacing.md },
+  checkCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.full,
+    backgroundColor: colors.sage[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontFamily: fonts.displayBold,
+    fontSize: 22,
+    color: colors.cream[900],
+  },
+  successBody: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.cream[800],
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
 });

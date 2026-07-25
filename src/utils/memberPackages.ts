@@ -1,64 +1,318 @@
+// @ts-nocheck
+import {
+  DEFAULT_PACKAGE,
+  getDefaultPackageForPlan,
+  isPaidMembership,
+  PLAN_IDS,
+  sanitizeStaffForPackage,
+} from '@/data/membershipPlans'
+
+const todayIso = () => new Date().toISOString().split('T')[0]
+
+function getDurationMonths(packageConfig: Record<string, unknown> = {}) {
+  if (packageConfig.durationMonths) return Number(packageConfig.durationMonths)
+  if (packageConfig.durationWeeks) {
+    return Math.max(1, Math.round(Number(packageConfig.durationWeeks) / 4))
+  }
+  return 1
+}
+
+function computePremiumExpiresAt(startDate: string, durationMonths: number) {
+  const start = startDate || todayIso()
+  const d = new Date(start)
+  d.setMonth(d.getMonth() + (Number(durationMonths) || 1))
+  return d.toISOString().split('T')[0]
+}
+
+const today = () => new Date().toISOString().split('T')[0]
+
+export const ONE_TIME_PLANS = new Set(['doktor'])
+
+export function isOneTimePlan(planId) {
+  return ONE_TIME_PLANS.has(planId)
+}
+
+export function isPackageEntryActive(pkg, now = today()) {
+  if (!pkg || pkg.status !== 'active') return false
+  if (isOneTimePlan(pkg.planId) || pkg.packageConfig?.billingType === 'one_time') return true
+  if (!pkg.expiresAt) return true
+  return pkg.expiresAt >= now
+}
+
+/** Eski tekil üyelik → activePackages dizisine taşır */
+export function migrateLegacyToPackages(member) {
+  // Explicit array (including []) is authoritative — do not revive from membership
+  if (Array.isArray(member?.activePackages)) {
+    return member.activePackages
+  }
+  if (!member || !isPaidMembership(member.membership)) return []
+  const planId = member.membership
+  const packageConfig = member.packageConfig || getDefaultPackageForPlan(planId)
+  return [{
+    id: `legacy-${member.id}-${planId}`,
+    planId,
+    packageConfig,
+    startedAt: member.premiumStartedAt || member.joinedAt || today(),
+    expiresAt: isOneTimePlan(planId) ? null : (member.premiumExpiresAt || null),
+    status: 'active',
+    purchasedAt: member.premiumStartedAt || member.joinedAt || today(),
+  }]
+}
+
+export function countUsedDoctorSessions(member) {
+  return (member?.doctorSessions || []).filter((s) =>
+    ['scheduled', 'rescheduled', 'completed'].includes(s?.status || 'scheduled')
+  ).length
+}
+
+export function mergePackageConfigs(packages = [], member = null) {
+  const active = packages.filter((p) => isPackageEntryActive(p))
+  const merged = { ...DEFAULT_PACKAGE, addOns: [] }
+
+  active.forEach((pkg) => {
+    const c = pkg.packageConfig || {}
+    merged.coachMeetingsPerMonth = Math.max(
+      merged.coachMeetingsPerMonth,
+      Number(c.coachMeetingsPerMonth) || 0
+    )
+    merged.dietitianMeetingsPerMonth = Math.max(
+      merged.dietitianMeetingsPerMonth,
+      Number(c.dietitianMeetingsPerMonth) || 0
+    )
+    merged.doctorMeetingsPerMonth = Math.max(
+      merged.doctorMeetingsPerMonth,
+      Number(c.doctorMeetingsPerMonth) || 0
+    )
+    merged.coachMeetingsPerWeek = Math.max(
+      merged.coachMeetingsPerWeek,
+      Number(c.coachMeetingsPerWeek) || 0
+    )
+    merged.doctorSessionsTotal = (Number(merged.doctorSessionsTotal) || 0)
+      + (Number(c.doctorSessionsTotal) || 0)
+    if (c.billingType === 'one_time') merged.billingType = 'one_time'
+    merged.durationMonths = Math.max(merged.durationMonths || 0, getDurationMonths(c))
+  })
+
+  const usedDoctor = member ? countUsedDoctorSessions(member) : 0
+  if (merged.doctorSessionsTotal > 0) {
+    merged.doctorSessionsRemaining = Math.max(0, merged.doctorSessionsTotal - usedDoctor)
+  }
+
+  return merged
+}
+
+const PLAN_RANK = Object.fromEntries(PLAN_IDS.map((id, i) => [id, i]))
+
+/** Geriye dönük plan id → sıra (resolvePrimaryMembership) */
+export const LEGACY_PLAN_RANK = {
+  gumus: 1,
+  altin: 4,
+  kurucu: 4,
+  platinum: 5,
+  premium: 5,
+}
+
+export function planRank(planId) {
+  if (PLAN_RANK[planId] != null) return PLAN_RANK[planId]
+  return LEGACY_PLAN_RANK[planId] ?? 0
+}
+
+/** Görüntüleme için birincil plan (en yüksek abonelik; yalnız doktor varsa doktor) */
+export function resolvePrimaryMembership(activePackages = [], fallback = 'free') {
+  const active = activePackages.filter((p) => isPackageEntryActive(p))
+  if (!active.length) return fallback === 'free' ? 'free' : fallback
+
+  const subs = active.filter((p) => !isOneTimePlan(p.planId))
+  const pool = subs.length ? subs : active
+  return pool.reduce((best, p) => {
+    const rank = planRank(p.planId)
+    const bestRank = planRank(best)
+    return rank >= bestRank ? p.planId : best
+  }, pool[0].planId)
+}
+
+export function createPackageEntry(planId, packageConfig, meta = {}) {
+  const startedAt = meta.startedAt || today()
+  const oneTime = isOneTimePlan(planId) || packageConfig?.billingType === 'one_time'
+  return {
+    id: meta.id || `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    planId,
+    packageConfig,
+    startedAt,
+    expiresAt: oneTime
+      ? null
+      : computePremiumExpiresAt(startedAt, getDurationMonths(packageConfig)),
+    status: 'active',
+    purchasedAt: meta.purchasedAt || new Date().toISOString(),
+    price: meta.price || 0,
+  }
+}
+
+export function addMemberPackage(activePackages = [], planId, packageConfig, meta = {}) {
+  return [...(activePackages || []), createPackageEntry(planId, packageConfig, meta)]
+}
+
+export function memberHasActivePaidPackages(member) {
+  const packages = migrateLegacyToPackages(member)
+  return packages.some((p) => isPackageEntryActive(p))
+}
+
+export function shouldStackNewPackage(member, planId) {
+  if (planId === 'free') return false
+  return memberHasActivePaidPackages(member)
+}
+
 /**
- * Paket erişim kapıları — web `memberPackages.js` (kalori / video).
+ * Ücretli plan satın alma / değiştirme:
+ * - Tek seferlik (doktor) veya addPackage → mevcut paketlere ekler
+ * - Abonelik planı → aktif abonelikleri değiştirir, tek seferlik paketleri korur
  */
-import type { MemberProfile } from '@/types/session';
+export function resolvePackagePurchase(activePackages = [], planId, packageConfig, meta = {}, options = {}) {
+  const { addPackage = false } = options
+  const packages = activePackages || []
 
-const PHOTO_CALORIE_PLANS = new Set(['diyet', 'spor', 'vip', 'platinum', 'premium']);
-const FULL_VIDEO_PLANS = new Set(['spor', 'vip', 'platinum', 'premium']);
-const MANUAL_CALORIE_EXCLUDE = new Set(['free', 'doktor', 'kurucu']);
+  if (addPackage || isOneTimePlan(planId)) {
+    return addMemberPackage(packages, planId, packageConfig, meta)
+  }
 
-type PackageEntry = {
-  planId?: string;
-  status?: string;
-  expiresAt?: string | null;
-  packageConfig?: { billingType?: string };
-};
-
-function today() {
-  return new Date().toISOString().split('T')[0];
+  const keepOneTime = packages.filter((p) => isOneTimePlan(p.planId) && isPackageEntryActive(p))
+  return [...keepOneTime, createPackageEntry(planId, packageConfig, meta)]
 }
 
-function isOneTimePlan(planId: string) {
-  return planId === 'doktor';
+/** Paket süreleri, tüketim ve birleşik config */
+export function syncMemberPackages(member) {
+  if (!member) return member
+
+  let packages = migrateLegacyToPackages(member)
+  const now = today()
+  const usedDoctor = countUsedDoctorSessions(member)
+
+  packages = packages.map((pkg) => {
+    if (isOneTimePlan(pkg.planId) || pkg.packageConfig?.billingType === 'one_time') {
+      const total = Number(pkg.packageConfig?.doctorSessionsTotal) || 1
+      if (usedDoctor >= total) return { ...pkg, status: 'consumed' }
+      return { ...pkg, status: 'active' }
+    }
+    if (pkg.expiresAt && pkg.expiresAt < now) return { ...pkg, status: 'expired' }
+    return { ...pkg, status: pkg.status === 'consumed' ? 'consumed' : 'active' }
+  })
+
+  const active = packages.filter((p) => isPackageEntryActive(p))
+  const merged = mergePackageConfigs(active, member)
+  const primary = resolvePrimaryMembership(active, member.membership)
+
+  const subExpiries = active
+    .filter((p) => !isOneTimePlan(p.planId) && p.expiresAt)
+    .map((p) => p.expiresAt)
+    .sort()
+  const latestExpiry = subExpiries.length ? subExpiries[subExpiries.length - 1] : null
+
+  let membership = active.length ? primary : 'free'
+  let membershipStatus = member.membershipStatus || 'active'
+  const adminHeld = membershipStatus === 'paused' || membershipStatus === 'cancelled'
+  const wasPaid = isPaidMembership(member.membership)
+
+  if (!active.length && wasPaid) {
+    membership = 'free'
+    if (!adminHeld) membershipStatus = 'active'
+  } else if (latestExpiry && !adminHeld) {
+    const remaining = Math.ceil((new Date(latestExpiry) - new Date(now)) / (1000 * 60 * 60 * 24))
+    if (remaining <= 0) {
+      membership = active.length ? primary : 'free'
+    } else if (remaining <= 7) {
+      membershipStatus = 'expiring'
+    } else if (membershipStatus === 'expiring') {
+      membershipStatus = 'active'
+    }
+  } else if (adminHeld) {
+    membershipStatus = member.membershipStatus
+  }
+
+  // Ücretli geçmişi olan üyede eski 48s deneme kilidi kalmasın
+  // (DB membership zaten free olsa bile premiumStartedAt / paket geçmişi yeter)
+  let freeTrialExpiresAt = member.freeTrialExpiresAt ?? null
+  const hadPaidHistory = wasPaid
+    || Boolean(member.premiumStartedAt)
+    || packages.some((p) => isPaidMembership(p.planId))
+  if (membership === 'free' && hadPaidHistory && !active.length) {
+    freeTrialExpiresAt = null
+  }
+
+  const synced = {
+    ...member,
+    activePackages: packages,
+    packageConfig: merged,
+    membership,
+    membershipStatus,
+    premiumExpiresAt: latestExpiry ?? (active.length ? member.premiumExpiresAt : null),
+    premiumStartedAt: member.premiumStartedAt || packages[0]?.startedAt || null,
+    freeTrialExpiresAt,
+  }
+  return sanitizeStaffForPackage(merged, synced)
 }
 
-function isPackageEntryActive(pkg: PackageEntry, now = today()) {
-  if (!pkg || pkg.status !== 'active') return false;
-  if (isOneTimePlan(pkg.planId || '') || pkg.packageConfig?.billingType === 'one_time') return true;
-  if (!pkg.expiresAt) return true;
-  return pkg.expiresAt >= now;
+/** hydrate sırasında süre dolumu senkronunun DB'ye yazılması gerekip gerekmediği */
+export function memberExpirySyncNeedsPersist(before, after) {
+  if (!before || !after) return false
+  if (before.membership !== after.membership) return true
+  if (before.membershipStatus !== after.membershipStatus) return true
+  if (before.assignedCoachId !== after.assignedCoachId) return true
+  if (before.assignedDietitianId !== after.assignedDietitianId) return true
+  if (before.assignedDoctorId !== after.assignedDoctorId) return true
+  if ((before.freeTrialExpiresAt || null) !== (after.freeTrialExpiresAt || null)) return true
+  if ((before.premiumExpiresAt || null) !== (after.premiumExpiresAt || null)) return true
+  // Gelecek seans iptalleri (paket bitişi) de yazılsın
+  for (const key of ['coachSessions', 'dietitianSessions', 'doctorSessions']) {
+    if (JSON.stringify(before[key] || []) !== JSON.stringify(after[key] || [])) return true
+  }
+  return false
 }
 
-function migrateLegacyToPackages(member: MemberProfile | null | undefined): PackageEntry[] {
-  const raw = member?.activePackages;
-  if (Array.isArray(raw) && raw.length > 0) return raw as PackageEntry[];
-  const membership = (member?.membership as string) || 'free';
-  if (!membership || membership === 'free') return [];
-  return [
-    {
-      id: `legacy-${member?.id}-${membership}`,
-      planId: membership,
-      status: 'active',
-      expiresAt: (member?.premiumExpiresAt as string) || null,
-    } as PackageEntry,
-  ];
+/** Doktor randevu limiti: tek seferlik kalan hak veya aylık limit */
+export function doctorBookingLimit(packageConfig = {}, member = null) {
+  const total = Number(packageConfig.doctorSessionsTotal) || 0
+  if (total > 0 && member) {
+    return Math.max(0, total - countUsedDoctorSessions(member))
+  }
+  return Number(packageConfig.doctorMeetingsPerMonth) || 0
 }
 
-function activePlanIds(member: MemberProfile | null | undefined): string[] {
-  const activePackages = migrateLegacyToPackages(member).filter((p) => isPackageEntryActive(p));
-  const ids = activePackages.map((p) => p.planId).filter(Boolean) as string[];
-  const membership = (member?.membership as string) || 'free';
-  return ids.length ? ids : [membership];
+export function doctorLimitIsOneTime(packageConfig = {}) {
+  return (Number(packageConfig.doctorSessionsTotal) || 0) > 0
 }
 
-export function memberHasPhotoCalorieAccess(member: MemberProfile | null | undefined) {
-  return activePlanIds(member).some((id) => PHOTO_CALORIE_PLANS.has(id));
+const PHOTO_CALORIE_PLANS = new Set(['diyet', 'spor', 'vip', 'platinum', 'premium'])
+const FULL_VIDEO_PLANS = new Set(['spor', 'vip', 'platinum', 'premium'])
+const MANUAL_CALORIE_EXCLUDE = new Set(['free', 'doktor', 'kurucu'])
+
+/** Aktif paketler + birleşik config */
+export function resolveMemberEntitlements(member) {
+  if (!member) {
+    return { membership: 'free', packageConfig: { ...DEFAULT_PACKAGE }, activePackages: [] }
+  }
+  const activePackages = migrateLegacyToPackages(member)
+  const active = activePackages.filter((p) => isPackageEntryActive(p))
+  const packageConfig = active.length
+    ? mergePackageConfigs(active, member)
+    : (member.packageConfig || { ...DEFAULT_PACKAGE })
+  const membership = resolvePrimaryMembership(active, member.membership || 'free')
+  return { membership, packageConfig, activePackages: active }
 }
 
-export function memberHasManualCalorieAccess(member: MemberProfile | null | undefined) {
-  return activePlanIds(member).some((id) => !MANUAL_CALORIE_EXCLUDE.has(id));
+function activePlanIds(member) {
+  const { activePackages, membership } = resolveMemberEntitlements(member)
+  const ids = activePackages.map((p) => p.planId)
+  return ids.length ? ids : [membership]
 }
 
-export function memberHasFullVideoAccess(member: MemberProfile | null | undefined) {
-  return activePlanIds(member).some((id) => FULL_VIDEO_PLANS.has(id));
+export function memberHasPhotoCalorieAccess(member) {
+  return activePlanIds(member).some((id) => PHOTO_CALORIE_PLANS.has(id))
+}
+
+export function memberHasManualCalorieAccess(member) {
+  return activePlanIds(member).some((id) => !MANUAL_CALORIE_EXCLUDE.has(id))
+}
+
+export function memberHasFullVideoAccess(member) {
+  return activePlanIds(member).some((id) => FULL_VIDEO_PLANS.has(id))
 }

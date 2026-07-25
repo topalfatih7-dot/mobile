@@ -1,174 +1,202 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AdminPanelScreen } from '@/components/admin/AdminPanelScreen';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import {
-  fetchCorporateApplications,
-  fetchStaffApplications,
-  resolveCorporateApplication,
-  resolveStaffApplication,
-  type CorporateApplication,
-  type StaffApplication,
-} from '@/services/db/applications';
-import { staffRoleLabel } from '@/utils/staffAccess';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
+import { useToast } from '@/context/ToastContext';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function AdminApplicationsScreen() {
-  const [staffApps, setStaffApps] = useState<StaffApplication[]>([]);
-  const [corpApps, setCorpApps] = useState<CorporateApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
+const TABS = [
+  { id: 'staff', label: 'Personel' },
+  { id: 'corporate', label: 'Kurumsal' },
+  { id: 'contact', label: 'İletişim' },
+] as const;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [s, c] = await Promise.all([fetchStaffApplications(), fetchCorporateApplications()]);
-      setStaffApps(s);
-      setCorpApps(c);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const KIND_LABELS: Record<string, string> = {
+  staff: 'Personel',
+  corporate: 'Kurumsal',
+  contact: 'İletişim',
+};
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+type LocalStatus = 'approved' | 'rejected';
 
-  const pendingStaff = staffApps.filter((a) => a.status === 'pending');
-  const pendingCorp = corpApps.filter((a) => a.status === 'pending' || a.status === 'new');
+const STATUS_STYLES: Record<
+  string,
+  { label: string; bg: string; color: string }
+> = {
+  pending: { label: 'Bekliyor', bg: colors.warm[100], color: colors.warm[500] },
+  reviewed: { label: 'İncelendi', bg: colors.brand[100], color: colors.brand[700] },
+  approved: { label: 'Onaylandı', bg: colors.sage[100], color: colors.sage[700] },
+  rejected: { label: 'Reddedildi', bg: colors.cream[200], color: colors.cream[800] },
+};
+
+function relativeDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86400000);
+  if (diffDays <= 0) return 'Bugün';
+  if (diffDays === 1) return 'Dün';
+  return d.toLocaleDateString('tr-TR');
+}
+
+/** LOCK: docs/mobile/screens/admin/applications.md */
+export default function AdminApplications() {
+  const { toast } = useToast();
+  const { loading, platform } = useData();
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('staff');
+  const [decisions, setDecisions] = useState<Record<string, LocalStatus>>({});
+
+  const allApps = useMemo(
+    () => [
+      ...platform.staffApplications,
+      ...platform.corporateApplications,
+      ...platform.contactInquiries,
+    ],
+    [
+      platform.staffApplications,
+      platform.corporateApplications,
+      platform.contactInquiries,
+    ],
+  );
+
+  const list = allApps.filter((a) => String(a.kind) === tab);
+
+  const decide = (id: string, decision: LocalStatus) => {
+    setDecisions((prev) => ({ ...prev, [id]: decision }));
+    toast(decision === 'approved' ? 'Başvuru onaylandı.' : 'Başvuru reddedildi.', 'success');
+  };
 
   return (
-    <AdminPanelScreen subtitle="Bekleyen başvurular" title="Başvurular">
-      {loading ? (
-        <ActivityIndicator color={colors.teal[600]} style={{ marginTop: spacing.xl }} />
+    <PanelScaffold showBack subtitle="Başvuru kuyruğu" title="Başvurular">
+      {loading && allApps.length === 0 ? (
+        <InlineSpinner fill />
       ) : (
         <>
-          <Text style={styles.heading}>Kadro ({pendingStaff.length} bekleyen)</Text>
-          {staffApps.length === 0 ? (
-            <Text style={styles.empty}>Personel başvurusu yok.</Text>
-          ) : (
-            staffApps.map((app) => (
-              <Card key={app.id} padding={spacing.md} style={styles.card}>
-                <Text style={styles.name}>
-                  {app.name} · {staffRoleLabel(app.role)}
-                </Text>
-                <Text style={styles.meta}>
-                  {app.email} · {app.status}
-                </Text>
-                {app.status === 'pending' ? (
-                  <View style={styles.row}>
-                    <Button
-                      label="Onayla"
-                      loading={busyId === app.id}
-                      onPress={() => {
-                        void (async () => {
-                          setBusyId(app.id);
-                          try {
-                            const r = await resolveStaffApplication(app, true);
-                            if (!r.success) Alert.alert('Hata', r.error);
-                            else {
-                              Alert.alert(
-                                'Onaylandı',
-                                r.tempPassword
-                                  ? `Geçici şifre: ${r.tempPassword}`
-                                  : 'Personel hesabı oluşturuldu.',
-                              );
-                              await load();
-                            }
-                          } finally {
-                            setBusyId(null);
-                          }
-                        })();
-                      }}
-                      size="sm"
-                      style={styles.flex}
-                    />
-                    <Button
-                      label="Reddet"
-                      onPress={() => {
-                        void (async () => {
-                          setBusyId(app.id);
-                          try {
-                            const r = await resolveStaffApplication(app, false);
-                            if (!r.success) Alert.alert('Hata', r.error);
-                            else await load();
-                          } finally {
-                            setBusyId(null);
-                          }
-                        })();
-                      }}
-                      size="sm"
-                      style={styles.flex}
-                      variant="danger"
-                    />
-                  </View>
-                ) : null}
-              </Card>
-            ))
-          )}
+          <View style={styles.tabs}>
+            {TABS.map((t) => {
+              const count = allApps.filter((a) => String(a.kind) === t.id).length;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => setTab(t.id)}
+                  style={[styles.tab, tab === t.id && styles.tabOn]}>
+                  <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>
+                    {t.label}
+                    <Text style={styles.tabCount}> · {count}</Text>
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          <Text style={[styles.heading, styles.top]}>Kurumsal ({pendingCorp.length} bekleyen)</Text>
-          {corpApps.length === 0 ? (
-            <Text style={styles.empty}>Kurumsal başvuru yok.</Text>
-          ) : (
-            corpApps.map((app) => (
-              <Card key={app.id} padding={spacing.md} style={styles.card}>
-                <Text style={styles.name}>{app.companyName}</Text>
-                <Text style={styles.meta}>
-                  {app.contactName} · {app.email} · {app.status}
-                </Text>
-                {app.status === 'pending' || app.status === 'new' ? (
-                  <View style={styles.row}>
-                    <Button
-                      label="Onayla"
-                      onPress={() => {
-                        void (async () => {
-                          const r = await resolveCorporateApplication(app, 'approved');
-                          if (!r.success) Alert.alert('Hata', r.error);
-                          else await load();
-                        })();
-                      }}
-                      size="sm"
-                      style={styles.flex}
-                    />
-                    <Button
-                      label="Reddet"
-                      onPress={() => {
-                        void (async () => {
-                          const r = await resolveCorporateApplication(app, 'rejected');
-                          if (!r.success) Alert.alert('Hata', r.error);
-                          else await load();
-                        })();
-                      }}
-                      size="sm"
-                      style={styles.flex}
-                      variant="danger"
-                    />
+          <FadeIn key={tab} style={styles.list}>
+            {list.map((a) => {
+              const id = String(a.id);
+              const status: string = decisions[id] ?? String(a.status || 'pending');
+              const badge = STATUS_STYLES[status] ?? STATUS_STYLES.pending;
+              const showActions = tab === 'staff' && status === 'pending';
+              return (
+                <View key={id} style={styles.card}>
+                  <View style={styles.cardTop}>
+                    <Text style={styles.name}>{String(a.name || '')}</Text>
+                    <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                    </View>
                   </View>
-                ) : null}
-              </Card>
-            ))
-          )}
+                  <Text style={styles.meta}>
+                    {KIND_LABELS[String(a.kind)] ?? String(a.kind)} ·{' '}
+                    {relativeDate(String(a.createdAt || new Date().toISOString()))}
+                  </Text>
+                  {showActions ? (
+                    <View style={styles.actions}>
+                      <Pressable onPress={() => decide(id, 'approved')} style={styles.approve}>
+                        <Text style={styles.approveText}>Onayla</Text>
+                      </Pressable>
+                      <Pressable onPress={() => decide(id, 'rejected')} style={styles.reject}>
+                        <Text style={styles.rejectText}>Reddet</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+            {!loading && list.length === 0 ? (
+              <EmptyState
+                icon="file-tray-outline"
+                iconBg={colors.cream[100]}
+                iconColor={colors.cream[300]}
+                title="Bu sekmede başvuru yok."
+              />
+            ) : null}
+          </FadeIn>
         </>
       )}
-    </AdminPanelScreen>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
+  tabs: { flexDirection: 'row', gap: 8 },
+  tab: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  top: { marginTop: spacing.xl },
-  empty: { fontFamily: fonts.regular, fontSize: 13, color: colors.text.muted, marginBottom: spacing.md },
-  card: { marginBottom: spacing.sm },
-  name: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text.primary },
-  meta: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.text.muted, marginTop: 4 },
-  row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  flex: { flex: 1 },
+  tabOn: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
+  tabText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[800] },
+  tabTextOn: { color: colors.white },
+  tabCount: { fontSize: 11 },
+  list: { gap: spacing.sm },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    gap: 6,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  name: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
+  badge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
+  meta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
+  approve: {
+    flex: 1,
+    height: 44,
+    borderRadius: radius.lg,
+    backgroundColor: colors.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approveText: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.white },
+  reject: {
+    flex: 1,
+    height: 44,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cream[300],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectText: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.warm[500] },
 });

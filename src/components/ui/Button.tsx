@@ -1,174 +1,154 @@
 import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ComponentProps } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
 
-import { PressableScale } from '@/components/ui/PressableScale';
-import { colors, fonts, glow, gradients, radius, type Gradient } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-type Variant = 'primary' | 'solid' | 'secondary' | 'ghost' | 'glass' | 'danger';
-type Size = 'sm' | 'md' | 'lg';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'glass';
+type Size = 'md' | 'lg';
 
-type ButtonProps = {
+type Props = {
   label: string;
   onPress?: () => void;
-  variant?: Variant;
-  size?: Size;
-  /** primary varyantı için gradient. */
-  gradient?: Gradient;
-  /** solid varyantı veya metin aksanı için renk. */
-  color?: string;
-  leftIcon?: IconName;
-  rightIcon?: IconName;
   loading?: boolean;
   disabled?: boolean;
-  fullWidth?: boolean;
-  style?: StyleProp<ViewStyle>;
+  variant?: Variant;
+  size?: Size;
+  rightIcon?: IconName;
+  style?: ViewStyle;
 };
 
 const SIZES: Record<Size, { height: number; font: number; padH: number; icon: number }> = {
-  sm: { height: 46, font: 14.5, padH: 18, icon: 17 },
-  md: { height: 54, font: 16, padH: 24, icon: 19 },
-  lg: { height: 58, font: 16.5, padH: 28, icon: 20 },
+  md: { height: 52, font: 15.5, padH: 22, icon: 18 },
+  lg: { height: 56, font: 16.5, padH: 26, icon: 20 },
 };
 
 export function Button({
   label,
   onPress,
+  loading,
+  disabled,
   variant = 'primary',
-  size = 'md',
-  gradient = gradients.primary,
-  color = colors.teal[600],
-  leftIcon,
+  size = 'lg',
   rightIcon,
-  loading = false,
-  disabled = false,
-  fullWidth = true,
   style,
-}: ButtonProps) {
-  const dims = SIZES[size];
+}: Props) {
+  const isDisabled = disabled || loading;
+  const sz = SIZES[size];
 
-  const textColor =
-    variant === 'secondary'
-      ? colors.teal[700]
-      : variant === 'ghost'
-        ? colors.teal[600]
-        : colors.white;
-
-  const content = (
-    <View style={styles.content}>
-      {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
-      ) : (
-        <>
-          {leftIcon ? (
-            <Ionicons color={textColor} name={leftIcon} size={dims.icon} style={styles.iconLeft} />
-          ) : null}
-          <Text style={[styles.label, { fontSize: dims.font, color: textColor }]}>{label}</Text>
-          {rightIcon ? (
-            <Ionicons color={textColor} name={rightIcon} size={dims.icon} style={styles.iconRight} />
-          ) : null}
-        </>
-      )}
+  const labelNode = loading ? (
+    <ActivityIndicator color={variant === 'glass' || variant === 'primary' ? colors.white : colors.brand[600]} />
+  ) : (
+    <View style={styles.row}>
+      <Text
+        style={[
+          styles.label,
+          { fontSize: sz.font },
+          variant === 'primary' && styles.labelOnDark,
+          variant === 'glass' && styles.labelOnDark,
+          variant === 'secondary' && styles.labelSecondary,
+          variant === 'ghost' && styles.labelGhost,
+        ]}>
+        {label}
+      </Text>
+      {rightIcon ? (
+        <Ionicons
+          color={variant === 'primary' || variant === 'glass' ? colors.white : colors.brand[600]}
+          name={rightIcon}
+          size={sz.icon}
+        />
+      ) : null}
     </View>
   );
 
-  const baseStyle: StyleProp<ViewStyle> = [
-    styles.base,
-    { height: dims.height, paddingHorizontal: dims.padH, borderRadius: radius.lg },
-    fullWidth ? styles.fullWidth : styles.auto,
-    disabled && styles.disabled,
-    style,
-  ];
-
-  if (variant === 'primary' || variant === 'danger') {
-    const g = variant === 'danger' ? gradients.energy : gradient;
+  if (variant === 'primary') {
     return (
-      <PressableScale
+      <Pressable
         accessibilityRole="button"
-        disabled={disabled || loading}
+        disabled={isDisabled}
         onPress={onPress}
-        style={[baseStyle, !disabled && glow(g[0], 0.32)]}>
+        style={({ pressed }) => [styles.wrap, pressed && styles.pressed, isDisabled && styles.disabled, style]}>
         <LinearGradient
-          colors={g}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: radius.lg }]}
-        />
-        {content}
-      </PressableScale>
+          colors={[colors.brand[500], colors.brand[600], colors.sage[500]]}
+          end={{ x: 1, y: 0.5 }}
+          start={{ x: 0, y: 0.5 }}
+          style={[styles.gradient, { minHeight: sz.height, paddingHorizontal: sz.padH }]}>
+          {labelNode}
+        </LinearGradient>
+      </Pressable>
     );
   }
 
-  const surfaceStyle =
-    variant === 'solid'
-      ? [{ backgroundColor: color }, !disabled && glow(color, 0.3)]
-      : variant === 'secondary'
-        ? styles.secondary
-        : variant === 'glass'
-          ? styles.glass
-          : styles.ghost;
+  if (variant === 'glass') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDisabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.wrap,
+          styles.glass,
+          { minHeight: sz.height, paddingHorizontal: sz.padH },
+          pressed && styles.pressed,
+          isDisabled && styles.disabled,
+          style,
+        ]}>
+        {labelNode}
+      </Pressable>
+    );
+  }
 
   return (
-    <PressableScale
+    <Pressable
       accessibilityRole="button"
-      disabled={disabled || loading}
+      disabled={isDisabled}
       onPress={onPress}
-      style={[baseStyle, surfaceStyle]}>
-      {content}
-    </PressableScale>
+      style={({ pressed }) => [
+        styles.wrap,
+        variant === 'secondary' ? styles.secondary : styles.ghost,
+        { minHeight: sz.height, paddingHorizontal: sz.padH },
+        pressed && styles.pressed,
+        isDisabled && styles.disabled,
+        style,
+      ]}>
+      {labelNode}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  fullWidth: {
-    alignSelf: 'stretch',
-  },
-  auto: {
-    alignSelf: 'flex-start',
-  },
-  content: {
-    flexDirection: 'row',
+  wrap: { borderRadius: radius.lg, overflow: 'hidden' },
+  gradient: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {
-    fontFamily: fonts.semibold,
-    letterSpacing: 0.2,
-  },
-  iconLeft: {
-    marginRight: 8,
-  },
-  iconRight: {
-    marginLeft: 8,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  label: { fontFamily: fonts.sansSemi },
+  labelOnDark: { color: colors.white },
+  labelSecondary: { color: colors.brand[700] },
+  labelGhost: { color: colors.brand[600] },
   secondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.teal[200],
-  },
-  glass: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.32)',
+    borderColor: colors.brand[200],
+    borderRadius: radius.lg,
   },
   ghost: {
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  disabled: {
-    opacity: 0.5,
+  glass: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: radius.lg,
   },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+  disabled: { opacity: 0.55 },
 });

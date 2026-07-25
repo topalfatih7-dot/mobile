@@ -2,7 +2,16 @@
 // Her ülke: iso (ISO-3166 alfa-2), name (Türkçe), dial (uluslararası kod),
 // flag (emoji), min/max (ulusal numara hane sayısı aralığı).
 
-export const COUNTRY_CODES = [
+export type CountryCode = {
+  iso: string;
+  name: string;
+  dial: string;
+  flag: string;
+  min: number;
+  max: number;
+};
+
+export const COUNTRY_CODES: CountryCode[] = [
   { iso: 'TR', name: 'Türkiye', dial: '90', flag: '🇹🇷', min: 10, max: 10 },
   { iso: 'DE', name: 'Almanya', dial: '49', flag: '🇩🇪', min: 10, max: 11 },
   { iso: 'NL', name: 'Hollanda', dial: '31', flag: '🇳🇱', min: 9, max: 9 },
@@ -28,22 +37,20 @@ export const COUNTRY_CODES = [
   { iso: 'DK', name: 'Danimarka', dial: '45', flag: '🇩🇰', min: 8, max: 8 },
   { iso: 'CA', name: 'Kanada', dial: '1', flag: '🇨🇦', min: 10, max: 10 },
   { iso: 'AU', name: 'Avustralya', dial: '61', flag: '🇦🇺', min: 9, max: 9 },
-]
+];
 
-export const DEFAULT_COUNTRY_ISO = 'TR'
-
-export type CountryCode = (typeof COUNTRY_CODES)[number];
+export const DEFAULT_COUNTRY_ISO = 'TR';
 
 export function getCountry(iso: string): CountryCode {
   return COUNTRY_CODES.find((c) => c.iso === iso) || COUNTRY_CODES[0];
 }
 
-export function digitsOnly(value: string | number | null | undefined) {
+export function digitsOnly(value: unknown): string {
   return String(value || '').replace(/\D/g, '');
 }
 
 /** Ulusal numarayı ülke kurallarına göre normalize eder (çift ülke kodu, baştaki 0 vb.). */
-export function normalizeNationalDigits(iso: string, raw: string) {
+export function normalizeNationalDigits(iso: string, raw: unknown): string {
   const country = getCountry(iso);
   let d = digitsOnly(raw);
   if ((iso === 'TR' || iso === 'CY') && d.startsWith('0')) d = d.slice(1);
@@ -51,8 +58,10 @@ export function normalizeNationalDigits(iso: string, raw: string) {
   return d.slice(0, country.max);
 }
 
+export type ParsedE164 = { iso: string; dial: string; national: string };
+
 /** E.164 numarayı ülke + ulusal parçaya ayırır. */
-export function parseE164(e164: string) {
+export function parseE164(e164: string | null | undefined): ParsedE164 | null {
   const digits = digitsOnly(e164);
   if (!digits) return null;
   const sorted = [...COUNTRY_CODES].sort((a, b) => b.dial.length - a.dial.length);
@@ -71,7 +80,7 @@ export function parseE164(e164: string) {
 }
 
 /** E.164 numarayı okunabilir biçimde gösterir: +90 505 765 43 21 */
-export function formatE164(e164: string | null | undefined) {
+export function formatE164(e164: string | null | undefined): string {
   if (!e164) return '—';
   const parsed = parseE164(e164);
   if (!parsed?.national) return e164;
@@ -80,14 +89,14 @@ export function formatE164(e164: string | null | undefined) {
 }
 
 /** Kayıt/güncelleme için tutarlı E.164 üretir. */
-export function normalizeE164(e164: string | null | undefined) {
+export function normalizeE164(e164: string | null | undefined): string {
   if (!e164) return '';
   const parsed = parseE164(e164);
   if (!parsed?.national) return e164;
   return `+${parsed.dial}${parsed.national}`;
 }
 
-export function formatNationalNumber(iso: string, raw: string) {
+export function formatNationalNumber(iso: string, raw: unknown): string {
   const country = getCountry(iso);
   let d = digitsOnly(raw).slice(0, country.max);
   if (iso === 'TR' || iso === 'CY') {
@@ -101,7 +110,7 @@ export function formatNationalNumber(iso: string, raw: string) {
   return d.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
 }
 
-export function isValidNationalNumber(iso: string, raw: string) {
+export function isValidNationalNumber(iso: string, raw: unknown): boolean {
   const country = getCountry(iso);
   let d = digitsOnly(raw);
   if ((iso === 'TR' || iso === 'CY') && d.startsWith('0')) d = d.slice(1);
@@ -109,7 +118,7 @@ export function isValidNationalNumber(iso: string, raw: string) {
   return d.length >= country.min && d.length <= country.max;
 }
 
-export function toE164(iso: string, raw: string) {
+export function toE164(iso: string, raw: unknown): string {
   const country = getCountry(iso);
   const d = normalizeNationalDigits(iso, raw);
   return `+${country.dial}${d}`;

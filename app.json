@@ -9,18 +9,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yeniform.app",
-      "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Mesaj, seans ve hatırlatma bildirimleri göndermek için bildirim izni gerekir."
-      }
+      "bundleIdentifier": "com.yeniform.app"
     },
     "android": {
       "package": "com.yeniform.app",
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
-      ],
       "adaptiveIcon": {
-        "backgroundColor": "#0F766E",
+        "backgroundColor": "#2d8fc4",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -33,25 +27,36 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-splash-screen",
       "expo-secure-store",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#F4F7FA",
-          "image": "./assets/brand/brand-mark.png",
-          "resizeMode": "contain",
-          "imageWidth": 120
-        }
-      ],
-      "expo-web-browser",
-      "expo-image-picker",
+      "expo-image",
       [
         "expo-notifications",
         {
-          "color": "#0F766E",
-          "defaultChannel": "default"
+          "icon": "./assets/icon.png",
+          "color": "#2d8fc4",
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
         }
-      ]
+      ],
+      "expo-av",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafı ve sağlık belgesi yüklemek için galeri erişimi gerekir.",
+          "cameraPermission": "Kalori analizi ve profil fotoğrafı için kamera erişimi gerekir."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Görüntülü görüşme ve kalori foto analizi için kamera erişimi gerekir.",
+          "microphonePermission": "Görüntülü görüşme için mikrofon erişimi gerekir.",
+          "recordAudioAndroid": true
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

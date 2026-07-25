@@ -1,153 +1,156 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { AdminFormModal } from '@/components/admin/AdminFormModal';
-import { AdminPanelScreen } from '@/components/admin/AdminPanelScreen';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import {
-  addExercise,
-  editExercise,
-  fetchLibraryExercises,
-  removeExercise,
-  type LibraryExercise,
-} from '@/services/db/exercises';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useToast } from '@/context/ToastContext';
+import { DEMO_EXERCISES } from '@/data/uiDemo';
+import { fetchExercisesPage } from '@/services/exerciseLibrary';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function AdminLibraryScreen() {
-  const [exercises, setExercises] = useState<LibraryExercise[]>([]);
-  const [modal, setModal] = useState(false);
-  const [edit, setEdit] = useState<LibraryExercise | null>(null);
-  const [saving, setSaving] = useState(false);
+const DIFFICULTY: Record<string, { label: string; bg: string; fg: string }> = {
+  beginner: { label: 'Başlangıç', bg: colors.sage[100], fg: colors.sage[700] },
+  intermediate: { label: 'Orta', bg: colors.brand[100], fg: colors.brand[700] },
+};
+
+const LOCATIONS: Record<string, string> = {
+  home: 'Ev',
+  gym: 'Salon',
+  office: 'Ofis',
+};
+
+/** LOCK: docs/mobile/screens/admin/library.md */
+export default function AdminLibrary() {
+  const { toast } = useToast();
+  const [exercises, setExercises] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setExercises(await fetchLibraryExercises(120));
+    setLoading(true);
+    try {
+      const res = await fetchExercisesPage({ page: 1, pageSize: 200 });
+      setExercises(res.items.length > 0 ? res.items : DEMO_EXERCISES);
+    } catch {
+      setExercises(DEMO_EXERCISES);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const onSave = async (values: Record<string, string>) => {
-    const name = values.name?.trim();
-    if (!name) {
-      Alert.alert('Eksik bilgi', 'Egzersiz adı zorunlu.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        name,
-        description: values.description || '',
-        bodyPart: values.bodyPart || 'Tüm Vücut',
-        sportType: values.sportType || 'Fitness',
-        category: values.bodyPart || 'Tüm Vücut',
-      };
-      const result = edit
-        ? await editExercise(edit.id, payload)
-        : await addExercise(payload);
-      if (!result.success) {
-        Alert.alert('Hata', result.error);
-        return;
-      }
-      setModal(false);
-      setEdit(null);
-      await load();
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <AdminPanelScreen subtitle={`${exercises.length} egzersiz`} title="Kütüphane">
+    <PanelScaffold showBack subtitle="Egzersiz kütüphanesi" title="Kütüphane">
+      {loading && exercises.length === 0 ? (
+        <InlineSpinner fill />
+      ) : exercises.length === 0 ? (
+        <EmptyState title="Egzersiz yok." />
+      ) : (
+        exercises.map((ex, i) => {
+          const difficulty = DIFFICULTY[String(ex.difficulty)];
+          const locations = (ex.locations as string[]) || [];
+          const videoPending = Boolean(ex.videoPending);
+          return (
+            <FadeIn delay={i * 40} key={String(ex.id)}>
+              <View style={styles.card}>
+                <View style={styles.thumb}>
+                  {videoPending ? (
+                    <Ionicons color={colors.brand[300]} name="videocam-off" size={22} />
+                  ) : (
+                    <Ionicons color={colors.brand[600]} name="videocam" size={22} />
+                  )}
+                </View>
+                <View style={styles.body}>
+                  <Text numberOfLines={1} style={styles.title}>
+                    {String(ex.name)}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.meta}>{String(ex.bodyPart)}</Text>
+                    {difficulty ? (
+                      <View style={[styles.badge, { backgroundColor: difficulty.bg }]}>
+                        <Text style={[styles.badgeText, { color: difficulty.fg }]}>
+                          {difficulty.label}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {videoPending ? (
+                      <View style={[styles.badge, styles.badgeWarn]}>
+                        <Text style={[styles.badgeText, styles.badgeTextWarn]}>
+                          Video bekleniyor
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.chips}>
+                    {locations.map((loc) => (
+                      <View key={loc} style={styles.chip}>
+                        <Text style={styles.chipText}>{LOCATIONS[loc] || loc}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </FadeIn>
+          );
+        })
+      )}
       <Button
-        label="Egzersiz ekle"
-        onPress={() => {
-          setEdit(null);
-          setModal(true);
-        }}
-        style={styles.cta}
+        label="Video yükle"
+        onPress={() => toast('Video yükleme yakında aktif olacak.', 'info')}
+        variant="secondary"
       />
-      {exercises.map((ex) => (
-        <Card key={ex.id} padding={spacing.md} style={styles.card}>
-          <Text style={styles.name}>{ex.name}</Text>
-          <Text style={styles.meta}>
-            {ex.bodyPart} · {ex.sportType}
-          </Text>
-          <View style={styles.row}>
-            <Button
-              label="Düzenle"
-              onPress={() => {
-                setEdit(ex);
-                setModal(true);
-              }}
-              size="sm"
-              style={styles.flex}
-              variant="secondary"
-            />
-            <Button
-              label="Sil"
-              onPress={() => {
-                Alert.alert('Sil', `"${ex.name}" silinsin mi?`, [
-                  { text: 'İptal', style: 'cancel' },
-                  {
-                    text: 'Sil',
-                    style: 'destructive',
-                    onPress: () => {
-                      void (async () => {
-                        const r = await removeExercise(ex.id);
-                        if (!r.success) Alert.alert('Hata', r.error);
-                        else await load();
-                      })();
-                    },
-                  },
-                ]);
-              }}
-              size="sm"
-              style={styles.flex}
-              variant="danger"
-            />
-          </View>
-        </Card>
-      ))}
-
-      {modal ? (
-        <AdminFormModal
-          fields={[
-            { key: 'name', label: 'Ad' },
-            { key: 'bodyPart', label: 'Bölge', placeholder: 'Tüm Vücut' },
-            { key: 'sportType', label: 'Spor türü', placeholder: 'Fitness' },
-            { key: 'description', label: 'Açıklama', multiline: true },
-          ]}
-          initialValues={
-            edit
-              ? {
-                  name: edit.name,
-                  bodyPart: edit.bodyPart,
-                  sportType: edit.sportType,
-                  description: edit.description || '',
-                }
-              : { bodyPart: 'Tüm Vücut', sportType: 'Fitness' }
-          }
-          loading={saving}
-          onClose={() => {
-            setModal(false);
-            setEdit(null);
-          }}
-          onSubmit={onSave}
-          title={edit ? 'Egzersizi düzenle' : 'Yeni egzersiz'}
-          visible
-        />
-      ) : null}
-    </AdminPanelScreen>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  cta: { marginBottom: spacing.md },
-  card: { marginBottom: spacing.sm },
-  name: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text.primary },
-  meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.teal[600], marginTop: 4 },
-  row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  flex: { flex: 1 },
+  card: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+  },
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  body: { flex: 1 },
+  title: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 4,
+  },
+  meta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  badge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeText: { fontFamily: fonts.sansSemi, fontSize: 10 },
+  badgeWarn: { backgroundColor: colors.warm[100] },
+  badgeTextWarn: { color: colors.warm[500] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  chip: {
+    backgroundColor: colors.cream[100],
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  chipText: { fontFamily: fonts.sans, fontSize: 11, color: colors.cream[800] },
 });

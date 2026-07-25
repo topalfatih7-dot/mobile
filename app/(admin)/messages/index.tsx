@@ -1,76 +1,111 @@
-import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { useMemo } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import type { Href } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ConversationRow } from '@/components/messages/ConversationRow';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { useApp } from '@/context/AppContext';
-import type { Conversation } from '@/data/messages';
-import { useResponsive } from '@/hooks/useResponsive';
-import { staffRoleLabel } from '@/utils/staffAccess';
-import { colors, gradients, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
+import { DEMO_ADMIN_STAFF_CHATS } from '@/data/uiDemo';
+import { formatRelativeTimeTr } from '@/utils/relativeTime';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-function formatTime(iso: string | null | undefined) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  }
-  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-}
+const ROLE_LABELS: Record<string, string> = {
+  coach: 'Koç',
+  dietitian: 'Diyetisyen',
+  doctor: 'Doktor',
+};
 
-export default function AdminMessagesScreen() {
-  const { adminStaffThreads, syncing, refresh } = useApp();
-  const { horizontalPadding } = useResponsive();
+const ROLE_AVATAR: Record<string, { bg: string; fg: string }> = {
+  coach: { bg: colors.brand[100], fg: colors.brand[700] },
+  dietitian: { bg: colors.sage[100], fg: colors.sage[700] },
+  doctor: { bg: colors.warm[100], fg: colors.warm[500] },
+};
 
-  const items: Conversation[] = useMemo(
-    () =>
-      adminStaffThreads.map((t) => ({
-        id: t.id,
-        name: t.staffName || 'Personel',
-        role: staffRoleLabel(t.staffRole),
-        last: t.lastPreview || 'Henüz mesaj yok',
-        time: formatTime(t.lastMessageAt),
-        unread: t.adminUnread,
-        online: false,
-        gradient: gradients.violet,
-      })),
-    [adminStaffThreads],
+/** LOCK: docs/mobile/screens/admin/messages.md */
+export default function AdminMessages() {
+  const { loading, platform, staffById } = useData();
+  const staffList = useMemo(
+    () => (platform.staffList.length > 0 ? platform.staffList : Object.values(staffById)),
+    [platform.staffList, staffById],
   );
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="dark" />
-      <ScreenHeader subtitle="Personel ile iç iletişim" title="Personel Mesajları" />
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl onRefresh={() => void refresh()} refreshing={syncing} tintColor={colors.brand[600]} />
-        }
-        showsVerticalScrollIndicator={false}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          {items.length > 0 ? (
-            items.map((item) => (
-              <ConversationRow href={`/(admin)/messages/${item.id}` as Href} item={item} key={item.id} />
-            ))
-          ) : (
-            <EmptyState
-              subtitle="Personel listesinden sohbetler otomatik oluşur."
-              title="Henüz sohbet yok"
-            />
-          )}
-        </ResponsiveCenter>
-      </ScrollView>
-    </View>
+    <PanelScaffold showBack subtitle="Personel sohbetleri" title="Mesajlar">
+      {loading && staffList.length === 0 ? (
+        <InlineSpinner fill />
+      ) : staffList.length === 0 ? (
+        <EmptyState title="Personel yok." />
+      ) : (
+        staffList.map((s, i) => {
+          const id = String(s.id);
+          const role = String(s.role);
+          const avatar = ROLE_AVATAR[role] || ROLE_AVATAR.coach;
+          const seed = DEMO_ADMIN_STAFF_CHATS[id] || [];
+          const last = seed[seed.length - 1];
+          return (
+            <FadeIn delay={i * 40} key={id}>
+              <Pressable
+                onPress={() => router.push(`/(admin)/messages/${id}` as Href)}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+                <View style={[styles.avatar, { backgroundColor: avatar.bg }]}>
+                  <Text style={[styles.avatarText, { color: avatar.fg }]}>
+                    {String(s.name).charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.body}>
+                  <View style={styles.topLine}>
+                    <Text numberOfLines={1} style={styles.name}>
+                      {String(s.name)}
+                    </Text>
+                    {last ? (
+                      <Text style={styles.time}>{formatRelativeTimeTr(last.createdAt)}</Text>
+                    ) : null}
+                    <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
+                  </View>
+                  <Text style={styles.role}>{ROLE_LABELS[role] || role}</Text>
+                  {last ? (
+                    <Text numberOfLines={1} style={styles.preview}>
+                      {last.text}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            </FadeIn>
+          );
+        })
+      )}
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: spacing.xxl },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    minHeight: 64,
+  },
+  rowPressed: { backgroundColor: colors.cream[100] },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 16 },
+  body: { flex: 1 },
+  topLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  name: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
+  time: { fontFamily: fonts.sans, fontSize: 11, color: colors.cream[800], opacity: 0.7 },
+  role: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 2 },
+  preview: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 4 },
 });

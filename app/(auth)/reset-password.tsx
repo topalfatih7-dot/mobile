@@ -1,42 +1,31 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
-import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { supabase } from '@/services/supabaseClient';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { PasswordRules } from '@/components/ui/PasswordRules';
+import { TextField } from '@/components/ui/TextField';
+import { useToast } from '@/context/ToastContext';
+import { updatePassword } from '@/services/authPassword';
+import { spacing } from '@/theme';
 
+/** LOCK: docs/mobile/screens/public/reset-password.md */
 export default function ResetPasswordScreen() {
+  const { toast } = useToast();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const onSave = async () => {
-    if (password.length < 8) {
-      setError('Şifre en az 8 karakter olmalı');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Şifreler eşleşmiyor');
-      return;
-    }
-    if (!supabase) {
-      setError('Supabase yapılandırılmadı.');
-      return;
-    }
-
+  const onSubmit = async () => {
     setLoading(true);
-    setError('');
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) {
-        setError(updateError.message);
+      const r = await updatePassword(password, confirm);
+      if (!r.success) {
+        Alert.alert('Şifre', r.error);
         return;
       }
-      Alert.alert('Şifre güncellendi', 'Yeni şifrenizle giriş yapabilirsiniz.');
+      toast('Şifren güncellendi. Giriş yapabilirsin.', 'success');
       router.replace('/(auth)/login');
     } finally {
       setLoading(false);
@@ -44,31 +33,35 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <AuthScaffold subtitle="Yeni şifrenizi belirleyin." title="Yeni şifre">
-      <Input
-        error={error}
-        icon="lock-closed-outline"
-        isPassword
-        label="Yeni şifre"
-        onChangeText={setPassword}
-        placeholder="En az 8 karakter"
-        value={password}
-      />
-      <View style={styles.gap} />
-      <Input
-        icon="lock-closed-outline"
-        isPassword
-        label="Şifre tekrar"
-        onChangeText={setConfirm}
-        placeholder="••••••••"
-        value={confirm}
-      />
-      <View style={styles.gap} />
-      <Button label="Şifreyi Kaydet" loading={loading} onPress={onSave} />
-    </AuthScaffold>
+    <AuthScreenShell
+      subtitle="Yeni şifren güvenlik kurallarını karşılamalı."
+      title="Yeni şifre">
+      <View style={styles.form}>
+        <TextField
+          accent="sage"
+          icon="lock-closed-outline"
+          label="Yeni şifre"
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          secureTextEntry
+          value={password}
+        />
+        <PasswordRules password={password} />
+        <TextField
+          accent="brand"
+          icon="shield-checkmark-outline"
+          label="Şifre tekrar"
+          onChangeText={setConfirm}
+          placeholder="••••••••"
+          secureTextEntry
+          value={confirm}
+        />
+        <Button label="Şifreyi güncelle" loading={loading} onPress={onSubmit} />
+      </View>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: { height: spacing.md },
+  form: { gap: spacing.md },
 });

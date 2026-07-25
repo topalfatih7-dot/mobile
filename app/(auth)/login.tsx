@@ -1,159 +1,294 @@
-import { router } from 'expo-router';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Link, router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { AuthSceneBackground } from '@/components/auth/AuthSceneBackground';
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
-import { SettingsToggleRow } from '@/components/profile/SettingsToggleRow';
+import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { useApp } from '@/context/AppContext';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
-import { consumeSessionRevokedMessage } from '@/services/singleSession';
-import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/emailAddress';
+import { CheckboxRow } from '@/components/ui/CheckboxRow';
+import { TextField } from '@/components/ui/TextField';
+import { isTurnstileEnabled } from '@/config/turnstile';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
+import { getRememberMe } from '@/services/authStorage';
+import { validateLoginForm } from '@/services/authLogin';
+import { colors, fonts, radius, spacing } from '@/theme';
 
+/**
+ * LOCK: docs/mobile/screens/public/login.md
+ * Not: Form FadeIn/transform içinde olmamalı — web’de focus kaybı + scroll jump.
+ */
 export default function LoginScreen() {
-  const { login, routeForRole } = useApp();
+  const insets = useSafeAreaInsets();
+  const { login, isAuthenticated, routeForRole } = useAuth();
+  const { toast } = useToast();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [banner, setBanner] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileKey, setTurnstileKey] = useState(0);
 
   useEffect(() => {
-    void consumeSessionRevokedMessage().then((msg) => {
-      if (msg) setBanner(msg);
-    });
+    void getRememberMe().then(setRemember);
   }, []);
 
-  const onLogin = async () => {
-    const cleanEmail = sanitizeEmailInput(email);
-    if (cleanEmail !== email) setEmail(cleanEmail);
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace((routeForRole() || '/(member)/profile') as Href);
+    }
+  }, [isAuthenticated, routeForRole]);
 
-    const nextErrors: typeof errors = {};
-    if (!isValidEmailAddress(cleanEmail)) nextErrors.email = 'Geçerli bir e-posta girin';
-    if (password.length < 6) nextErrors.password = 'En az 6 karakter';
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+  const resetTurnstile = () => {
+    setTurnstileToken('');
+    setTurnstileKey((k) => k + 1);
+  };
+
+  const onSubmit = async () => {
+    const v = validateLoginForm(email, password);
+    setErrors(v.fieldErrors);
+    if (!v.ok) {
+      Alert.alert('Giriş', v.formError || 'Lütfen formu kontrol edin.');
+      return;
+    }
+    if (isTurnstileEnabled() && !turnstileToken) {
+      Alert.alert('Giriş', 'Bot doğrulamasını tamamlayın.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const result = await login(cleanEmail, password, remember);
+      const result = await login({ email, password, remember, turnstileToken });
       if (!result.success) {
-        Alert.alert('Giriş başarısız', result.error || 'E-posta veya şifre hatalı.');
+        resetTurnstile();
+        Alert.alert('Giriş', result.error || 'E-posta veya şifre hatalı.');
         return;
       }
-      router.replace(routeForRole(result.role || 'member'));
+      toast('Hoş geldiniz!', 'success');
+      router.replace((result.route || '/(member)/profile') as Href);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <AuthScaffold
-      footer={
-        <Pressable hitSlop={8} onPress={() => router.replace('/(auth)/register')}>
-          <Text style={styles.switch}>
-            Hesabın yok mu? <Text style={styles.switchLink}>Kayıt Ol</Text>
-          </Text>
-        </Pressable>
-      }
-      subtitle="Hesabına giriş yap, dönüşümüne kaldığın yerden devam et."
-      title="Tekrar hoş geldin">
-      {banner ? (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>{banner}</Text>
-        </View>
-      ) : null}
-
-      <Input
-        autoCapitalize="none"
-        autoComplete="email"
-        error={errors.email}
-        icon="mail-outline"
-        keyboardType="email-address"
-        label="E-posta"
-        onChangeText={setEmail}
-        placeholder="ornek@eposta.com"
-        value={email}
-      />
-
-      <View style={styles.gap} />
-
-      <Input
-        error={errors.password}
-        icon="lock-closed-outline"
-        isPassword
-        label="Şifre"
-        onChangeText={setPassword}
-        placeholder="••••••••"
-        value={password}
-      />
-
-      <View style={styles.rememberBox}>
-        <SettingsToggleRow
-          description="Kapalıysa uygulama kapanınca oturum silinir."
-          label="Beni hatırla"
-          onValueChange={setRemember}
-          value={remember}
-        />
+  const body = (
+    <ScrollView
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + spacing.md,
+          paddingBottom: insets.bottom + spacing.xxl,
+        },
+      ]}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}>
+      <View style={styles.hero}>
+        <LinearGradient
+          colors={[colors.white, colors.brand[50], colors.sage[50]]}
+          end={{ x: 1, y: 1 }}
+          start={{ x: 0, y: 0 }}
+          style={styles.logoRing}>
+          <View style={styles.logoPlate}>
+            <Image
+              contentFit="contain"
+              source={require('../../assets/brand/brand-mark.png')}
+              style={styles.mark}
+            />
+          </View>
+        </LinearGradient>
+        <Text style={styles.wordmark}>Yeni Form</Text>
+        <Text style={styles.heroTag}>Koçluk · Diyet · Sağlık</Text>
       </View>
 
-      <Pressable hitSlop={8} onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgot}>
-        <Text style={styles.forgotText}>Şifremi unuttum?</Text>
-      </Pressable>
+      <View style={styles.sheet}>
+        <Text style={styles.title}>Giriş Yap</Text>
+        <Text style={styles.sub}>Hesabınla devam et — yolculuğun seni bekliyor.</Text>
 
-      <Button label="Giriş Yap" loading={loading} onPress={onLogin} rightIcon="arrow-forward" />
+        <View style={styles.form}>
+          <TextField
+            accent="brand"
+            autoComplete="email"
+            error={errors.email}
+            icon="mail-outline"
+            keyboardType="email-address"
+            label="E-posta"
+            onChangeText={setEmail}
+            placeholder="ornek@yeniform.com"
+            textContentType="emailAddress"
+            value={email}
+          />
+          <TextField
+            accent="sage"
+            autoComplete="password"
+            error={errors.password}
+            icon="lock-closed-outline"
+            label="Şifre"
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
+            textContentType="password"
+            value={password}
+          />
+          <CheckboxRow checked={remember} label="Beni hatırla" onChange={setRemember} />
+          <TurnstileWidget onToken={setTurnstileToken} remountKey={turnstileKey} />
+          <Button label="Giriş Yap" loading={loading} onPress={onSubmit} />
+          <Link asChild href="/(auth)/onboarding">
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.registerBtn,
+                pressed && styles.registerBtnPressed,
+              ]}>
+              <Text style={styles.registerBtnText}>Kayıt ol</Text>
+            </Pressable>
+          </Link>
+        </View>
 
-      <SocialAuthButtons flow="login" position="bottom" remember={remember} />
-    </AuthScaffold>
+        <SocialAuthButtons />
+
+        <View style={styles.links}>
+          <Link asChild href="/(auth)/forgot-password">
+            <Pressable hitSlop={8}>
+              <Text style={styles.link}>Şifremi unuttum</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  return (
+    <View style={styles.root}>
+      <AuthSceneBackground />
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+          {body}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={styles.flex}>{body}</View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: {
-    height: spacing.md,
+  root: { flex: 1, backgroundColor: colors.cream[50] },
+  flex: { flex: 1 },
+  content: {
+    paddingHorizontal: spacing.lg,
   },
-  rememberBox: {
+  hero: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  logoRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 30,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#06202e',
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  logoPlate: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 27,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mark: { width: 64, height: 64 },
+  wordmark: {
     marginTop: spacing.md,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
+    fontFamily: fonts.displayExtra,
+    fontSize: 32,
+    color: colors.white,
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  heroTag: {
+    marginTop: 6,
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.4,
+  },
+  sheet: {
+    backgroundColor: colors.white,
+    borderRadius: 28,
+    padding: spacing.lg,
+    paddingTop: spacing.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.cream[200],
+    shadowColor: colors.brand[900],
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
-  banner: {
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
+  title: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 28,
+    color: colors.cream[900],
+    letterSpacing: -0.4,
   },
-  bannerText: {
-    fontFamily: fonts.medium,
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: colors.danger,
-  },
-  forgot: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.sm,
+  sub: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.cream[800],
+    marginTop: 6,
     marginBottom: spacing.lg,
   },
-  forgotText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13.5,
-    color: colors.brand[600],
+  form: { gap: spacing.md },
+  registerBtn: {
+    minHeight: 52,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sage[50],
+    borderWidth: 1.5,
+    borderColor: colors.sage[200],
+    paddingHorizontal: spacing.lg,
   },
-  switch: {
-    fontFamily: fonts.medium,
-    fontSize: 14.5,
-    color: colors.text.secondary,
+  registerBtnPressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+  registerBtnText: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 16,
+    color: colors.sage[700],
   },
-  switchLink: {
-    fontFamily: fonts.bold,
+  links: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  link: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 14,
     color: colors.brand[600],
+    paddingVertical: 8,
   },
 });

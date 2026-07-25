@@ -1,86 +1,211 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { ProfileInfoGrid } from '@/components/profile/ProfileInfoGrid';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
-import { Card } from '@/components/ui/Card';
-import { StackHeader } from '@/components/ui/StackHeader';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
 import { getPlanLabel } from '@/data/membershipPlans';
-import { useResponsive } from '@/hooks/useResponsive';
-import { fetchMemberById } from '@/services/db/members';
-import { buildPersonalInfoRows } from '@/services/memberProfile';
-import type { MemberProfile } from '@/types/session';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function AdminMemberDetailScreen() {
+const TEAM_ROWS: {
+  key: 'assignedCoachId' | 'assignedDietitianId' | 'assignedDoctorId';
+  label: string;
+}[] = [
+  { key: 'assignedCoachId', label: 'Koç' },
+  { key: 'assignedDietitianId', label: 'Diyetisyen' },
+  { key: 'assignedDoctorId', label: 'Doktor' },
+];
+
+/** LOCK: members.md + member-health.md */
+export default function AdminMemberDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const insets = useSafeAreaInsets();
-  const { horizontalPadding } = useResponsive();
-  const [member, setMember] = useState<MemberProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, platform, staffById } = useData();
+  const m = platform.members.find((c) => String(c.id) === String(id));
 
-  useEffect(() => {
-    void (async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        setMember(await fetchMemberById(id));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
+  if (loading && !m) {
+    return (
+      <PanelScaffold showBack subtitle="Üye detay + sağlık özeti" title="Üye">
+        <InlineSpinner fill />
+      </PanelScaffold>
+    );
+  }
 
-  const rows = buildPersonalInfoRows(member, member?.email || '');
+  if (!m) {
+    return (
+      <PanelScaffold showBack subtitle="Üye detay + sağlık özeti" title="Üye">
+        <EmptyState title="Üye bulunamadı." />
+      </PanelScaffold>
+    );
+  }
+
+  const plan = String(m.membership || 'free');
 
   return (
-    <View style={[styles.root, { paddingBottom: insets.bottom }]}>
-      <StackHeader subtitle="Üye kaydı detayı" title={member?.name || 'Üye Detayı'} />
+    <PanelScaffold showBack subtitle="Üye detay + sağlık özeti" title={String(m.name)}>
+      <FadeIn>
+        <View style={styles.profileCard}>
+          <LinearGradient
+            colors={[colors.brand[50], colors.white]}
+            style={styles.profileGradient}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{String(m.name).charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={styles.profileHead}>
+              <Text style={styles.profileName}>{String(m.name)}</Text>
+              <View style={[styles.planBadge, plan === 'free' && styles.planBadgeBasic]}>
+                <Text
+                  style={[styles.planBadgeText, plan === 'free' && styles.planBadgeTextBasic]}>
+                  {getPlanLabel(plan)}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={styles.profileRows}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Ionicons color={colors.cream[800]} name="mail" size={15} />
+              </View>
+              <Text style={styles.infoValue}>{String(m.email)}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Ionicons color={colors.cream[800]} name="call" size={15} />
+              </View>
+              <Text style={styles.infoValue}>{String(m.phone || '')}</Text>
+            </View>
+          </View>
+        </View>
+      </FadeIn>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          {loading ? (
-            <ActivityIndicator color={colors.brand[600]} size="large" style={styles.loader} />
-          ) : member ? (
-            <>
-              <Card padding={spacing.lg} style={styles.summary}>
-                <Text style={styles.plan}>{getPlanLabel(member.membership as string)}</Text>
-                <Text style={styles.status}>{member.membershipStatus || 'active'}</Text>
-                <Text style={styles.email}>{member.email}</Text>
-              </Card>
-              <ProfileInfoGrid rows={rows} />
-            </>
-          ) : (
-            <Card padding={spacing.lg}>
-              <Text style={styles.empty}>Üye bulunamadı.</Text>
-            </Card>
-          )}
-        </ResponsiveCenter>
-      </ScrollView>
-    </View>
+      <FadeIn delay={60}>
+        <View style={styles.card}>
+          <Text style={styles.section}>Atanan ekip</Text>
+          {TEAM_ROWS.map((row) => {
+            const staffId = m[row.key] ? String(m[row.key]) : null;
+            const staff = staffId ? staffById[staffId] : null;
+            return (
+              <View key={row.key} style={styles.teamRow}>
+                <Text style={styles.teamRole}>{row.label}</Text>
+                <Text style={[styles.teamName, !staff && styles.teamUnassigned]}>
+                  {staff ? String(staff.name) : 'Atanmadı'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </FadeIn>
+
+      <FadeIn delay={120}>
+        <View style={styles.card}>
+          <Text style={styles.section}>Sağlık özeti</Text>
+          <View style={styles.healthEmpty}>
+            <Ionicons color={colors.sage[600]} name="pulse" size={22} />
+            <View style={styles.healthTextWrap}>
+              <Text style={styles.healthTitle}>Sağlık testi henüz tamamlanmadı</Text>
+              <Text style={styles.healthDesc}>
+                Üye testi tamamladığında analiz burada görünür.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </FadeIn>
+
+      <FadeIn delay={180}>
+        <Button
+          label="Paketi düzenle"
+          onPress={() => router.push('/(admin)/premium')}
+          variant="secondary"
+        />
+      </FadeIn>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { paddingTop: spacing.md, paddingBottom: spacing.xxl },
-  loader: { marginTop: spacing.xxl },
-  summary: { marginBottom: spacing.lg },
-  plan: { fontFamily: fonts.displayExtra, fontSize: 22, color: colors.text.primary },
-  status: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
+  profileCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    overflow: 'hidden',
+  },
+  profileGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 22, color: colors.white },
+  profileHead: { flex: 1, gap: 6 },
+  profileName: { fontFamily: fonts.displayBold, fontSize: 18, color: colors.cream[900] },
+  planBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.brand[50],
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  planBadgeBasic: { backgroundColor: colors.cream[100] },
+  planBadgeText: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.brand[700] },
+  planBadgeTextBasic: { color: colors.cream[800] },
+  profileRows: { padding: spacing.md, paddingTop: 0, gap: spacing.sm },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  infoIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.md,
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoValue: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900] },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    gap: spacing.sm,
+  },
+  section: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 12,
     color: colors.brand[600],
-    marginTop: 4,
-    textTransform: 'capitalize',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  email: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.secondary },
+  teamRole: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.brand[600] },
+  teamName: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900] },
+  teamUnassigned: { color: colors.cream[800] },
+  healthEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    backgroundColor: colors.sage[50],
+    borderWidth: 1,
+    borderColor: colors.sage[200],
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  healthTextWrap: { flex: 1, gap: 2 },
+  healthTitle: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  healthDesc: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
 });

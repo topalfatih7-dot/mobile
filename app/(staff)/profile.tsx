@@ -1,164 +1,187 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/Avatar';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { useApp } from '@/context/AppContext';
-import { useStaffDashboard } from '@/hooks/useStaffDashboard';
-import { useResponsive } from '@/hooks/useResponsive';
-import { normalizeStaffRole, staffRoleLabel } from '@/utils/staffAccess';
-import { colors, fonts, gradients, radius, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-type QuickLink = { label: string; href: Href; icon: keyof typeof Ionicons.glyphMap };
+const HOURS = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+const DAYS = [
+  { id: '1', label: 'Pzt' },
+  { id: '2', label: 'Sal' },
+  { id: '3', label: 'Çar' },
+  { id: '4', label: 'Per' },
+  { id: '5', label: 'Cum' },
+];
 
-function staffProfileLinks(role?: string | null): QuickLink[] {
-  const normalized = normalizeStaffRole(role);
-  const links: QuickLink[] = [];
+const ROLE_BADGES: Record<string, { label: string; bg: string; fg: string }> = {
+  coach: { label: 'Koç', bg: colors.brand[100], fg: colors.brand[700] },
+  dietitian: { label: 'Diyetisyen', bg: colors.sage[100], fg: colors.sage[700] },
+  doctor: { label: 'Doktor', bg: colors.gold[400], fg: colors.white },
+};
 
-  if (normalized === 'dietitian') {
-    links.push({ label: 'Listeler', href: '/(staff)/lists' as Href, icon: 'list' });
-  } else {
-    links.push({ label: 'Programlar', href: '/(staff)/programs' as Href, icon: 'clipboard' });
-    links.push({ label: 'Kütüphane', href: '/(staff)/library' as Href, icon: 'library' });
-  }
-
-  links.push({ label: 'Ödeme Yönetimi', href: '/(staff)/payments' as Href, icon: 'wallet' });
-  return links;
+function initialsOf(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join('');
 }
 
-export default function StaffProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const { user, staff, logout } = useApp();
-  const { roleLabel, stats } = useStaffDashboard();
-  const { horizontalPadding } = useResponsive();
-  const links = staffProfileLinks(staff?.role);
+/** LOCK: docs/mobile/screens/staff/profile.md */
+export default function StaffProfile() {
+  const { staff, email } = useAuth();
+  const { toast } = useToast();
+  const [avail, setAvail] = useState<Record<string, string[]>>({
+    '1': ['09:00', '10:00'],
+    '3': ['14:00'],
+    '5': ['09:00', '11:00'],
+  });
 
-  const onLogout = async () => {
-    await logout();
-    router.replace('/');
+  const name = String(staff?.name || 'Personel');
+  const roleBadge = ROLE_BADGES[String(staff?.role || '')];
+
+  const toggle = (day: string, hour: string) => {
+    setAvail((prev) => {
+      const cur = prev[day] || [];
+      const next = cur.includes(hour) ? cur.filter((h) => h !== hour) : [...cur, hour];
+      return { ...prev, [day]: next };
+    });
   };
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
-        ]}
-        showsVerticalScrollIndicator={false}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          <View style={styles.header}>
-            <Avatar gradient={gradients.teal} name={user.name} ring size={84} />
-            <Text style={styles.name}>{user.name}</Text>
-            <Text style={styles.email}>{user.email}</Text>
-            <View style={styles.rolePill}>
-              <Ionicons color={colors.white} name="briefcase" size={14} />
-              <Text style={styles.roleText}>{staffRoleLabel(staff?.role)}</Text>
-            </View>
+    <PanelScaffold subtitle={name} title="Profilim">
+      <FadeIn delay={40}>
+        <View style={styles.identityCard}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initialsOf(name)}</Text>
           </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{name}</Text>
+              {roleBadge ? (
+                <View style={[styles.roleBadge, { backgroundColor: roleBadge.bg }]}>
+                  <Text style={[styles.roleBadgeText, { color: roleBadge.fg }]}>
+                    {roleBadge.label}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.emailText}>{email}</Text>
+          </View>
+        </View>
+      </FadeIn>
 
-          <Card padding={spacing.lg} style={styles.card}>
-            <Text style={styles.cardTitle}>Panel Özeti</Text>
-            <Text style={styles.cardLine}>{roleLabel}</Text>
-            <Text style={styles.cardLine}>
-              {stats.clientCount} danışan · {stats.programCount} program
-            </Text>
-          </Card>
-
-          <Text style={styles.sectionTitle}>Kısayollar</Text>
-          {links.map((link) => (
-            <Pressable
-              key={link.label}
-              onPress={() => router.push(link.href)}
-              style={styles.linkRow}>
-              <View style={styles.linkIcon}>
-                <Ionicons color={colors.teal[600]} name={link.icon} size={18} />
+      <Text style={styles.section}>Müsaitlik</Text>
+      {DAYS.map((d, i) => {
+        const count = (avail[d.id] || []).length;
+        return (
+          <FadeIn key={d.id} delay={70 + i * 30}>
+            <View style={styles.dayCard}>
+              <Text style={styles.dayLabel}>
+                {d.label}
+                {count > 0 ? <Text style={styles.dayCount}> · {count} saat</Text> : null}
+              </Text>
+              <View style={styles.hours}>
+                {HOURS.map((h) => {
+                  const on = (avail[d.id] || []).includes(h);
+                  return (
+                    <Pressable
+                      key={h}
+                      onPress={() => toggle(d.id, h)}
+                      style={({ pressed }) => [
+                        styles.hour,
+                        on && styles.hourOn,
+                        pressed && styles.hourPressed,
+                      ]}>
+                      <Text style={[styles.hourText, on && styles.hourTextOn]}>{h}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <Text style={styles.linkLabel}>{link.label}</Text>
-              <Ionicons color={colors.ink[300]} name="chevron-forward" size={18} />
-            </Pressable>
-          ))}
+            </View>
+          </FadeIn>
+        );
+      })}
 
-          <Button label="Çıkış Yap" onPress={onLogout} style={styles.logout} variant="secondary" />
-        </ResponsiveCenter>
-      </ScrollView>
-    </View>
+      <View style={styles.saveDivider} />
+      <Button
+        label="Müsaitliği kaydet"
+        onPress={() => toast('Müsaitlik bilgileriniz kaydedildi', 'success')}
+      />
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.canvas },
-  content: { flexGrow: 1 },
-  header: { alignItems: 'center', marginBottom: spacing.xl },
-  name: {
-    fontFamily: fonts.displayExtra,
-    fontSize: 24,
-    color: colors.text.primary,
-    marginTop: spacing.md,
-  },
-  email: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: 4,
-  },
-  rolePill: {
+  identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    backgroundColor: colors.teal[600],
-  },
-  roleText: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.white },
-  card: { marginBottom: spacing.xl },
-  cardTitle: { fontFamily: fonts.bold, fontSize: 16, color: colors.text.primary },
-  cardLine: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-    lineHeight: 20,
-  },
-  sectionTitle: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    borderColor: colors.cream[200],
   },
-  linkIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.teal[50],
-    marginRight: spacing.md,
   },
-  linkLabel: {
-    flex: 1,
-    fontFamily: fonts.semibold,
-    fontSize: 15,
-    color: colors.text.primary,
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 20, color: colors.white },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  name: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  roleBadge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  logout: { marginTop: spacing.xl },
+  roleBadgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
+  emailText: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  section: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 12,
+    color: colors.brand[600],
+    textTransform: 'uppercase',
+    marginTop: spacing.sm,
+  },
+  dayCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    gap: spacing.sm,
+    marginBottom: 8,
+  },
+  dayLabel: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  dayCount: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  hours: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  hour: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hourOn: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
+  hourPressed: { transform: [{ scale: 0.92 }] },
+  hourText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[800] },
+  hourTextOn: { color: colors.white },
+  saveDivider: {
+    height: 1,
+    backgroundColor: colors.cream[200],
+    marginVertical: spacing.sm,
+  },
 });

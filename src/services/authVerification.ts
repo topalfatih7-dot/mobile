@@ -1,27 +1,11 @@
 /**
- * E-posta / telefon doğrulama — web `authVerification.js` sözleşmesi
- * (docs/rn-migration/07 + AI_MOBILE_PROGRESS §5.2).
+ * Hesap doğrulama — web `src/services/authVerification.js` parity.
  */
 import { apiUrl, env } from '@/config/env';
 import { DEFAULT_COUNTRY_ISO, digitsOnly, toE164 } from '@/data/countryCodes';
-import { getApiAuthHeaders } from '@/services/apiAuth';
-import { fetchMemberById, saveMemberPatch } from '@/services/db/members';
-import { getUser } from '@/services/supabaseAuth';
-import { supabase } from '@/services/supabaseClient';
-import type { MemberProfile } from '@/types/session';
-
-const nowISO = () => new Date().toISOString();
-
-function phoneVerifyViaEmail() {
-  return process.env.EXPO_PUBLIC_PHONE_VERIFY_VIA_EMAIL === 'true';
-}
-
-export function parsePhoneE164(phone: string, countryIso = DEFAULT_COUNTRY_ISO) {
-  const raw = String(phone || '').trim();
-  if (!raw) return '';
-  if (raw.startsWith('+')) return `+${digitsOnly(raw)}`;
-  return toE164(countryIso, raw);
-}
+import { isUiOnly } from '@/config/runtime';
+import { patchMemberFields, type MemberRecord } from '@/services/memberDb';
+import { requireSupabase, supabase } from '@/services/supabase';
 
 export type VerificationStatus = {
   email: string;
@@ -33,17 +17,49 @@ export type VerificationStatus = {
   canVerifyPhone: boolean;
 };
 
+export type VerificationResult = {
+  success: boolean;
+  error?: string;
+  message?: string;
+  phone?: string;
+  viaEmail?: boolean;
+};
+
+const nowISO = () => new Date().toISOString();
+
+export function parsePhoneE164(phone: string, countryIso = DEFAULT_COUNTRY_ISO): string {
+  const raw = String(phone || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('+')) return `+${digitsOnly(raw)}`;
+  return toE164(countryIso, raw);
+}
+
+async function getAuthUser() {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
+}
+
+async function getAccessToken(): Promise<string | null> {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getVerificationStatus(
-  member: MemberProfile | null | undefined,
+  member: MemberRecord | null | undefined,
 ): Promise<VerificationStatus> {
-  const authUser = await getUser();
+  const authUser = await getAuthUser();
   const phoneVerified = Boolean(member?.phoneVerifiedAt);
   const authPhone = authUser?.phone || '';
 
   return {
-    email: member?.email || authUser?.email || '',
-    phone: (member?.phone as string) || '',
-    // Profil doğrulaması yalnızca members.data.emailVerifiedAt ile takip edilir.
+    email: String(member?.email || authUser?.email || ''),
+    phone: String(member?.phone || ''),
     emailVerified: Boolean(member?.emailVerifiedAt),
     phoneVerified,
     authPhone,
@@ -52,123 +68,95 @@ export async function getVerificationStatus(
   };
 }
 
-export async function patchMemberVerification(
-  userId: string,
-  patch: Record<string, unknown>,
-): Promise<{ success: true } | { success: false; error: string }> {
-  const member = await fetchMemberById(userId);
-  if (!member) return { success: false, error: 'Üye kaydı bulunamadı' };
-  const res = await saveMemberPatch(member, patch);
-  if (!res.success) return res;
-  return { success: true };
-}
-
 async function patchVerification(
-  member: MemberProfile | null | undefined,
+  member: MemberRecord,
   patch: Record<string, unknown>,
-) {
-  if (!member?.id) return { success: false as const, error: 'Oturum bulunamadı' };
-  if (member.membership !== undefined) {
-    const res = await saveMemberPatch(member, patch);
-    if (!res.success) return res;
-    return { success: true as const, member: res.member };
+): Promise<VerificationResult> {
+  if (!member?.id) return { success: false, error: 'Oturum bulunamadı' };
+  if (isUiOnly()) return { success: true };
+  try {
+    await patchMemberFields(member, patch);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String((e as Error)?.message || e) };
   }
-  const res = await patchMemberVerification(member.id, patch);
-  if (!res.success) return res;
-  return { success: true as const };
 }
 
-export async function markEmailVerified(
-  member: MemberProfile | { id: string; email?: string } | null | undefined,
-) {
-  if (!member?.id) return { success: false as const, error: 'Oturum bulunamadı' };
-  const res = await patchVerification(member as MemberProfile, { emailVerifiedAt: nowISO() });
-  if (res?.success === false) return res;
-  return { success: true as const };
+export async function markEmailVerified(member: MemberRecord): Promise<VerificationResult> {
+  if (!member?.id) return { success: false, error: 'Oturum bulunamadı' };
+  return patchVerification(member, { emailVerifiedAt: nowISO() });
 }
 
 export async function markPhoneVerified(
-  member: MemberProfile | null | undefined,
+  member: MemberRecord,
   phone?: string,
-) {
-  if (!member?.id) return { success: false as const, error: 'Oturum bulunamadı' };
-  const res = await patchVerification(member, {
+): Promise<VerificationResult> {
+  if (!member?.id) return { success: false, error: 'Oturum bulunamadı' };
+  return patchVerification(member, {
     phoneVerifiedAt: nowISO(),
     ...(phone ? { phone } : {}),
-    pendingPhoneVerify: null,
   });
-  if (res?.success === false) return res;
-  return { success: true as const };
 }
 
-export async function sendEmailVerification() {
-  const authUser = await getUser();
-  if (!authUser?.email) return { success: false as const, error: 'E-posta adresi bulunamadı.' };
-
-  const headers = await getApiAuthHeaders();
-  if (!headers.Authorization) {
-    return { success: false as const, error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' };
+export async function sendEmailVerification(): Promise<VerificationResult> {
+  if (isUiOnly()) {
+    return { success: true, message: 'Demo: doğrulama bağlantısı gönderildi (simüle).' };
   }
+
+  const authUser = await getAuthUser();
+  if (!authUser?.email) return { success: false, error: 'E-posta adresi bulunamadı.' };
+
+  const token = await getAccessToken();
+  if (!token) return { success: false, error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' };
 
   try {
     const res = await fetch(apiUrl('/api/auth'), {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action: 'email-send' }),
     });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      message?: string;
+    };
     if (!res.ok || !json?.ok) {
-      return { success: false as const, error: json?.error || 'Doğrulama e-postası gönderilemedi.' };
+      return { success: false, error: json?.error || 'Doğrulama e-postası gönderilemedi.' };
     }
     return {
-      success: true as const,
-      message: json.message || 'E-postanıza doğrulama bağlantısı gönderildi. Bağlantıya bir kez tıklayın.',
+      success: true,
+      message:
+        json.message ||
+        'E-postanıza doğrulama bağlantısı gönderildi. Bağlantıya bir kez tıklayın.',
     };
   } catch (e) {
-    return { success: false as const, error: String((e as Error)?.message || e) };
-  }
-}
-
-/** E-posta bağlantısındaki evt jetonu ile profil doğrulamasını tamamlar. */
-export async function confirmEmailVerificationByEvt(evt: string) {
-  if (!evt?.trim()) return { success: false as const, error: 'Doğrulama jetonu eksik.' };
-
-  const headers = await getApiAuthHeaders();
-
-  try {
-    const res = await fetch(apiUrl('/api/auth'), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ action: 'email-confirm', evt: evt.trim() }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!res.ok || !json?.ok) {
-      return { success: false as const, error: json?.error || 'Doğrulama tamamlanamadı.' };
-    }
-    return { success: true as const };
-  } catch (e) {
-    return { success: false as const, error: String((e as Error)?.message || e) };
+    return { success: false, error: String((e as Error)?.message || e) };
   }
 }
 
 export async function confirmEmailVerification(
   code: string,
-  member: MemberProfile | null | undefined,
-) {
-  if (!supabase) return { success: false as const, error: 'Supabase yapılandırılmadı.' };
-  const authUser = await getUser();
-  const email = authUser?.email;
-  if (!email) return { success: false as const, error: 'E-posta bulunamadı.' };
-  if (!code?.trim()) return { success: false as const, error: 'Doğrulama kodunu girin.' };
+  member: MemberRecord,
+): Promise<VerificationResult> {
+  if (isUiOnly()) {
+    await markEmailVerified(member);
+    return { success: true };
+  }
 
-  const { error } = await supabase.auth.verifyOtp({
+  const authUser = await getAuthUser();
+  const email = authUser?.email;
+  if (!email) return { success: false, error: 'E-posta bulunamadı.' };
+  if (!code?.trim()) return { success: false, error: 'Doğrulama kodunu girin.' };
+
+  const client = requireSupabase();
+  const { error } = await client.auth.verifyOtp({
     email,
     token: code.trim(),
     type: 'email',
   });
   if (error) {
     return {
-      success: false as const,
+      success: false,
       error: 'Kod doğrulanamadı. E-postadaki bağlantıya tıklamayı deneyin.',
     };
   }
@@ -176,27 +164,40 @@ export async function confirmEmailVerification(
   return markEmailVerified(member);
 }
 
-export async function refreshEmailVerification(member: MemberProfile | null | undefined) {
-  if (!supabase) return { success: false as const, error: 'Supabase yapılandırılmadı.' };
-  if (!member?.id) return { success: false as const, error: 'Oturum bulunamadı.' };
+export async function refreshEmailVerification(
+  member: MemberRecord | null | undefined,
+): Promise<VerificationResult> {
+  if (!member?.id) return { success: false, error: 'Oturum bulunamadı.' };
+  if (isUiOnly()) {
+    return member.emailVerifiedAt
+      ? { success: true }
+      : {
+          success: false,
+          error: 'Henüz doğrulanmadı. E-postadaki bağlantıya tıklayıp onay sayfasını tamamlayın.',
+        };
+  }
 
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from('members')
     .select('data')
     .eq('id', member.id)
     .maybeSingle();
 
   if (error || !data) {
-    return { success: false as const, error: 'Profil yüklenemedi.' };
+    return { success: false, error: 'Profil yüklenemedi.' };
   }
 
-  const payload = data.data as Record<string, unknown> | null;
-  if (payload?.emailVerifiedAt) {
-    return { success: true as const };
+  const payload = (data.data && typeof data.data === 'object' ? data.data : {}) as Record<
+    string,
+    unknown
+  >;
+  if (payload.emailVerifiedAt) {
+    return { success: true };
   }
 
   return {
-    success: false as const,
+    success: false,
     error: 'Henüz doğrulanmadı. E-postadaki bağlantıya tıklayıp onay sayfasını tamamlayın.',
   };
 }
@@ -204,36 +205,51 @@ export async function refreshEmailVerification(member: MemberProfile | null | un
 export async function sendPhoneVerification(
   phone: string,
   countryIso = DEFAULT_COUNTRY_ISO,
-  member: MemberProfile | null = null,
-) {
-  if (!supabase) return { success: false as const, error: 'Supabase yapılandırılmadı.' };
+  member: MemberRecord | null = null,
+): Promise<VerificationResult> {
+  if (!env.phoneVerifyEnabled) {
+    return { success: false, error: 'Telefon doğrulama şu an kapalı.' };
+  }
 
   const e164 = parsePhoneE164(phone, countryIso);
   if (!e164 || e164.length < 10) {
-    return { success: false as const, error: 'Geçerli bir telefon numarası girin.' };
+    return { success: false, error: 'Geçerli bir telefon numarası girin.' };
   }
 
-  const authUser = await getUser();
-  if (!authUser?.email) return { success: false as const, error: 'Oturum bulunamadı.' };
+  if (isUiOnly()) {
+    return {
+      success: true,
+      phone: e164,
+      viaEmail: env.phoneVerifyViaEmail,
+      message: env.phoneVerifyViaEmail
+        ? 'Demo: e-posta doğrulama bağlantısı gönderildi (simüle).'
+        : 'Demo: SMS doğrulama kodu gönderildi (simüle).',
+    };
+  }
 
-  const useEmailFallback = phoneVerifyViaEmail();
+  const authUser = await getAuthUser();
+  if (!authUser?.email) return { success: false, error: 'Oturum bulunamadı.' };
+
+  const useEmailFallback = env.phoneVerifyViaEmail;
   const isSmsProviderError = (msg = '') =>
     /provider|twilio|messagebird|sms|sending|not enabled|disabled|unsupported|could not be found/i.test(
       msg,
     );
 
+  const client = requireSupabase();
+
   if (!useEmailFallback) {
-    const { error } = await supabase.auth.updateUser({ phone: e164 });
+    const { error } = await client.auth.updateUser({ phone: e164 });
     if (!error) {
       return {
-        success: true as const,
+        success: true,
         phone: e164,
-        viaEmail: false as const,
+        viaEmail: false,
         message: 'SMS doğrulama kodu gönderildi.',
       };
     }
     if (!isSmsProviderError(error.message)) {
-      return { success: false as const, error: error.message };
+      return { success: false, error: error.message };
     }
   }
 
@@ -243,23 +259,22 @@ export async function sendPhoneVerification(
     });
   }
 
-  // E-posta linkleri tarayıcıda açılır → web callback (SITE_URL)
-  const redirectTo = `${env.siteUrl}/auth/callback?verify=phone`;
-  const { error: emailErr } = await supabase.auth.signInWithOtp({
+  const redirectTo = `${env.apiBaseUrl}/auth/callback?verify=phone`;
+  const { error: emailErr } = await client.auth.signInWithOtp({
     email: authUser.email,
     options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
   });
   if (emailErr) {
     return {
-      success: false as const,
+      success: false,
       error: emailErr.message || 'Doğrulama bağlantısı gönderilemedi.',
     };
   }
 
   return {
-    success: true as const,
+    success: true,
     phone: e164,
-    viaEmail: true as const,
+    viaEmail: true,
     message:
       'SMS yapılandırılmadığı için e-postanıza doğrulama bağlantısı gönderildi. Bağlantıya tıklayın.',
   };
@@ -268,29 +283,36 @@ export async function sendPhoneVerification(
 export async function confirmPhoneVerification(
   code: string,
   phone: string,
-  member: MemberProfile | null | undefined,
+  member: MemberRecord,
   countryIso = DEFAULT_COUNTRY_ISO,
   viaEmail = false,
-) {
-  if (!supabase) return { success: false as const, error: 'Supabase yapılandırılmadı.' };
-  if (!code?.trim()) return { success: false as const, error: 'Doğrulama kodunu girin.' };
+): Promise<VerificationResult> {
+  if (!env.phoneVerifyEnabled) {
+    return { success: false, error: 'Telefon doğrulama şu an kapalı.' };
+  }
+  if (!code?.trim()) return { success: false, error: 'Doğrulama kodunu girin.' };
 
+  if (isUiOnly()) {
+    return markPhoneVerified(member, phone);
+  }
+
+  const client = requireSupabase();
   const pending = member?.pendingPhoneVerify as
-    | { phone?: string; viaEmail?: boolean }
+    | { viaEmail?: boolean; phone?: string }
     | null
     | undefined;
 
   if (viaEmail || pending?.viaEmail) {
-    const authUser = await getUser();
+    const authUser = await getAuthUser();
     const email = authUser?.email;
-    if (!email) return { success: false as const, error: 'E-posta bulunamadı.' };
+    if (!email) return { success: false, error: 'E-posta bulunamadı.' };
 
-    const { error } = await supabase.auth.verifyOtp({
+    const { error } = await client.auth.verifyOtp({
       email,
       token: code.trim(),
       type: 'email',
     });
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false, error: error.message };
 
     const verifiedPhone = pending?.phone || phone;
     await patchVerification(member, { pendingPhoneVerify: null });
@@ -298,14 +320,14 @@ export async function confirmPhoneVerification(
   }
 
   const e164 = parsePhoneE164(phone, countryIso);
-  if (!e164) return { success: false as const, error: 'Telefon numarası gerekli.' };
+  if (!e164) return { success: false, error: 'Telefon numarası gerekli.' };
 
-  const { error } = await supabase.auth.verifyOtp({
+  const { error } = await client.auth.verifyOtp({
     phone: e164,
     token: code.trim(),
     type: 'phone_change',
   });
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false, error: error.message };
 
   return markPhoneVerified(member, phone);
 }

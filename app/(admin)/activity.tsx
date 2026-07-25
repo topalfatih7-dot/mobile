@@ -1,58 +1,80 @@
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { AdminPanelScreen } from '@/components/admin/AdminPanelScreen';
-import { Card } from '@/components/ui/Card';
-import { fetchActivities, type ActivityItem } from '@/services/db/activities';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function AdminActivityScreen() {
-  const [items, setItems] = useState<ActivityItem[]>([]);
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
-  const load = useCallback(async () => {
-    setItems(await fetchActivities());
-  }, []);
+const ROWS: { id: string; text: string; at: string; icon: IconName; iconColor: string }[] = [
+  { id: '1', text: 'Demo Üye giriş yaptı', at: 'Az önce', icon: 'log-in', iconColor: colors.brand[600] },
+  {
+    id: '2',
+    text: "Demo Üye'ye Vip Paket atandı",
+    at: '10 dk önce',
+    icon: 'star',
+    iconColor: colors.gold[500],
+  },
+  {
+    id: '3',
+    text: 'Yeni destek talebi',
+    at: '1 saat önce',
+    icon: 'chatbubble-ellipses',
+    iconColor: colors.warm[500],
+  },
+];
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+/** LOCK: docs/mobile/screens/admin/activity.md */
+export default function AdminActivity() {
   return (
-    <AdminPanelScreen
-      emptySubtitle="Sistem aktivite günlüğü burada listelenir."
-      emptyTitle="Aktivite yok"
-      subtitle={`${items.length} kayıt`}
-      title="Aktivite">
-      {items.length > 0
-        ? items.map((a) => (
-            <Card key={a.id} padding={spacing.md} style={styles.card}>
-              <Text style={styles.type}>{a.type}</Text>
-              <Text style={styles.text}>{a.text}</Text>
-              <Text style={styles.meta}>
-                {a.createdAt
-                  ? new Date(a.createdAt).toLocaleString('tr-TR', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : '—'}
-              </Text>
-            </Card>
-          ))
-        : null}
-    </AdminPanelScreen>
+    <PanelScaffold showBack subtitle="Son olaylar" title="Aktivite">
+      {ROWS.map((r, i) => (
+        <FadeIn delay={i * 40} key={r.id}>
+          <View style={styles.item}>
+            <View style={styles.timeline}>
+              <View style={styles.iconBox}>
+                <Ionicons color={r.iconColor} name={r.icon} size={16} />
+              </View>
+              {i < ROWS.length - 1 ? <View style={styles.line} /> : null}
+            </View>
+            <View style={styles.card}>
+              <Text style={styles.text}>{r.text}</Text>
+              <Text style={styles.at}>{r.at}</Text>
+            </View>
+          </View>
+        </FadeIn>
+      ))}
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { marginBottom: spacing.sm },
-  type: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    color: colors.teal[600],
-    textTransform: 'uppercase',
+  item: { flexDirection: 'row', gap: spacing.sm },
+  timeline: { alignItems: 'center' },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  text: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.primary, marginTop: 4, lineHeight: 20 },
-  meta: { fontFamily: fonts.regular, fontSize: 12, color: colors.text.muted, marginTop: spacing.sm },
+  line: { flex: 1, width: 1, backgroundColor: colors.cream[200], marginVertical: 2 },
+  card: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    marginBottom: spacing.sm,
+    minHeight: 48,
+  },
+  text: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  at: { fontFamily: fonts.sans, fontSize: 11, color: colors.cream[800], textAlign: 'right' },
 });

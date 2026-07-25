@@ -1,12 +1,10 @@
-/**
- * Sohbet mesajlarında platform dışı iletişim bilgisi paylaşımını tespit eder.
- * Web `contactInfoGuard.js` ile aynı sözleşme.
- */
+/** LOCK: messages.md / chat-model — contact info block */
+
+export const CONTACT_INFO_BLOCK_MESSAGE =
+  'Güvenliğiniz için mesajınızda paylaşım algılandı. Tüm iletişim uygulama içinden yürütülmelidir; lütfen iletişim bilgisi paylaşmadan tekrar yazın.';
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-const PHONE_CANDIDATE_RE = /(?:\+?\d[\d\s().-]{7,}\d)/g;
-
-const EXTERNAL_APP_KEYWORDS = [
+const KEYWORDS = [
   'whatsapp',
   'wa.me',
   'telegram',
@@ -24,35 +22,12 @@ const EXTERNAL_APP_KEYWORDS = [
   'linkedin.com/in',
 ];
 
-function digitsOnly(value: string) {
-  return String(value || '').replace(/\D/g, '');
+export function detectExternalContactInfo(text: string): boolean {
+  const t = String(text || '');
+  if (!t.trim()) return false;
+  if (EMAIL_RE.test(t)) return true;
+  const phoneMatches = t.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) || [];
+  if (phoneMatches.some((match) => match.replace(/\D/g, '').length >= 9)) return true;
+  const lower = t.toLowerCase().replace(/i̇/g, 'i');
+  return KEYWORDS.some((k) => lower.includes(k));
 }
-
-function hasPhoneNumber(text: string) {
-  const matches = text.match(PHONE_CANDIDATE_RE) || [];
-  return matches.some((m) => digitsOnly(m).length >= 9);
-}
-
-function hasEmail(text: string) {
-  return EMAIL_RE.test(text);
-}
-
-function hasExternalAppMention(text: string) {
-  const normalized = text.toLowerCase().replace(/i̇/g, 'i');
-  return EXTERNAL_APP_KEYWORDS.some((kw) => normalized.includes(kw));
-}
-
-export function detectExternalContactInfo(text: string) {
-  const value = String(text || '');
-  if (!value.trim()) return { blocked: false, reason: '' };
-
-  if (hasEmail(value)) return { blocked: true, reason: 'e-posta adresi' };
-  if (hasExternalAppMention(value)) {
-    return { blocked: true, reason: 'sosyal medya / harici uygulama bağlantısı' };
-  }
-  if (hasPhoneNumber(value)) return { blocked: true, reason: 'telefon numarası' };
-  return { blocked: false, reason: '' };
-}
-
-export const CONTACT_INFO_BLOCK_MESSAGE =
-  'Güvenliğiniz için mesajınızda paylaşım algılandı. Tüm iletişim uygulama içinden yürütülmelidir; lütfen iletişim bilgisi paylaşmadan tekrar yazın.';

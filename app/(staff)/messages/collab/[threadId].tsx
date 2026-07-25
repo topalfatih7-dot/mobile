@@ -1,9 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -13,202 +9,202 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-import { Avatar } from '@/components/ui/Avatar';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
-import { useApp } from '@/context/AppContext';
-import { useResponsive } from '@/hooks/useResponsive';
-import type { StaffCollabMessage } from '@/services/db/staffCollabChat';
-import { normalizeStaffRole } from '@/utils/staffAccess';
-import { colors, fonts, gradients, radius, spacing } from '@/constants/theme';
+import { MeshBackground } from '@/components/ui/MeshBackground';
+import { useToast } from '@/context/ToastContext';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-function formatMessageTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-}
-
-export default function StaffCollabChatScreen() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+/** LOCK: docs/mobile/screens/staff/collab-messages.md */
+export default function StaffCollabMessages() {
   const insets = useSafeAreaInsets();
-  const {
-    staff,
-    staffCollabThreads,
-    staffCollabMessages,
-    loadStaffCollabMessages,
-    sendStaffCollabChat,
-    markStaffCollabRead,
-  } = useApp();
-  const { horizontalPadding } = useResponsive();
-  const role = normalizeStaffRole(staff?.role);
+  const { toast } = useToast();
+  const [text, setText] = useState('');
+  const [msgs, setMsgs] = useState<
+    { id: string; from: 'peer' | 'staff'; text: string }[]
+  >([
+    {
+      id: '1',
+      from: 'peer',
+      text: 'Danışanın beslenme programını güncelledim.',
+    },
+    {
+      id: '2',
+      from: 'peer',
+      text: 'Öğle öğününe protein takviyesi ekledim, antrenman planını buna göre ayarlayabilirsin.',
+    },
+  ]);
 
-  const thread = staffCollabThreads.find((t) => t.id === threadId) || null;
-  const peerName =
-    role === 'coach' ? thread?.dietitianName || 'Diyetisyen' : thread?.coachName || 'Koç';
-
-  const [messages, setMessages] = useState<StaffCollabMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [error, setError] = useState('');
-  const listRef = useRef<FlatList<StaffCollabMessage>>(null);
-
-  const load = useCallback(async () => {
-    if (!threadId) return;
-    setLoading(true);
-    try {
-      const msgs = await loadStaffCollabMessages(threadId);
-      setMessages(msgs);
-      await markStaffCollabRead(threadId);
-    } finally {
-      setLoading(false);
+  const send = () => {
+    const t = text.trim();
+    if (!t) {
+      toast('Mesaj boş.', 'error');
+      return;
     }
-  }, [threadId, loadStaffCollabMessages, markStaffCollabRead]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!threadId) return;
-    const live = staffCollabMessages[threadId];
-    if (live) setMessages(live);
-  }, [staffCollabMessages, threadId]);
-
-  const onSend = async () => {
-    if (!thread || !draft.trim() || sending) return;
-    setSending(true);
-    setError('');
-    try {
-      const result = await sendStaffCollabChat(thread, draft.trim());
-      if (!result.success) {
-        setError(result.error || 'Gönderilemedi.');
-        return;
-      }
-      setDraft('');
-    } finally {
-      setSending(false);
-    }
+    setMsgs((m) => [...m, { id: String(Date.now()), from: 'staff', text: t }]);
+    setText('');
   };
 
   return (
-    <View style={styles.root}>
-      <LinearGradient colors={gradients.violet} style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          <View style={styles.headerRow}>
-            <Pressable hitSlop={12} onPress={() => router.back()}>
-              <Ionicons color={colors.white} name="chevron-back" size={24} />
-            </Pressable>
-            <Avatar gradient={gradients.violet} name={peerName} size={40} />
-            <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>{peerName}</Text>
-              <Text style={styles.headerSub}>{thread?.memberName || 'Danışan'} · ekip sohbeti</Text>
-            </View>
-          </View>
-        </ResponsiveCenter>
-      </LinearGradient>
-
-      {loading ? (
-        <ActivityIndicator color={colors.violet[600]} style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          contentContainerStyle={styles.list}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          ref={listRef}
-          renderItem={({ item }) => {
-            const isMine = item.senderType === role;
-            return (
-              <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
-                <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>{item.text}</Text>
-                  <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
-                    {formatMessageTime(item.createdAt)}
-                  </Text>
-                </View>
-              </View>
-            );
-          }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        />
-      )}
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <View style={styles.composerRow}>
-            <TextInput
-              multiline
-              onChangeText={setDraft}
-              placeholder="Mesaj yazın…"
-              placeholderTextColor={colors.ink[300]}
-              style={styles.input}
-              value={draft}
-            />
-            <Pressable disabled={sending || !draft.trim()} onPress={() => void onSend()} style={styles.send}>
-              {sending ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Ionicons color={colors.white} name="send" size={18} />
-              )}
-            </Pressable>
+    <MeshBackground style={styles.root}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Pressable onPress={() => router.back()}>
+            <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+          </Pressable>
+          <View>
+            <Text style={styles.title}>Ekip sohbeti</Text>
+            <Text style={styles.subtitle}>Koç ↔ Diyetisyen</Text>
           </View>
         </View>
+        <View style={styles.contextRow}>
+          <Ionicons color={colors.sage[600]} name="person-circle-outline" size={16} />
+          <Text style={styles.contextText}>Danışan adına: Demo Üye</Text>
+        </View>
+        <FlatList
+          contentContainerStyle={styles.list}
+          data={msgs}
+          keyExtractor={(m) => m.id}
+          renderItem={({ item }) => (
+            <Animated.View
+              entering={FadeInUp.duration(200)}
+              style={[styles.msgRow, item.from === 'staff' && styles.msgRowMine]}>
+              {item.from !== 'staff' ? (
+                <View style={styles.peerAvatar}>
+                  <Text style={styles.peerAvatarText}>D</Text>
+                </View>
+              ) : null}
+              <View
+                style={[
+                  styles.bubble,
+                  item.from === 'staff' ? styles.mine : styles.other,
+                ]}>
+                {item.from !== 'staff' ? (
+                  <Text style={styles.senderLabel}>Demo Diyetisyen</Text>
+                ) : null}
+                <Text
+                  style={[styles.bubbleText, item.from === 'staff' && { color: colors.white }]}>
+                  {item.text}
+                </Text>
+              </View>
+            </Animated.View>
+          )}
+        />
+        <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
+          <TextInput
+            multiline
+            onChangeText={setText}
+            placeholder="Mesaj yazın…"
+            placeholderTextColor={colors.cream[300]}
+            style={styles.input}
+            value={text}
+          />
+          <Pressable
+            onPress={send}
+            style={({ pressed }) => [styles.send, pressed && styles.sendPressed]}>
+            <Ionicons color={colors.white} name="send" size={18} />
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
-    </View>
+    </MeshBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  header: { paddingBottom: spacing.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerText: { flex: 1 },
-  headerTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.white },
-  headerSub: { fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-  list: { padding: spacing.lg, paddingBottom: spacing.xl },
-  bubbleRow: { marginBottom: spacing.sm, alignItems: 'flex-start' },
-  bubbleRowMine: { alignItems: 'flex-end' },
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cream[200],
+  },
+  title: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
+  subtitle: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 1 },
+  contextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cream[200],
+    backgroundColor: colors.sage[50],
+  },
+  contextText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.sage[700] },
+  list: { padding: spacing.lg },
+  msgRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginBottom: 8,
+  },
+  msgRowMine: { justifyContent: 'flex-end' },
+  peerAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.full,
+    backgroundColor: colors.sage[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  peerAvatarText: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.white },
   bubble: {
     maxWidth: '82%',
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    padding: 12,
+    gap: 2,
+  },
+  mine: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.brand[600],
+    borderBottomRightRadius: 6,
+  },
+  other: {
+    alignSelf: 'flex-start',
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    borderBottomLeftRadius: 6,
   },
-  bubbleMine: { backgroundColor: colors.violet[600] },
-  bubbleTheirs: { backgroundColor: colors.white },
-  bubbleText: { fontFamily: fonts.regular, fontSize: 15, color: colors.text.primary },
-  bubbleTextMine: { color: colors.white },
-  bubbleTime: { fontFamily: fonts.medium, fontSize: 11, color: colors.text.muted, marginTop: 4 },
-  bubbleTimeMine: { color: 'rgba(255,255,255,0.75)' },
+  senderLabel: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.sage[600] },
+  bubbleText: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[900], lineHeight: 20 },
   composer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    gap: 8,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.cream[200],
   },
-  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   input: {
     flex: 1,
-    minHeight: 42,
-    maxHeight: 120,
-    borderRadius: radius.md,
+    minHeight: 44,
+    maxHeight: 100,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink[100],
-    paddingHorizontal: spacing.md,
+    borderColor: colors.cream[200],
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.sans,
     fontSize: 15,
-    color: colors.text.primary,
+    color: colors.cream[900],
   },
   send: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.brand[600],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.violet[600],
   },
-  error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginBottom: 6 },
+  sendPressed: { transform: [{ scale: 0.92 }] },
 });

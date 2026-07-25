@@ -1,36 +1,33 @@
-# Yeni Form — Mobil
+# Yeni Form — Mobile
 
-Expo (**SDK 56**) React Native uygulaması. Kaynak: web `Serenova-F-t/Adsız` + (varsa) blueprint `docs/rn-migration/`.
+Expo SDK **56** native uygulama iskeleti. Ürün spesifikasyonu self-contained: `docs/mobile/`.
 
-## AI / yazılımcı — nereden bakılır?
+## Başlangıç (AI / yazılımcı)
 
-| Sıra | Dosya | İçerik |
-|------|--------|--------|
-| 1 | [`docs/README.md`](./docs/README.md) | Doküman indeksi |
-| 2 | [`docs/AI_MOBILE_PROGRESS.md`](./docs/AI_MOBILE_PROGRESS.md) | Durum, P0/P1, env, tuzaklar |
-| 3 | [`docs/CODEMAP.md`](./docs/CODEMAP.md) | “X hangi dosyada?” |
-| 4 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Stack, auth, chat, realtime |
-
-Kural: belgelenmeyen davranışı uydurma; web `src/services` ile parity.
+| Sıra | Dosya |
+|------|--------|
+| 1 | [`docs/mobile/IMPLEMENTATION-LOCK.md`](./docs/mobile/IMPLEMENTATION-LOCK.md) |
+| 2 | [`.cursor/skills/README.md`](./.cursor/skills/README.md) |
+| 3 | [`docs/README.md`](./docs/README.md) |
+| 4 | [`docs/AI_MOBILE_PROGRESS.md`](./docs/AI_MOBILE_PROGRESS.md) |
 
 ## Çalıştırma
 
 ```bash
-cp .env.example .env
-# EXPO_PUBLIC_SUPABASE_* ve EXPO_PUBLIC_SITE_URL doldur
+cp .env.example .env   # değerleri doldur (Faz 0’da servisler bağlı değil)
 npm install
 npm run start:go
 ```
 
-- Metro: http://localhost:8081  
-- Dev client: `npm start` (`--dev-client`)  
-- Ops: [`docs/MOBILE_OAUTH_SETUP.md`](./docs/MOBILE_OAUTH_SETUP.md), [`docs/MOBILE_TELEGRAM_SETUP.md`](./docs/MOBILE_TELEGRAM_SETUP.md)
+Metro: http://localhost:8081
 
-## Dizin özeti
+## Yapı
 
 ```
-app/           Expo Router (auth | app | staff | admin)
-src/context/   AppContext, Toast
-src/services/  Auth, realtime, presence, telegram, db/*
-docs/          Progress + CODEMAP + ARCHITECTURE + ops
+app/           Expo Router — (public|auth|member|staff|admin) stub’lar
+src/context/   Auth / Data / Actions dilimleri
+src/theme/     Design token stub (02-design-system)
+src/services/  Kabuk (unimplemented)
+docs/mobile/   Tam spesifikasyon (screens, flows, contracts)
+.cursor/skills Cursor agent skill’leri
 ```

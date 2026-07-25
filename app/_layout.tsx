@@ -1,85 +1,57 @@
 import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-} from '@expo-google-fonts/manrope';
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 import {
-  Outfit_600SemiBold,
-  Outfit_700Bold,
-  Outfit_800ExtraBold,
-} from '@expo-google-fonts/outfit';
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AuthDeepLinkHandler } from '@/components/auth/AuthDeepLinkHandler';
-import { PushBootstrap } from '@/components/notifications/PushBootstrap';
-import { ConfigErrorScreen } from '@/components/ui/ConfigErrorScreen';
-import { AppProvider } from '@/context/AppContext';
-import { ToastProvider } from '@/context/ToastContext';
-import { useSupabaseHealthCheck } from '@/hooks/useSupabaseHealthCheck';
-import { isSupabaseEnabled } from '@/services/supabaseClient';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { AppProviders } from '@/context/AppProviders';
 
-export { ErrorBoundary } from 'expo-router';
-
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
-    Outfit_600SemiBold,
-    Outfit_700Bold,
-    Outfit_800ExtraBold,
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
   });
 
-  useSupabaseHealthCheck();
-
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
-
-  if (!loaded) return null;
-
-  if (!isSupabaseEnabled) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <ConfigErrorScreen />
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    );
-  }
+  if (!fontsLoaded) return <LoadingScreen label="Yeni Form hazırlanıyor…" />;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AppProvider>
-          <ToastProvider>
-            <AuthDeepLinkHandler />
-            <PushBootstrap />
-            <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="(public)" options={{ animation: 'slide_from_right' }} />
-              <Stack.Screen name="(app)" />
-              <Stack.Screen name="(admin)" options={{ animation: 'fade' }} />
-              <Stack.Screen name="(staff)" options={{ animation: 'fade' }} />
-            </Stack>
-          </ToastProvider>
-        </AppProvider>
+        <AppProviders>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }} />
+        </AppProviders>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

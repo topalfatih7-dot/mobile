@@ -1,5 +1,4 @@
 @AGENTS.md
 
-# Yeni Form mobile — kısa yönlendirme
-# Detay: docs/README.md → AI_MOBILE_PROGRESS.md → CODEMAP.md → ARCHITECTURE.md
-
+# Yeni Form mobile
+# Detay: docs/README.md → docs/mobile/IMPLEMENTATION-LOCK.md → docs/AI_MOBILE_PROGRESS.md

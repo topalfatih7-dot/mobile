@@ -1,153 +1,258 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { ComponentProps } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BrandMark } from '@/components/brand/BrandMark';
-import { AdminNavGrid } from '@/components/admin/AdminPanelScreen';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
-import { StaffStatCard } from '@/components/staff/StaffStatCard';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { useApp } from '@/context/AppContext';
-import { useAdminDashboard } from '@/hooks/useAdminDashboard';
-import { useResponsive } from '@/hooks/useResponsive';
-import { getPlanLabel } from '@/data/membershipPlans';
-import { colors, fonts, gradients, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
+import { ADMIN_NAV } from '@/data/adminNav';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-/** Web `adminNav` sırası (Genel Bakış hariç hub maddeleri). */
-const ADMIN_NAV = [
-  { label: 'Üyeler', href: '/(admin)/' as Href, icon: 'people' as const, hint: 'Aşağıda son üyeler' },
-  { label: 'Paketler', href: '/(admin)/plans' as Href, icon: 'cube' as const },
-  { label: 'Premium', href: '/(admin)/premium' as Href, icon: 'diamond' as const },
-  { label: 'Başvurular', href: '/(admin)/applications' as Href, icon: 'person-add' as const },
-  { label: 'Kütüphane', href: '/(admin)/library' as Href, icon: 'library' as const },
-  { label: 'Kadromuz', href: '/(admin)/staff' as Href, icon: 'medkit' as const },
-  { label: 'Finans', href: '/(admin)/payments' as Href, icon: 'wallet' as const },
-  { label: 'Seanslar', href: '/(admin)/sessions' as Href, icon: 'calendar' as const },
-  { label: 'Mesajlar', href: '/(admin)/messages' as Href, icon: 'chatbubbles' as const },
-  { label: 'Destek', href: '/(admin)/support' as Href, icon: 'help-buoy' as const },
-  { label: 'Blog', href: '/(admin)/blog' as Href, icon: 'book' as const },
-  { label: 'İçerik', href: '/(admin)/content' as Href, icon: 'sparkles' as const },
-  { label: 'Analitik', href: '/(admin)/analytics' as Href, icon: 'bar-chart' as const },
-  { label: 'Aktivite', href: '/(admin)/activity' as Href, icon: 'pulse' as const },
-  { label: 'Hesap', href: '/(admin)/account' as Href, icon: 'shield-checkmark' as const },
-];
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
-export default function AdminHomeScreen() {
-  const insets = useSafeAreaInsets();
-  const { user, logout } = useApp();
-  const { stats, members, syncing, refresh } = useAdminDashboard();
-  const { horizontalPadding } = useResponsive();
+const NAV_ICONS: Record<string, IconName> = {
+  '/(admin)/members': 'people',
+  '/(admin)/premium': 'star',
+  '/(admin)/sessions': 'calendar',
+  '/(admin)/applications': 'document-text',
+  '/(admin)/staff': 'id-card',
+  '/(admin)/support': 'chatbubble-ellipses',
+  '/(admin)/messages': 'mail',
+  '/(admin)/library': 'barbell',
+  '/(admin)/blog': 'newspaper',
+  '/(admin)/content': 'layers',
+  '/(admin)/payments': 'card',
+  '/(admin)/plans': 'pricetags',
+  '/(admin)/subscriptions': 'repeat',
+  '/(admin)/analytics': 'stats-chart',
+  '/(admin)/activity': 'pulse',
+  '/(admin)/ai-costs': 'sparkles',
+  '/(admin)/account': 'person-circle',
+};
 
-  const onLogout = async () => {
-    await logout();
-    router.replace('/');
-  };
+const NAV_GROUPS: Record<'ops' | 'content' | 'system', string[]> = {
+  ops: [
+    '/(admin)/members',
+    '/(admin)/premium',
+    '/(admin)/sessions',
+    '/(admin)/applications',
+    '/(admin)/staff',
+    '/(admin)/support',
+    '/(admin)/messages',
+    '/(admin)/library',
+    '/(admin)/payments',
+    '/(admin)/plans',
+    '/(admin)/subscriptions',
+  ],
+  content: ['/(admin)/blog', '/(admin)/content'],
+  system: ['/(admin)/analytics', '/(admin)/activity', '/(admin)/ai-costs', '/(admin)/account'],
+};
+
+/** LOCK: docs/mobile/screens/admin/overview.md */
+export default function AdminOverview() {
+  const { email, logout } = useAuth();
+  const { loading, platform } = useData();
+  const s = platform.adminStats;
+  const unassigned = platform.members.filter(
+    (m) => !m.assignedCoachId && !m.assignedDietitianId && !m.assignedDoctorId,
+  ).length;
+
+  const kpis: {
+    label: string;
+    value: number;
+    icon: IconName;
+    iconBg: string;
+    iconColor: string;
+  }[] = [
+    {
+      label: 'Üye',
+      value: s.members,
+      icon: 'people',
+      iconBg: colors.brand[50],
+      iconColor: colors.brand[600],
+    },
+    {
+      label: 'Aktif seans',
+      value: 0,
+      icon: 'videocam',
+      iconBg: colors.sage[50],
+      iconColor: colors.sage[600],
+    },
+    {
+      label: 'Açık talep',
+      value: s.openTickets,
+      icon: 'help-buoy',
+      iconBg: colors.warm[50],
+      iconColor: colors.warm[500],
+    },
+    {
+      label: 'Atamasız üye',
+      value: unassigned,
+      icon: 'person-add',
+      iconBg: `${colors.gold[400]}1F`,
+      iconColor: colors.gold[500],
+    },
+  ];
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl },
-        ]}
-        refreshControl={<RefreshControl onRefresh={refresh} refreshing={syncing} tintColor={colors.brand[600]} />}
-        showsVerticalScrollIndicator={false}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          <BrandMark size={44} />
-          <Text style={styles.title}>Admin Paneli</Text>
-          <Text style={styles.subtitle}>{user.email}</Text>
+    <PanelScaffold subtitle="Yeni Form operasyon paneli" title="Genel bakış">
+      {loading && platform.members.length === 0 ? (
+        <InlineSpinner fill />
+      ) : (
+        <>
+      <View style={styles.kpiGrid}>
+        {kpis.map((k, i) => (
+          <FadeIn delay={i * 40} key={k.label} style={styles.kpiWrap}>
+            <View style={styles.kpi}>
+              <View style={[styles.kpiIcon, { backgroundColor: k.iconBg }]}>
+                <Ionicons color={k.iconColor} name={k.icon} size={20} />
+              </View>
+              <Text style={styles.kpiVal}>{k.value}</Text>
+              <Text style={styles.kpiLabel}>{k.label}</Text>
+            </View>
+          </FadeIn>
+        ))}
+      </View>
 
-          <View style={styles.grid}>
-            <StaffStatCard gradient={gradients.brand} icon="people" label="Üye" value={stats.memberCount} />
-            <StaffStatCard
-              gradient={gradients.coral}
-              icon="star"
-              label="Premium"
-              value={stats.paidMemberCount}
-            />
-            <StaffStatCard gradient={gradients.violet} icon="briefcase" label="Personel" value={stats.staffCount} />
-            <StaffStatCard
-              gradient={gradients.teal}
-              icon="chatbubbles"
-              label="Sohbet"
-              value={stats.threadCount}
-            />
-          </View>
-
-          <Text style={styles.sectionTitle}>Yönetim</Text>
-          <AdminNavGrid items={ADMIN_NAV.filter((item) => item.label !== 'Üyeler')} />
-
-          <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Son Üyeler</Text>
-          {members.length > 0 ? (
-            members.map((member) => (
-              <Pressable key={member.id} onPress={() => router.push(`/members/${member.id}` as Href)}>
-                <Card padding={spacing.md} style={styles.memberCard}>
-                  <Text style={styles.memberName}>{member.name}</Text>
-                  <Text style={styles.memberMeta}>
-                    {getPlanLabel(member.membership)} · {member.membershipStatus}
-                  </Text>
-                  <Text style={styles.memberEmail}>{member.email}</Text>
-                </Card>
+      {(['ops', 'content', 'system'] as const).map((group) => (
+        <FadeIn delay={60} key={group}>
+          <Text style={styles.group}>
+            {group === 'ops' ? 'Operasyon' : group === 'content' ? 'İçerik' : 'Sistem'}
+          </Text>
+          <View style={styles.rows}>
+            {ADMIN_NAV.filter((n) => NAV_GROUPS[group].includes(n.href)).map((n) => (
+              <Pressable
+                key={n.href}
+                onPress={() => router.push(n.href as Href)}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+                <View style={styles.rowIcon}>
+                  <Ionicons
+                    color={colors.brand[600]}
+                    name={NAV_ICONS[n.href] ?? n.icon ?? 'ellipse'}
+                    size={16}
+                  />
+                </View>
+                <Text style={styles.rowText}>{n.label}</Text>
+                <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
               </Pressable>
-            ))
-          ) : (
-            <Card padding={spacing.lg}>
-              <Text style={styles.empty}>Henüz üye kaydı yok.</Text>
-            </Card>
-          )}
+            ))}
+          </View>
+        </FadeIn>
+      ))}
 
-          <Button label="Çıkış Yap" onPress={onLogout} style={styles.logout} variant="secondary" />
-        </ResponsiveCenter>
-      </ScrollView>
-    </View>
+      <FadeIn delay={120}>
+        <View style={styles.account}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{(email || 'A').charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={styles.accountInfo}>
+            <Text numberOfLines={1} style={styles.accountEmail}>
+              {email}
+            </Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>admin</Text>
+            </View>
+          </View>
+          <Button
+            label="Çıkış Yap"
+            onPress={async () => {
+              await logout();
+              router.replace('/(auth)/login');
+            }}
+            size="md"
+            variant="ghost"
+          />
+        </View>
+      </FadeIn>
+        </>
+      )}
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.canvas },
-  content: { flexGrow: 1 },
-  title: {
-    marginTop: spacing.md,
-    fontFamily: fonts.displayExtra,
-    fontSize: 28,
-    color: colors.text.primary,
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  kpiWrap: { width: '48%', flexGrow: 1 },
+  kpi: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    gap: 6,
   },
-  subtitle: {
-    marginTop: spacing.xs,
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginBottom: spacing.xl,
+  kpiIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  memberCard: { marginBottom: spacing.sm },
-  memberName: { fontFamily: fonts.display, fontSize: 15.5, color: colors.text.primary },
-  memberMeta: {
-    fontFamily: fonts.medium,
-    fontSize: 12.5,
+  kpiVal: { fontFamily: fonts.displayExtra, fontSize: 28, color: colors.cream[900] },
+  kpiLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  group: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 12,
     color: colors.brand[600],
-    marginTop: 3,
+    textTransform: 'uppercase',
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    letterSpacing: 0.5,
   },
-  memberEmail: {
-    fontFamily: fonts.regular,
-    fontSize: 12.5,
-    color: colors.text.muted,
-    marginTop: 2,
+  rows: { gap: spacing.sm },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    minHeight: 48,
   },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.secondary },
-  logout: { marginTop: spacing.xl },
+  rowPressed: { backgroundColor: colors.cream[100] },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowText: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
+  account: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    marginTop: spacing.md,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.white },
+  accountInfo: { flex: 1, gap: 4 },
+  accountEmail: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.gold[400],
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  roleBadgeText: { fontFamily: fonts.sansSemi, fontSize: 10, color: colors.white },
 });

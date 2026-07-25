@@ -1,160 +1,192 @@
-import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { ProfileInfoGrid } from '@/components/profile/ProfileInfoGrid';
-import { AppHeader } from '@/components/ui/AppHeader';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { Screen } from '@/components/ui/Screen';
-import { describeHealthTest } from '@/data/healthTest';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
+import { useToast } from '@/context/ToastContext';
 import { getPlanLabel } from '@/data/membershipPlans';
-import { fetchMemberById } from '@/services/db/members';
-import { buildPersonalInfoRows } from '@/services/memberProfile';
-import type { MemberProfile } from '@/types/session';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-export default function StaffClientHealthScreen() {
+function initials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
+const AVATAR_BG: Record<string, string> = {
+  vip: colors.gold[400],
+  spor: colors.brand[500],
+  diyet: colors.sage[500],
+};
+
+const PLAN_BADGE: Record<string, { bg: string; fg: string }> = {
+  vip: { bg: colors.gold[400], fg: colors.white },
+  spor: { bg: colors.brand[100], fg: colors.brand[700] },
+  diyet: { bg: colors.sage[100], fg: colors.sage[700] },
+};
+
+const GENDER_TR: Record<string, string> = { female: 'Kadın', male: 'Erkek' };
+
+/** Demo sunum verisi — sağlık testi katalog alanı değildir (UI-only). */
+const DEMO_ANSWERS = [
+  { label: 'Hedef', value: 'Kilo vermek ve kondisyon kazanmak' },
+  { label: 'Aktivite düzeyi', value: 'Haftada 2–3 gün hafif egzersiz' },
+  { label: 'Kronik rahatsızlık', value: 'Belirtilmedi' },
+  { label: 'Uyku', value: 'Ortalama 6–7 saat' },
+];
+
+/** LOCK: docs/mobile/screens/staff/client-health.md */
+export default function ClientHealth() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [member, setMember] = useState<MemberProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, staffClients } = useData();
+  const client = staffClients.find((c) => String(c.id) === String(id));
+  const { toast } = useToast();
+  const [note, setNote] = useState('');
+  const [focused, setFocused] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        setMember(await fetchMemberById(id));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
-
-  const rows = buildPersonalInfoRows(member, member?.email || '');
-  const healthSections = useMemo(() => {
-    const ht = (member?.healthTest as Record<string, unknown> | undefined) || null;
-    if (!ht) return [];
-    const gender = (member?.gender as string | undefined) || undefined;
-    const pkg = (member?.packageConfig as Record<string, unknown> | null) || null;
-    return (describeHealthTest as (ht: unknown, gender?: string, pkg?: unknown) => {
-      id: string;
-      title: string;
-      items: { label: string; value: string }[];
-    }[])(ht, gender, pkg);
-  }, [member]);
-
-  const rawPairs = useMemo(() => {
-    const ht = member?.healthTest;
-    if (!ht || typeof ht !== 'object' || Array.isArray(ht)) return [];
-    return Object.entries(ht as Record<string, unknown>)
-      .filter(([k, v]) => k !== 'completedSections' && v !== '' && v != null)
-      .map(([key, value]) => ({
-        key,
-        value: Array.isArray(value) ? value.join(', ') : String(value),
-      }));
-  }, [member]);
+  const plan = String(client?.membership || '');
+  const badge = PLAN_BADGE[plan] || { bg: colors.cream[100], fg: colors.cream[800] };
+  const genderTr = GENDER_TR[String(client?.gender || '')] || '—';
 
   return (
-    <Screen scroll contentStyle={styles.content} edges={{ top: true, bottom: true }}>
-      <AppHeader
-        showBack
-        subtitle="Danışan sağlık profili"
-        title={member?.name || 'Sağlık Profili'}
-      />
-
-      {loading ? (
-        <ActivityIndicator color={colors.teal[600]} size="large" style={styles.loader} />
-      ) : member ? (
-        <View style={styles.body}>
-          <Card padding={spacing.lg} style={styles.summary}>
-            <Text style={styles.plan}>{getPlanLabel(member.membership as string)}</Text>
-            <Text style={styles.status}>{String(member.membershipStatus || 'active')}</Text>
-            <Text style={styles.email}>{member.email}</Text>
-          </Card>
-
-          <Text style={styles.section}>Kişisel & ölçüm bilgileri</Text>
-          <ProfileInfoGrid rows={rows} />
-
-          <Text style={[styles.section, styles.sectionTop]}>Sağlık testi cevapları</Text>
-          {healthSections.length > 0 ? (
-            healthSections.map((sec) => (
-              <Card key={sec.id} padding={spacing.md} style={styles.healthCard}>
-                <Text style={styles.healthTitle}>{sec.title}</Text>
-                {sec.items.map((item, i) => (
-                  <View key={`${sec.id}-${i}`} style={styles.kv}>
-                    <Text style={styles.k}>{item.label}</Text>
-                    <Text style={styles.v}>{item.value}</Text>
-                  </View>
-                ))}
-              </Card>
-            ))
-          ) : rawPairs.length > 0 ? (
-            <Card padding={spacing.md} style={styles.healthCard}>
-              {rawPairs.map((pair) => (
-                <View key={pair.key} style={styles.kv}>
-                  <Text style={styles.k}>{pair.key}</Text>
-                  <Text style={styles.v}>{pair.value}</Text>
-                </View>
-              ))}
-            </Card>
-          ) : (
-            <EmptyState
-              subtitle="Bu danışan henüz sağlık testi cevaplarını kaydetmemiş."
-              title="Cevap yok"
-            />
-          )}
-
-          <Button
-            label="Programa git"
-            onPress={() => router.push(`/(staff)/clients/${id}/program` as Href)}
-            style={styles.cta}
-            variant="secondary"
-          />
-        </View>
+    <PanelScaffold
+      showBack
+      subtitle={client ? String(client.name) : 'Danışan'}
+      title="Sağlık özeti">
+      {loading && !client ? (
+        <InlineSpinner fill />
       ) : (
-        <EmptyState subtitle="Bu danışan kaydı bulunamadı veya erişiminiz yok." title="Danışan bulunamadı" />
+        <>
+      <FadeIn delay={40}>
+        <View style={styles.identityCard}>
+          <View
+            style={[
+              styles.avatar,
+              { backgroundColor: AVATAR_BG[plan] || colors.cream[300] },
+            ]}>
+            <Text style={styles.avatarText}>
+              {client ? initials(String(client.name)) : '—'}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} style={styles.name}>
+              {client ? String(client.name) : '—'}
+            </Text>
+            <View style={styles.identityMeta}>
+              <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                <Text style={[styles.badgeText, { color: badge.fg }]}>
+                  {client ? getPlanLabel(plan) : '—'}
+                </Text>
+              </View>
+              <Text style={styles.gender}>{genderTr}</Text>
+            </View>
+          </View>
+        </View>
+      </FadeIn>
+
+      <FadeIn delay={80}>
+        <View style={styles.card}>
+          <Text style={styles.cardHeading}>Sağlık testi</Text>
+          {DEMO_ANSWERS.map((row, i) => (
+            <View key={row.label}>
+              {i > 0 ? <View style={styles.rowDivider} /> : null}
+              <Text style={styles.label}>{row.label}</Text>
+              <Text style={styles.val}>{row.value}</Text>
+            </View>
+          ))}
+        </View>
+      </FadeIn>
+
+      <FadeIn delay={120}>
+        <Text style={styles.label}>Not</Text>
+        <TextInput
+          multiline
+          onBlur={() => setFocused(false)}
+          onChangeText={setNote}
+          onFocus={() => setFocused(true)}
+          placeholder="Danışan notu…"
+          placeholderTextColor={colors.cream[300]}
+          style={[styles.input, focused && styles.inputFocused]}
+          value={note}
+        />
+        <Button
+          disabled={!note.trim()}
+          label="Notu kaydet"
+          onPress={() => toast('Not kaydedildi.', 'success')}
+          style={{ marginTop: spacing.sm }}
+        />
+      </FadeIn>
+        </>
       )}
-    </Screen>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 0 },
-  body: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  loader: { marginTop: spacing.xxl },
-  summary: { marginBottom: spacing.lg },
-  plan: { fontFamily: fonts.displayExtra, fontSize: 22, color: colors.text.primary },
-  status: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.teal[600],
-    marginTop: 4,
-    textTransform: 'capitalize',
+  identityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
   },
-  email: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  section: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.white },
+  name: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  identityMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  badge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  sectionTop: { marginTop: spacing.xl },
-  healthCard: { marginBottom: spacing.md },
-  healthTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.teal[700],
-    marginBottom: spacing.sm,
+  badgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
+  gender: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    gap: 8,
   },
-  kv: { marginBottom: spacing.sm },
-  k: { fontFamily: fonts.medium, fontSize: 12, color: colors.text.muted },
-  v: { fontFamily: fonts.regular, fontSize: 14, color: colors.text.primary, marginTop: 2 },
-  cta: { marginTop: spacing.xl },
+  cardHeading: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  rowDivider: { height: 1, backgroundColor: colors.cream[100], marginBottom: 8 },
+  label: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 12,
+    color: colors.brand[600],
+    textTransform: 'uppercase',
+  },
+  val: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900], marginTop: 2 },
+  input: {
+    minHeight: 100,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    padding: 12,
+    marginTop: 6,
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    color: colors.cream[900],
+    textAlignVertical: 'top',
+  },
+  inputFocused: { borderColor: colors.brand[300] },
 });

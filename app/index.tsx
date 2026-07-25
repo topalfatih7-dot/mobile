@@ -1,19 +1,32 @@
-import { router, type Href } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { IntroCarousel } from '@/components/welcome/IntroCarousel';
-import { useAuthRedirect } from '@/hooks/useAuthGuard';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { useAuth } from '@/context/AuthContext';
 
-export default function WelcomeScreen() {
-  useAuthRedirect();
+/**
+ * İlk açılış — kaydırmalı welcome.
+ * Oturum varsa role redirect. Çıkış → /(auth)/login (welcome değil).
+ */
+export default function Index() {
+  const { loading, isAuthenticated, routeForRole } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen label="Oturum kontrol ediliyor…" />;
+  }
+
+  if (isAuthenticated) {
+    return <Redirect href={(routeForRole() || '/(member)/dashboard') as Href} />;
+  }
 
   return (
     <>
       <StatusBar style="light" />
       <IntroCarousel
-        onExplore={() => router.push('/(public)' as Href)}
+        onExplore={() => router.push('/(public)/membership')}
         onLogin={() => router.push('/(auth)/login')}
-        onStart={() => router.push('/(auth)/register')}
+        onStart={() => router.push('/(auth)/onboarding')}
       />
     </>
   );

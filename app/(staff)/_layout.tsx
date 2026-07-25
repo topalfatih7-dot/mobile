@@ -1,115 +1,62 @@
-import { Tabs } from 'expo-router';
-import { useState } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
+import { useMemo } from 'react';
 
-import { StaffForcePasswordChange } from '@/components/auth/StaffForcePasswordChange';
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
-import { useApp } from '@/context/AppContext';
-import { StaffDashboardProvider, useStaffDashboard } from '@/hooks/useStaffDashboard';
-import { useProtectedRoute } from '@/hooks/useAuthGuard';
-import { useResponsive } from '@/hooks/useResponsive';
-import { colors, fonts, gradients } from '@/constants/theme';
+import { PanelChrome } from '@/components/panel/PanelChrome';
+import { useAuth } from '@/context/AuthContext';
+import { buildStaffNavItems } from '@/data/staffNav';
+import type { IonName } from '@/data/memberNav';
 
-function StaffTabs() {
-  const insets = useSafeAreaInsets();
-  const { tabBarHeight, isTablet } = useResponsive();
-  const { unreadCount } = useStaffDashboard();
+const ROLE_BADGE: Record<string, { label: string; icon: IonName }> = {
+  coach: { label: 'Koç', icon: 'barbell-outline' },
+  dietitian: { label: 'Diyetisyen', icon: 'nutrition-outline' },
+  doctor: { label: 'Doktor', icon: 'medkit-outline' },
+};
 
-  const badge = unreadCount > 0 ? unreadCount : undefined;
-
-  return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.teal[600],
-        tabBarInactiveTintColor: colors.ink[400],
-        tabBarLabelStyle: {
-          fontFamily: fonts.semibold,
-          fontSize: isTablet ? 12 : 11,
-          marginTop: 2,
-        },
-        tabBarStyle: {
-          height: tabBarHeight + insets.bottom,
-          paddingTop: isTablet ? 10 : 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          paddingHorizontal: isTablet ? 24 : 6,
-          backgroundColor: colors.surface,
-          borderTopWidth: 0,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          elevation: 18,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Özet',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'grid' : 'grid-outline'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="clients"
-        options={{
-          title: 'Danışanlar',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'people' : 'people-outline'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'Mesajlar',
-          tabBarBadge: badge,
-          tabBarBadgeStyle: { backgroundColor: colors.coral[500], fontFamily: fonts.bold, fontSize: 10 },
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              focused={focused}
-              gradient={gradients.primary}
-              name={focused ? 'chatbubbles' : 'chatbubbles-outline'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} gradient={gradients.primary} name={focused ? 'person' : 'person-outline'} />
-          ),
-        }}
-      />
-      <Tabs.Screen name="programs" options={{ href: null }} />
-      <Tabs.Screen name="lists" options={{ href: null }} />
-      <Tabs.Screen name="library" options={{ href: null }} />
-      <Tabs.Screen name="payments" options={{ href: null }} />
-      <Tabs.Screen name="call" options={{ href: null }} />
-    </Tabs>
-  );
-}
-
+/** TopBar + Drawer — ana proje StaffShell / PanelMobileMenu paritesi */
 export default function StaffLayout() {
-  useProtectedRoute('staff');
-  const { staff, refresh } = useApp();
-  const [passwordChanged, setPasswordChanged] = useState(false);
-  const mustChangePassword =
-    Boolean(staff?.tempPasswordIssued) && !passwordChanged;
+  const { staff } = useAuth();
+  const role = String(staff?.role || 'coach');
+
+  const items = useMemo(
+    () =>
+      buildStaffNavItems(role, {
+        chatUnreadCount: 0,
+        staffAdminUnreadCount: 0,
+        staffCollabUnreadCount: 0,
+      }),
+    [role],
+  );
+
+  const badge = ROLE_BADGE[role] || ROLE_BADGE.coach;
+  const userName = String(staff?.name || staff?.email || '').trim();
 
   return (
-    <StaffDashboardProvider>
-      {mustChangePassword && staff ? (
-        <StaffForcePasswordChange
-          staff={staff}
-          onDone={() => {
-            setPasswordChanged(true);
-            void refresh();
-          }}
-        />
-      ) : null}
-      <StaffTabs />
-    </StaffDashboardProvider>
+    <PanelChrome
+      accent="staff"
+      badge={badge}
+      brandHref="/(staff)"
+      items={items}
+      userName={userName}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: 'transparent' },
+        }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="clients/index" />
+        <Stack.Screen name="clients/[id]/health" />
+        <Stack.Screen name="clients/[id]/program" />
+        <Stack.Screen name="messages/index" />
+        <Stack.Screen name="messages/[threadId]" />
+        <Stack.Screen name="messages/admin/[threadId]" />
+        <Stack.Screen name="messages/collab/[threadId]" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="programs" />
+        <Stack.Screen name="lists" />
+        <Stack.Screen name="library" />
+        <Stack.Screen name="payments" />
+        <Stack.Screen name="call/[sessionType]/[sessionId]" />
+      </Stack>
+    </PanelChrome>
   );
 }

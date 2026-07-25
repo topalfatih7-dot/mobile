@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -13,197 +11,207 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/Avatar';
-import { ResponsiveCenter } from '@/components/layout/ResponsiveCenter';
-import { useApp } from '@/context/AppContext';
-import { useResponsive } from '@/hooks/useResponsive';
-import type { AdminStaffMessage } from '@/services/db/adminChat';
-import { staffRoleLabel } from '@/utils/staffAccess';
-import { colors, fonts, gradients, radius, spacing } from '@/constants/theme';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { MeshBackground } from '@/components/ui/MeshBackground';
+import { useData } from '@/context/DataContext';
+import {
+  DEMO_ADMIN_STAFF_CHATS,
+  type AdminStaffChatMessage,
+} from '@/data/uiDemo';
+import { formatRelativeTimeTr } from '@/utils/relativeTime';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-function formatMessageTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-}
+const ROLE_LABELS: Record<string, string> = {
+  coach: 'Koç',
+  dietitian: 'Diyetisyen',
+  doctor: 'Doktor',
+};
 
-export default function AdminStaffChatScreen() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+/** LOCK: docs/mobile/screens/admin/messages.md — admin staff chat thread */
+export default function AdminMessageThread() {
   const insets = useSafeAreaInsets();
-  const {
-    adminStaffThreads,
-    adminStaffMessages,
-    loadAdminStaffMessages,
-    sendAdminStaffChat,
-    markAdminStaffRead,
-  } = useApp();
-  const { horizontalPadding } = useResponsive();
+  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const staffId = String(threadId || '');
+  const { loading, staffById, platform } = useData();
+  const staff =
+    staffById[staffId] ||
+    platform.staffList.find((s) => String(s.id) === staffId) ||
+    null;
 
-  const thread = adminStaffThreads.find((t) => t.id === threadId) || null;
-  const [messages, setMessages] = useState<AdminStaffMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [messages, setMessages] = useState<AdminStaffChatMessage[]>(
+    () => DEMO_ADMIN_STAFF_CHATS[staffId] || [],
+  );
   const [draft, setDraft] = useState('');
-  const [error, setError] = useState('');
-  const listRef = useRef<FlatList<AdminStaffMessage>>(null);
+  const listRef = useRef<FlatList<AdminStaffChatMessage>>(null);
+  const seedCount = useRef(messages.length);
 
-  const load = useCallback(async () => {
-    if (!threadId) return;
-    setLoading(true);
-    try {
-      const msgs = await loadAdminStaffMessages(threadId);
-      setMessages(msgs);
-      await markAdminStaffRead(threadId);
-    } finally {
-      setLoading(false);
-    }
-  }, [threadId, loadAdminStaffMessages, markAdminStaffRead]);
+  if (loading && !staff) {
+    return (
+      <PanelScaffold showBack subtitle="Personel sohbetleri" title="Mesajlar">
+        <InlineSpinner fill />
+      </PanelScaffold>
+    );
+  }
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  if (!staff) {
+    return (
+      <PanelScaffold showBack subtitle="Personel sohbetleri" title="Mesajlar">
+        <EmptyState icon="chatbubbles-outline" title="Sohbet bulunamadı." />
+      </PanelScaffold>
+    );
+  }
 
-  useEffect(() => {
-    if (!threadId) return;
-    const live = adminStaffMessages[threadId];
-    if (live) setMessages(live);
-  }, [adminStaffMessages, threadId]);
-
-  const onSend = async () => {
-    if (!thread || !draft.trim() || sending) return;
-    setSending(true);
-    setError('');
-    try {
-      const result = await sendAdminStaffChat(thread, draft.trim());
-      if (!result.success) {
-        setError(result.error || 'Gönderilemedi.');
-        return;
-      }
-      setDraft('');
-    } finally {
-      setSending(false);
-    }
+  const send = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `local-${Date.now()}`,
+        from: 'admin',
+        text,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    setDraft('');
   };
 
   return (
-    <View style={styles.root}>
-      <LinearGradient colors={gradients.violet} style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <ResponsiveCenter innerStyle={{ paddingHorizontal: horizontalPadding }}>
-          <View style={styles.headerRow}>
-            <Pressable hitSlop={12} onPress={() => router.back()}>
-              <Ionicons color={colors.white} name="chevron-back" size={24} />
-            </Pressable>
-            <Avatar gradient={gradients.violet} name={thread?.staffName || 'Personel'} size={40} />
-            <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>{thread?.staffName || 'Personel'}</Text>
-              <Text style={styles.headerSub}>{staffRoleLabel(thread?.staffRole)}</Text>
-            </View>
+    <MeshBackground style={styles.root}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Pressable hitSlop={10} onPress={() => router.back()} style={styles.back}>
+            <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+          </Pressable>
+          <View style={styles.headerMeta}>
+            <Text style={styles.headerTitle}>{String(staff.name)}</Text>
+            <Text style={styles.headerSub}>
+              {ROLE_LABELS[String(staff.role)] || String(staff.role)}
+            </Text>
           </View>
-        </ResponsiveCenter>
-      </LinearGradient>
+        </View>
 
-      {loading ? (
-        <ActivityIndicator color={colors.violet[600]} style={{ marginTop: 40 }} />
-      ) : (
         <FlatList
           contentContainerStyle={styles.list}
           data={messages}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(m) => m.id}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ref={listRef}
-          renderItem={({ item }) => {
-            const isMine = item.senderType === 'admin';
+          renderItem={({ item, index }) => {
+            const admin = item.from === 'admin';
             return (
-              <View style={[styles.bubbleRow, isMine && styles.bubbleRowMine]}>
-                <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>{item.text}</Text>
-                  <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>
-                    {formatMessageTime(item.createdAt)}
-                  </Text>
-                </View>
-              </View>
+              <Animated.View
+                entering={FadeInUp.duration(200).delay(index < seedCount.current ? index * 60 : 0)}
+                style={[styles.bubble, admin ? styles.bubbleAdmin : styles.bubbleStaff]}>
+                <Text style={[styles.bubbleText, admin && styles.bubbleTextAdmin]}>
+                  {item.text}
+                </Text>
+                <Text style={[styles.bubbleTime, admin && styles.bubbleTimeAdmin]}>
+                  {formatRelativeTimeTr(item.createdAt)}
+                </Text>
+              </Animated.View>
             );
           }}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         />
-      )}
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <View style={styles.composerRow}>
-            <TextInput
-              multiline
-              onChangeText={setDraft}
-              placeholder="Mesaj yazın…"
-              placeholderTextColor={colors.ink[300]}
-              style={styles.input}
-              value={draft}
-            />
-            <Pressable disabled={sending || !draft.trim()} onPress={() => void onSend()} style={styles.send}>
-              {sending ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Ionicons color={colors.white} name="send" size={18} />
-              )}
-            </Pressable>
-          </View>
+        <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
+          <TextInput
+            multiline
+            onChangeText={setDraft}
+            placeholder="Mesajını yaz…"
+            placeholderTextColor={colors.cream[300]}
+            style={styles.input}
+            value={draft}
+          />
+          <Pressable
+            disabled={!draft.trim()}
+            onPress={send}
+            style={[styles.send, !draft.trim() && styles.sendDisabled]}>
+            <Ionicons color={colors.white} name="send" size={18} />
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </View>
+    </MeshBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  header: { paddingBottom: spacing.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerText: { flex: 1 },
-  headerTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.white },
-  headerSub: { fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
-  list: { padding: spacing.lg, paddingBottom: spacing.xl },
-  bubbleRow: { marginBottom: spacing.sm, alignItems: 'flex-start' },
-  bubbleRowMine: { alignItems: 'flex-end' },
+  root: { flex: 1 },
+  flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cream[200],
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerMeta: { flex: 1 },
+  headerTitle: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
+  headerSub: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
   bubble: {
     maxWidth: '82%',
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
+    padding: 12,
   },
-  bubbleMine: { backgroundColor: colors.violet[600] },
-  bubbleTheirs: { backgroundColor: colors.white },
-  bubbleText: { fontFamily: fonts.regular, fontSize: 15, color: colors.text.primary },
-  bubbleTextMine: { color: colors.white },
-  bubbleTime: { fontFamily: fonts.medium, fontSize: 11, color: colors.text.muted, marginTop: 4 },
-  bubbleTimeMine: { color: 'rgba(255,255,255,0.75)' },
+  bubbleStaff: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    borderBottomLeftRadius: 4,
+  },
+  bubbleAdmin: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.brand[600],
+    borderBottomRightRadius: 4,
+  },
+  bubbleText: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900], lineHeight: 21 },
+  bubbleTextAdmin: { color: colors.white },
+  bubbleTime: { fontFamily: fonts.sans, fontSize: 10, color: colors.cream[800], marginTop: 4 },
+  bubbleTimeAdmin: { color: colors.brand[100] },
   composer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cream[200],
+    backgroundColor: colors.white,
   },
-  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   input: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 48,
     maxHeight: 120,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink[100],
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontFamily: fonts.regular,
+    borderColor: colors.cream[200],
+    backgroundColor: colors.white,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: fonts.sans,
     fontSize: 15,
-    color: colors.text.primary,
+    color: colors.cream[900],
   },
   send: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[600],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.violet[600],
   },
-  error: { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginBottom: 6 },
+  sendDisabled: { opacity: 0.5 },
 });

@@ -1,90 +1,256 @@
-import { router, type Href } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeIn as ReFadeIn, FadeOut as ReFadeOut } from 'react-native-reanimated';
 
-import { AppHeader } from '@/components/ui/AppHeader';
+import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
+import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Screen } from '@/components/ui/Screen';
-import { useApp } from '@/context/AppContext';
-import { fetchLibraryExercises, type LibraryExercise } from '@/services/db/exercises';
-import { normalizeStaffRole } from '@/utils/staffAccess';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { DEMO_EXERCISES } from '@/data/uiDemo';
+import { fetchExercisesPage } from '@/services/exerciseLibrary';
+import { colors, fonts, radius, spacing } from '@/theme';
 
-/** Web `StaffLibraryGate` — diyetisyen → listeler; koç/doktor → egzersiz kütüphanesi. */
-export default function StaffLibraryScreen() {
-  const { staff, exerciseCount } = useApp();
-  const role = normalizeStaffRole(staff?.role);
+const LOCATIONS = [
+  { id: 'home', label: 'Ev' },
+  { id: 'gym', label: 'Salon' },
+  { id: 'office', label: 'Ofis' },
+];
+
+/** Görünen etiket TR — filtre/veri değerleri İngilizce kalır (member paritesi). */
+const DIFFICULTY_LABELS: Record<string, string> = {
+  beginner: 'Başlangıç',
+  intermediate: 'Orta',
+  advanced: 'İleri',
+};
+
+/** LOCK: docs/mobile/screens/staff/library.md */
+export default function StaffLibrary() {
+  const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [difficulty, setDifficulty] = useState('');
+  const [location, setLocation] = useState('');
+  const [requiresMachine, setRequiresMachine] = useState('');
+  const [active, setActive] = useState<Record<string, unknown> | null>(null);
+  const [exercises, setExercises] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exercises, setExercises] = useState<LibraryExercise[]>([]);
 
-  useEffect(() => {
-    if (role === 'dietitian') {
-      router.replace('/(staff)/lists' as Href);
-    }
-  }, [role]);
+  const activeFilterCount = [difficulty, location, requiresMachine].filter(Boolean).length;
 
   const load = useCallback(async () => {
-    if (role === 'dietitian') return;
     setLoading(true);
     try {
-      setExercises(await fetchLibraryExercises());
+      const res = await fetchExercisesPage({
+        page: 1,
+        pageSize: 200,
+        filters: { search, difficulty, location, requiresMachine },
+      });
+      setExercises(res.items.length > 0 ? res.items : DEMO_EXERCISES);
+    } catch {
+      setExercises(DEMO_EXERCISES);
     } finally {
       setLoading(false);
     }
-  }, [role]);
+  }, [search, difficulty, location, requiresMachine]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (role === 'dietitian') return null;
+  const items = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return exercises.filter((ex) => {
+      if (s && !String(ex.name || '').toLowerCase().includes(s)) return false;
+      if (difficulty && String(ex.difficulty) !== difficulty) return false;
+      if (location && !(ex.locations as string[] | undefined)?.includes(location))
+        return false;
+      if (requiresMachine === 'true' && !ex.requiresMachine) return false;
+      return true;
+    });
+  }, [search, difficulty, location, requiresMachine, exercises]);
 
   return (
-    <Screen scroll contentStyle={styles.content} edges={{ top: true, bottom: true }}>
-      <AppHeader
-        showBack
-        subtitle={exerciseCount > 0 ? `${exerciseCount} egzersiz` : 'Egzersiz kütüphanesi'}
-        title="Kütüphane"
-      />
-      <View style={styles.body}>
-        {loading ? (
-          <ActivityIndicator color={colors.teal[600]} size="large" style={styles.loader} />
-        ) : exercises.length === 0 ? (
-          <EmptyState subtitle="Egzersiz kütüphanesi henüz yüklenmedi." title="Kütüphane boş" />
-        ) : (
-          exercises.map((ex) => (
-            <View key={ex.id} style={styles.card}>
-              <Text style={styles.name}>{ex.name}</Text>
-              <Text style={styles.meta}>
-                {ex.bodyPart} · {ex.sportType}
-              </Text>
-              {ex.description ? <Text style={styles.desc}>{ex.description}</Text> : null}
-            </View>
-          ))
-        )}
+    <PanelScaffold subtitle="Egzersiz kütüphanesi" title="Kütüphane">
+      <View style={styles.searchRow}>
+        <Ionicons color={colors.cream[800]} name="search" size={18} />
+        <TextInput
+          onChangeText={setSearch}
+          placeholder="Ara…"
+          placeholderTextColor={colors.cream[300]}
+          style={styles.searchInput}
+          value={search}
+        />
       </View>
-    </Screen>
+
+      <Pressable onPress={() => setFiltersOpen((v) => !v)} style={styles.filterToggle}>
+        <Text style={styles.filterToggleText}>
+          Filtreler{activeFilterCount ? ` (${activeFilterCount})` : ''}
+        </Text>
+        <Ionicons
+          color={colors.brand[600]}
+          name={filtersOpen ? 'chevron-up' : 'chevron-down'}
+          size={18}
+        />
+      </Pressable>
+
+      {filtersOpen ? (
+        <Animated.View
+          entering={ReFadeIn.duration(180)}
+          exiting={ReFadeOut.duration(140)}
+          style={styles.filters}>
+          {['beginner', 'intermediate', 'advanced'].map((d) => (
+            <Pressable
+              key={d}
+              onPress={() => setDifficulty((cur) => (cur === d ? '' : d))}
+              style={[styles.chip, difficulty === d && styles.chipOn]}>
+              <Text style={[styles.chipText, difficulty === d && styles.chipTextOn]}>
+                {DIFFICULTY_LABELS[d] || d}
+              </Text>
+            </Pressable>
+          ))}
+          {LOCATIONS.map((l) => (
+            <Pressable
+              key={l.id}
+              onPress={() => setLocation((cur) => (cur === l.id ? '' : l.id))}
+              style={[styles.chip, location === l.id && styles.chipOn]}>
+              <Text style={[styles.chipText, location === l.id && styles.chipTextOn]}>
+                {l.label}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setRequiresMachine((cur) => (cur === 'true' ? '' : 'true'))}
+            style={[styles.chip, requiresMachine === 'true' && styles.chipOn]}>
+            <Text
+              style={[styles.chipText, requiresMachine === 'true' && styles.chipTextOn]}>
+              Makine
+            </Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
+      {loading && items.length === 0 ? (
+        <InlineSpinner fill />
+      ) : items.length === 0 ? (
+        <EmptyState description="Filtreleri temizleyip tekrar deneyin." title="Sonuç yok" />
+      ) : (
+        items.map((ex, i) => (
+          <FadeIn key={String(ex.id)} delay={40 + i * 30}>
+            <Pressable onPress={() => setActive(ex)} style={styles.row}>
+              <ExerciseVideoThumbnail
+                pending={Boolean(ex.videoPending)}
+                size={64}
+                videoUrl={ex.videoUrl as string}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>{String(ex.name)}</Text>
+                <Text style={styles.rowMeta}>
+                  {String(ex.bodyPart || '')}
+                  {ex.difficulty
+                    ? ` · ${DIFFICULTY_LABELS[String(ex.difficulty)] || String(ex.difficulty)}`
+                    : ''}
+                  {ex.requiresMachine ? ' · Makine' : ''}
+                </Text>
+              </View>
+              <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
+            </Pressable>
+          </FadeIn>
+        ))
+      )}
+
+      <Modal animationType="slide" transparent visible={Boolean(active)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{String(active?.name || '')}</Text>
+            <Text style={styles.modalMeta}>
+              {String(active?.bodyPart || '')}
+              {active?.requiresMachine ? ' · Makine' : ''}
+            </Text>
+            <View style={styles.player}>
+              <Text style={styles.noVideo}>
+                {active?.videoPending ? 'Video hazırlanıyor…' : 'Video yok'}
+              </Text>
+            </View>
+            <Pressable onPress={() => setActive(null)} style={styles.closeBtn}>
+              <Text style={styles.closeText}>Kapat</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 0 },
-  body: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, gap: spacing.sm },
-  loader: { marginTop: spacing.xxl },
-  card: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.cream[200],
+    paddingHorizontal: spacing.md,
+    height: 48,
   },
-  name: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text.primary },
-  meta: { fontFamily: fonts.medium, fontSize: 12, color: colors.teal[600], marginTop: 4 },
-  desc: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
-    lineHeight: 18,
+  searchInput: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900] },
+  filterToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
   },
+  filterToggleText: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.brand[600] },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  chipOn: { backgroundColor: colors.sage[600], borderColor: colors.sage[600] },
+  chipText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[800] },
+  chipTextOn: { color: colors.white },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    padding: spacing.md,
+  },
+  rowTitle: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
+  rowMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(26,35,50,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  modalTitle: { fontFamily: fonts.displayBold, fontSize: 20, color: colors.cream[900] },
+  modalMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  player: {
+    height: 220,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noVideo: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800], textAlign: 'center' },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  closeText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
 });
