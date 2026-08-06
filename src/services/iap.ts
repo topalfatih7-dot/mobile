@@ -15,10 +15,18 @@ let purchasesUnavailable = false;
 type PurchasesMod = typeof import('react-native-purchases');
 type PurchasesPackage = import('react-native-purchases').PurchasesPackage;
 
+export type SellablePlanId =
+  | 'eko_diyet'
+  | 'eko_spor'
+  | 'diyet'
+  | 'spor'
+  | 'doktor'
+  | 'vip';
+
 export type IapPackage = {
   identifier: string;
   productId: string;
-  planId: 'eko' | 'diyet' | 'spor' | 'doktor' | 'vip';
+  planId: SellablePlanId;
   durationMonths: 0 | 1 | 3 | 6;
   priceString: string;
   title: string;
@@ -27,7 +35,30 @@ export type IapPackage = {
 
 type IapResult = { ok: true } | { ok: false; error: string; cancelled?: boolean };
 
-const PLAN_ORDER = ['eko', 'diyet', 'spor', 'doktor', 'vip'];
+const PLAN_ORDER: SellablePlanId[] = [
+  'eko_diyet',
+  'eko_spor',
+  'diyet',
+  'spor',
+  'doktor',
+  'vip',
+];
+
+/** `yf_eko_diyet_1m` | `yf_doktor_once` → plan + süre */
+export function parseStoreProductId(
+  productId: string,
+): { planId: SellablePlanId; durationMonths: 0 | 1 | 3 | 6 } | null {
+  const doctor = productId === 'yf_doktor_once';
+  if (doctor) return { planId: 'doktor', durationMonths: 0 };
+
+  const subscription =
+    /^yf_(eko_diyet|eko_spor|diyet|spor|vip)_(1|3|6)m$/.exec(productId);
+  if (!subscription) return null;
+  return {
+    planId: subscription[1] as SellablePlanId,
+    durationMonths: Number(subscription[2]) as 1 | 3 | 6,
+  };
+}
 
 function apiKeyForPlatform(): string {
   if (Platform.OS === 'ios') return env.revenueCatIosKey;
@@ -35,17 +66,27 @@ function apiKeyForPlatform(): string {
   return '';
 }
 
+/** Public: payments UX — key yok / native yok ayrımı. */
+export function getIapConfigStatus(): {
+  ready: boolean;
+  reason?: 'ui_only' | 'no_key' | 'native_unavailable';
+} {
+  if (isUiOnly()) return { ready: false, reason: 'ui_only' };
+  if (purchasesUnavailable) return { ready: false, reason: 'native_unavailable' };
+  if (!apiKeyForPlatform()) return { ready: false, reason: 'no_key' };
+  return { ready: true };
+}
+
 function packageDetails(pkg: PurchasesPackage): IapPackage | null {
   const productId = pkg.product.identifier;
-  const subscription = /^yf_(eko|diyet|spor|vip)_(1|3|6)m$/.exec(productId);
-  const doctor = productId === 'yf_doktor_once';
-  if (!subscription && !doctor) return null;
+  const parsed = parseStoreProductId(productId);
+  if (!parsed) return null;
 
   return {
     identifier: pkg.identifier,
     productId,
-    planId: doctor ? 'doktor' : (subscription?.[1] as IapPackage['planId']),
-    durationMonths: doctor ? 0 : (Number(subscription?.[2]) as 1 | 3 | 6),
+    planId: parsed.planId,
+    durationMonths: parsed.durationMonths,
     priceString: pkg.product.priceString,
     title: pkg.product.title,
     description: pkg.product.description,
@@ -100,13 +141,32 @@ export async function getAvailablePackages(
   appUserId: string,
 ): Promise<{ ok: true; packages: IapPackage[] } | { ok: false; error: string }> {
   if (isUiOnly()) return { ok: false, error: 'Satın alma demo modda kapalı.' };
+  const status = getIapConfigStatus();
+  if (status.reason === 'no_key') {
+    return {
+      ok: false,
+      error:
+        'Mağaza ödemesi henüz yapılandırılmadı (RevenueCat anahtarı yok). Web’den aldığın üyelik girişle görünür; mobil satın alma P0 sonrası açılır.',
+    };
+  }
   if (!(await configureIap(appUserId))) {
-    return { ok: false, error: 'RevenueCat yapılandırılmadı.' };
+    return {
+      ok: false,
+      error:
+        status.reason === 'native_unavailable'
+          ? 'Satın alma bu ortamda kullanılamıyor. Development build / TestFlight gerekir.'
+          : 'RevenueCat yapılandırılmadı.',
+    };
   }
 
   try {
     const PurchasesMod = await loadPurchases();
-    if (!PurchasesMod) return { ok: false, error: 'IAP native modülü yok.' };
+    if (!PurchasesMod) {
+      return {
+        ok: false,
+        error: 'Satın alma bu ortamda kullanılamıyor. Development build / TestFlight gerekir.',
+      };
+    }
     const offerings = await PurchasesMod.default.getOfferings();
     const packages = (offerings.current?.availablePackages || [])
       .map(packageDetails)
@@ -130,7 +190,12 @@ export async function purchasePackage(
   }
 
   if (!(await configureIap(appUserId))) {
-    return { ok: false, error: 'RevenueCat yapılandırılmadı.' };
+    return {
+      ok: false,
+      error: getIapConfigStatus().reason === 'no_key'
+        ? 'Mağaza ödemesi henüz yapılandırılmadı.'
+        : 'RevenueCat yapılandırılmadı.',
+    };
   }
 
   try {
@@ -156,7 +221,12 @@ export async function purchasePackage(
 export async function restorePurchases(appUserId: string): Promise<IapResult> {
   if (isUiOnly()) return { ok: false, error: 'Satın alma demo modda kapalı.' };
   if (!(await configureIap(appUserId))) {
-    return { ok: false, error: 'RevenueCat yapılandırılmadı.' };
+    return {
+      ok: false,
+      error: getIapConfigStatus().reason === 'no_key'
+        ? 'Mağaza ödemesi henüz yapılandırılmadı. Web üyeliğin girişle zaten görünür.'
+        : 'RevenueCat yapılandırılmadı.',
+    };
   }
   try {
     const PurchasesMod = await loadPurchases();
@@ -172,7 +242,12 @@ export async function restorePurchases(appUserId: string): Promise<IapResult> {
 export async function openCustomerCenter(appUserId: string): Promise<IapResult> {
   if (isUiOnly()) return { ok: false, error: 'Abonelik yönetimi demo modda kapalı.' };
   if (!(await configureIap(appUserId))) {
-    return { ok: false, error: 'RevenueCat yapılandırılmadı.' };
+    return {
+      ok: false,
+      error: getIapConfigStatus().reason === 'no_key'
+        ? 'Mağaza abonelik yönetimi henüz yapılandırılmadı.'
+        : 'RevenueCat yapılandırılmadı.',
+    };
   }
 
   try {

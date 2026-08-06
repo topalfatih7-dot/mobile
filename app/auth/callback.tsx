@@ -1,12 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { isUiOnly } from '@/config/runtime';
+import { useAuth } from '@/context/AuthContext';
+import {
+  establishAuthSessionFromUrl,
+  isRecoveryCallback,
+} from '@/services/authSessionFromUrl';
+import { routeForHydrated } from '@/services/authHydrate';
+import { requireSupabase, supabase } from '@/services/supabase';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /**
@@ -15,17 +23,27 @@ import { colors, fonts, radius, spacing } from '@/theme';
  */
 export default function AuthCallbackScreen() {
   const insets = useSafeAreaInsets();
+  const { refreshAuth } = useAuth();
   const params = useLocalSearchParams<{
     verify?: string;
     next?: string;
     code?: string;
+    type?: string;
+    token_hash?: string;
+    access_token?: string;
+    refresh_token?: string;
     error?: string;
     error_description?: string;
   }>();
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [message, setMessage] = useState('Oturum doğrulanıyor…');
+  const [dest, setDest] = useState<string | null>(null);
+  const ran = useRef(false);
 
   useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+
     const err = params.error || params.error_description;
     if (err) {
       setStatus('error');
@@ -35,24 +53,83 @@ export default function AuthCallbackScreen() {
 
     if (isUiOnly()) {
       const t = setTimeout(() => {
-        if (params.next === 'reset-password' || params.verify === 'recovery') {
+        if (isRecoveryCallback(params)) {
           setStatus('ok');
           setMessage('Şifre sıfırlama bağlantısı doğrulandı.');
+          setDest('/(auth)/reset-password');
           return;
         }
         setStatus('ok');
         setMessage('Giriş doğrulandı. Devam edebilirsiniz.');
+        setDest('/(auth)/login');
       }, 600);
       return () => clearTimeout(t);
     }
 
-    // Bağlama sonrası: exchange code / establishSession
-    setStatus('error');
-    setMessage('Giriş doğrulanamadı. Lütfen tekrar deneyin.');
-  }, [params]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        if (!supabase) {
+          throw new Error('Supabase yapılandırması eksik.');
+        }
+        const url = (await Linking.getInitialURL()) || Linking.createURL('auth/callback');
+        const session = await establishAuthSessionFromUrl(requireSupabase(), {
+          searchParams: {
+            code: typeof params.code === 'string' ? params.code : undefined,
+            type: typeof params.type === 'string' ? params.type : undefined,
+            token_hash: typeof params.token_hash === 'string' ? params.token_hash : undefined,
+            access_token:
+              typeof params.access_token === 'string' ? params.access_token : undefined,
+            refresh_token:
+              typeof params.refresh_token === 'string' ? params.refresh_token : undefined,
+            next: typeof params.next === 'string' ? params.next : undefined,
+            verify: typeof params.verify === 'string' ? params.verify : undefined,
+          },
+          url,
+          waitMs: 4000,
+        });
+
+        if (cancelled) return;
+
+        if (!session?.user) {
+          setStatus('error');
+          setMessage('Giriş doğrulanamadı. Lütfen bağlantıyı yeniden açın veya tekrar deneyin.');
+          return;
+        }
+
+        if (isRecoveryCallback(params)) {
+          setStatus('ok');
+          setMessage('Şifre sıfırlama bağlantısı doğrulandı.');
+          setDest('/(auth)/reset-password');
+          return;
+        }
+
+        const hydrated = await refreshAuth();
+        if (cancelled) return;
+
+        setStatus('ok');
+        setMessage('Giriş doğrulandı. Devam edebilirsiniz.');
+        setDest(hydrated ? routeForHydrated(hydrated) : '/(member)/dashboard');
+      } catch {
+        if (!cancelled) {
+          setStatus('error');
+          setMessage('Giriş doğrulanamadı. Lütfen tekrar deneyin.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params, refreshAuth]);
 
   const goNext = () => {
-    if (params.next === 'reset-password' || params.verify === 'recovery') {
+    if (status === 'ok' && dest) {
+      router.replace(dest as Href);
+      return;
+    }
+    if (isRecoveryCallback(params)) {
       router.replace('/(auth)/reset-password' as Href);
       return;
     }

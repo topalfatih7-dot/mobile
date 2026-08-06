@@ -132,14 +132,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setStaffById(demo.staffById);
       } else {
         setPrograms([]);
-        setPosts([]);
+        setPosts(DEMO_POSTS);
         setStaffById({});
         setPlatform(EMPTY_PLATFORM);
       }
       return;
     }
 
-    if (!supabase || !userId) {
+    if (!supabase) {
       setPrograms([]);
       setPosts([]);
       setPlatform(EMPTY_PLATFORM);
@@ -149,6 +149,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const client = requireSupabase();
+
+      // Public / guest: published posts (anon RLS) — blog landing parity
+      if (!userId) {
+        const postsRes = await client
+          .from('posts')
+          .select('*')
+          .eq('published', true)
+          .order('created_at', { ascending: false })
+          .limit(48);
+        setPrograms([]);
+        setPosts(
+          (postsRes.data || []).map(
+            (row) => rowToPost(row as Record<string, unknown>) as PostRecord,
+          ),
+        );
+        setStaffById({});
+        setPlatform(EMPTY_PLATFORM);
+        return;
+      }
 
       if (role === 'member') {
         const [progRes, postsRes, staffBundle] = await Promise.all([
@@ -189,6 +208,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     void refreshData();
   }, [refreshData]);
 
+  const onProgramsChange = useCallback(
+    (change: { type: 'delete'; id: string } | { type: 'upsert'; program: Record<string, unknown> }) => {
+      setPrograms((prev) => {
+        if (change.type === 'delete') {
+          return prev.filter((p) => String(p.id) !== change.id);
+        }
+        const next = change.program as ProgramRecord;
+        const idx = prev.findIndex((p) => String(p.id) === String(next.id));
+        if (idx >= 0) {
+          return prev.map((p, i) => (i === idx ? next : p));
+        }
+        return [next, ...prev];
+      });
+      // Staff/admin platform.programs mirror
+      if (role === 'staff' || role === 'admin') {
+        setPlatform((prev) => {
+          const list = (prev.programs || []) as ProgramRecord[];
+          if (change.type === 'delete') {
+            return {
+              ...prev,
+              programs: list.filter((p) => String(p.id) !== change.id),
+            };
+          }
+          const next = change.program as ProgramRecord;
+          const idx = list.findIndex((p) => String(p.id) === String(next.id));
+          const programs =
+            idx >= 0 ? list.map((p, i) => (i === idx ? next : p)) : [next, ...list];
+          return { ...prev, programs };
+        });
+      }
+    },
+    [role],
+  );
+
   usePlatformRealtime({
     role,
     userId,
@@ -196,6 +249,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     onChange: () => {
       void refreshData();
     },
+    onProgramsChange,
   });
 
   const myPrograms = useMemo(() => {

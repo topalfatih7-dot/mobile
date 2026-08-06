@@ -7,6 +7,7 @@ import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
+import { resolveStaffApplication } from '@/services/adminDb';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const TABS = [
@@ -46,7 +47,7 @@ function relativeDate(iso: string): string {
 /** LOCK: docs/mobile/screens/admin/applications.md */
 export default function AdminApplications() {
   const { toast } = useToast();
-  const { loading, platform } = useData();
+  const { loading, platform, refreshData } = useData();
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('staff');
   const [decisions, setDecisions] = useState<Record<string, LocalStatus>>({});
 
@@ -65,7 +66,19 @@ export default function AdminApplications() {
 
   const list = allApps.filter((a) => String(a.kind) === tab);
 
-  const decide = (id: string, decision: LocalStatus) => {
+  const decide = async (id: string, decision: LocalStatus) => {
+    const app = allApps.find((a) => String(a.id) === id);
+    if (String(app?.kind) === 'staff') {
+      const res = await resolveStaffApplication(
+        { id, name: String(app?.name || ''), data: (app?.data as Record<string, unknown>) || {} },
+        decision === 'approved',
+      );
+      if (!res.success) {
+        toast(res.error || 'İşlem başarısız.', 'error');
+        return;
+      }
+      await refreshData();
+    }
     setDecisions((prev) => ({ ...prev, [id]: decision }));
     toast(decision === 'approved' ? 'Başvuru onaylandı.' : 'Başvuru reddedildi.', 'success');
   };

@@ -1,5 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+/**
+ * LOCK: staff messages thread — real chat_threads / chat_messages
+ */
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -12,51 +16,97 @@ import {
 } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import {
-  CONTACT_INFO_BLOCK_MESSAGE,
-  detectExternalContactInfo,
-} from '@/utils/contactInfoGuard';
+  loadStaffClientThread,
+  markStaffChatThreadRead,
+  sendStaffChatMessage,
+  subscribeStaffClientChat,
+  type ChatMessage,
+  type ChatThread,
+} from '@/services/chat';
+import { setActiveChatThreadId } from '@/services/activeChatThread';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-/** LOCK: staff messages thread */
 export default function StaffThread() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId: memberId } = useLocalSearchParams<{ threadId: string }>();
   const { staffClients } = useData();
-  const client = staffClients.find((c) => String(c.id) === String(threadId));
+  const { staff } = useAuth();
+  const client = staffClients.find((c) => String(c.id) === String(memberId));
   const insets = useSafeAreaInsets();
   const { toast } = useToast();
   const [text, setText] = useState('');
-  const [msgs, setMsgs] = useState<
-    { id: string; from: 'member' | 'staff'; text: string }[]
-  >([
-    {
-      id: '1',
-      from: 'member',
-      text: 'Merhaba koçum, programı aldım.',
-    },
-  ]);
+  const [thread, setThread] = useState<ChatThread | null>(null);
+  const [msgs, setMsgs] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!client?.id || !staff?.id) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await loadStaffClientThread(
+        String(client.id),
+        String(staff.id),
+        String(staff.role || 'coach'),
+        String(client.name || 'Üye'),
+        String(staff.name || ''),
+      );
+      setThread(res.thread);
+      setMsgs(res.messages);
+      if (res.thread?.id) await markStaffChatThreadRead(res.thread.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Sohbet yüklenemedi', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [client, staff, toast]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    if (!staff?.id) return;
+    return subscribeStaffClientChat(() => {
+      void reload();
+    }, String(staff.id));
+  }, [staff?.id, reload]);
+
+  useEffect(() => {
+    const id = setInterval(() => void reload(), 8000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  useEffect(() => {
+    if (thread?.id) {
+      setActiveChatThreadId(thread.id);
+      return () => setActiveChatThreadId(null);
+    }
+    return undefined;
+  }, [thread?.id]);
+
+  const send = async () => {
+    if (!thread?.id || !staff?.id) return;
+    setSending(true);
+    const res = await sendStaffChatMessage(thread.id, String(staff.id), text);
+    setSending(false);
+    if (!res.success) {
+      toast(res.error, 'error');
+      return;
+    }
+    setText('');
+    await reload();
+  };
 
   const initial = String(client?.name || '?').charAt(0).toUpperCase();
-
-  const send = () => {
-    const t = text.trim();
-    if (!t) {
-      toast('Mesaj boş.', 'error');
-      return;
-    }
-    if (detectExternalContactInfo(t)) {
-      toast(CONTACT_INFO_BLOCK_MESSAGE, 'error');
-      return;
-    }
-    setMsgs((m) => [...m, { id: String(Date.now()), from: 'staff', text: t }]);
-    setText('');
-  };
 
   return (
     <MeshBackground style={styles.root}>
@@ -67,36 +117,35 @@ export default function StaffThread() {
           <Pressable onPress={() => router.back()}>
             <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
           </Pressable>
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>{initial}</Text>
+          </View>
           <Text style={styles.title}>{client ? String(client.name) : 'Sohbet'}</Text>
         </View>
-        <FlatList
-          contentContainerStyle={styles.list}
-          data={msgs}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item }) => (
-            <Animated.View
-              entering={FadeInUp.duration(200)}
-              style={[styles.msgRow, item.from === 'staff' && styles.msgRowMine]}>
-              {item.from !== 'staff' ? (
-                <View style={styles.peerAvatar}>
-                  <Text style={styles.peerAvatarText}>{initial}</Text>
-                </View>
-              ) : null}
-              <View
-                style={[
-                  styles.bubble,
-                  item.from === 'staff' ? styles.mine : styles.other,
-                ]}>
-                <Text
-                  style={[styles.bubbleText, item.from === 'staff' && { color: colors.white }]}>
-                  {item.text}
-                </Text>
-              </View>
-            </Animated.View>
-          )}
-        />
+        {loading ? (
+          <InlineSpinner fill />
+        ) : (
+          <FlatList
+            contentContainerStyle={styles.list}
+            data={msgs}
+            keyExtractor={(m) => m.id}
+            renderItem={({ item }) => {
+              const mine = item.senderType === 'staff';
+              return (
+                <Animated.View
+                  entering={FadeInUp.duration(200)}
+                  style={[styles.msgRow, mine && styles.msgRowMine]}>
+                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleThem]}>
+                    <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>
+                  </View>
+                </Animated.View>
+              );
+            }}
+          />
+        )}
         <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
           <TextInput
+            editable={!sending}
             multiline
             onChangeText={setText}
             placeholder="Mesaj yazın…"
@@ -105,8 +154,9 @@ export default function StaffThread() {
             value={text}
           />
           <Pressable
-            onPress={send}
-            style={({ pressed }) => [styles.send, pressed && styles.sendPressed]}>
+            disabled={sending || !text.trim()}
+            onPress={() => void send()}
+            style={[styles.send, (!text.trim() || sending) && styles.sendOff]}>
             <Ionicons color={colors.white} name="send" size={18} />
           </Pressable>
         </View>
@@ -120,77 +170,64 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     paddingHorizontal: spacing.lg,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cream[200],
+    paddingBottom: spacing.sm,
   },
-  title: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
-  list: { padding: spacing.lg },
-  msgRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    marginBottom: 8,
-  },
-  msgRowMine: { justifyContent: 'flex-end' },
-  peerAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.full,
-    backgroundColor: colors.warm[500],
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  peerAvatarText: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.white },
+  headerAvatarText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.white },
+  title: { flex: 1, fontFamily: fonts.displayBold, fontSize: 18, color: colors.cream[900] },
+  list: { padding: spacing.lg, gap: 8, flexGrow: 1 },
+  msgRow: { flexDirection: 'row', marginBottom: 8 },
+  msgRowMine: { justifyContent: 'flex-end' },
   bubble: {
-    maxWidth: '82%',
+    maxWidth: '80%',
     borderRadius: radius.lg,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  mine: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.brand[600],
-    borderBottomRightRadius: 6,
-  },
-  other: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.cream[200],
-    borderBottomLeftRadius: 6,
-  },
-  bubbleText: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[900] },
+  bubbleThem: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.cream[200] },
+  bubbleMine: { backgroundColor: colors.brand[500] },
+  msgText: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900] },
+  msgTextMine: { color: colors.white },
   composer: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 8,
-    paddingHorizontal: spacing.md,
-    paddingTop: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.cream[200],
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   input: {
     flex: 1,
     minHeight: 44,
-    maxHeight: 100,
+    maxHeight: 120,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    backgroundColor: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sans,
     fontSize: 15,
     color: colors.cream[900],
+    backgroundColor: colors.white,
   },
   send: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.brand[600],
+    borderRadius: radius.lg,
+    backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendPressed: { transform: [{ scale: 0.92 }] },
+  sendOff: { opacity: 0.4 },
 });

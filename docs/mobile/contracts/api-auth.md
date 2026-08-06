@@ -5,6 +5,10 @@ Method: POST
 Header: `Content-Type: application/json`  
 Optional: `Authorization: Bearer <access_token>`
 
+## MOBILE DIFF — client
+
+Native Expo app sends `"client": "yeniform-mobile"`. Server skips Turnstile for this client (rate limits remain). Web browsers must still send Turnstile.
+
 ## password-login
 
 ### Request
@@ -14,6 +18,7 @@ Optional: `Authorization: Bearer <access_token>`
   "action": "password-login",
   "email": "user@example.com",
   "password": "Secret1!",
+  "client": "yeniform-mobile",
   "turnstileToken": ""
 }
 ```
@@ -56,7 +61,8 @@ Status 429 for rate limit. Bot errors pass through API message.
   "email": "user@example.com",
   "password": "Secret1!",
   "name": "Ayşe Yılmaz",
-  "turnstileToken": "<token>"
+  "client": "yeniform-mobile",
+  "turnstileToken": ""
 }
 ```
 

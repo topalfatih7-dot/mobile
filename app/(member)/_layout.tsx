@@ -1,5 +1,6 @@
 import { Stack, router, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
@@ -16,14 +17,30 @@ import {
   addForegroundNotificationListener,
   addNotificationReceivedListener,
   consumeInitialPushData,
+  presentSystemNotification,
   registerForPushNotifications,
   routeFromPushData,
+  watchAppStateForPushReregister,
 } from '@/services/push';
 import { unlockNotificationAudio } from '@/services/notificationSound';
 import { getMemberChatContacts } from '@/utils/chatContacts';
 
+type NotifRow = {
+  id?: string;
+  title?: string;
+  message?: string;
+  type?: string;
+  staffRole?: string;
+  ticketId?: string;
+  action?: string;
+  threadId?: string;
+  read?: boolean;
+};
+
 function MemberPushBootstrap() {
   const { role, userId } = useAuth();
+  const member = useMember();
+  const seenIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     if (role !== 'member') return;
@@ -33,10 +50,10 @@ function MemberPushBootstrap() {
     (async () => {
       await unlockNotificationAudio();
       await configureIap(userId);
-      // Client registration is valid; server persistence remains blocked until
-      // a token storage/API contract exists.
-      if (alive) await registerForPushNotifications();
+      if (alive) await registerForPushNotifications(userId);
     })();
+
+    const unwatch = watchAppStateForPushReregister(userId);
 
     void consumeInitialPushData().then((data) => {
       if (!alive || !data) return;
@@ -52,10 +69,49 @@ function MemberPushBootstrap() {
 
     return () => {
       alive = false;
+      unwatch();
       responseSub.remove();
       foregroundSub.remove();
     };
   }, [role, userId]);
+
+  /**
+   * In-app bildirim listesine yeni kayıt düşünce telefon üst banner’ı göster.
+   * (Expo remote push token yoksa / gecikse bile OS bildirimi gelsin.)
+   */
+  useEffect(() => {
+    if (role !== 'member') return;
+    const list = ((member?.notifications as NotifRow[]) || []).filter((n) => n?.id);
+    if (!list.length) {
+      seenIdsRef.current = seenIdsRef.current || new Set();
+      return;
+    }
+
+    if (seenIdsRef.current == null) {
+      // İlk hydrate: mevcutları “görüldü” say — eski bildirimler için banner spam yok
+      seenIdsRef.current = new Set(list.map((n) => String(n.id)));
+      return;
+    }
+
+    const seen = seenIdsRef.current;
+    const fresh = list.filter((n) => !seen.has(String(n.id)));
+    // Foreground: yerel OS banner. Arka plan/killed: Expo remote push (token şart).
+    const showLocalBanner = AppState.currentState === 'active';
+    for (const n of fresh) {
+      seen.add(String(n.id));
+      if (n.read || !showLocalBanner) continue;
+      void presentSystemNotification({
+        id: String(n.id),
+        title: String(n.title || 'Yeni Form'),
+        message: String(n.message || ''),
+        type: n.type,
+        staffRole: n.staffRole,
+        ticketId: n.ticketId,
+        action: n.action,
+        threadId: n.threadId,
+      });
+    }
+  }, [role, member?.notifications]);
 
   return null;
 }

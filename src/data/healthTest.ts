@@ -752,5 +752,5 @@ export function clearHiddenFollowUps(
 }
 
 export function isGenderOnlySection(sectionId: string) {
-  return ['women', 'men', 'diet_women'].includes(sectionId);
+  return ['women', 'men'].includes(sectionId);
 }

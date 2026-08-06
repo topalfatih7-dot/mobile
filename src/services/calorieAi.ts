@@ -1,5 +1,6 @@
 /**
  * LOCK: docs/mobile/contracts/api-ai.md
+ * Web parity: calorieChat.js / aiVision.js — VITE_AI_* → EXPO_PUBLIC_AI_*
  */
 import { isUiOnly } from '@/config/runtime';
 import { postJson } from '@/services/api';
@@ -8,6 +9,23 @@ import {
   type CalorieItem,
   mockAnalyzeFoodText,
 } from '@/utils/calorieFormat';
+
+/** Varsayılan açık; yalnızca EXPO_PUBLIC_AI_*_ENABLED=false ile kapatılır. */
+export function isCalorieChatEnabled() {
+  return process.env.EXPO_PUBLIC_AI_CHAT_ENABLED !== 'false';
+}
+
+export function isCalorieVisionEnabled() {
+  return process.env.EXPO_PUBLIC_AI_VISION_ENABLED !== 'false';
+}
+
+/** Web isCalorieAiEnabled — ikisi de false ise tamamen kapalı. */
+export function isCalorieAiEnabled() {
+  const chat = process.env.EXPO_PUBLIC_AI_CHAT_ENABLED;
+  const vision = process.env.EXPO_PUBLIC_AI_VISION_ENABLED;
+  if (chat === 'false' && vision === 'false') return false;
+  return chat !== 'false' || vision !== 'false';
+}
 
 function normalizeItems(raw: unknown): CalorieItem[] {
   if (!Array.isArray(raw)) return [];
@@ -28,6 +46,9 @@ function normalizeItems(raw: unknown): CalorieItem[] {
 export async function analyzeFoodText(
   text: string,
 ): Promise<{ ok: true; analysis: CalorieAnalysis } | { ok: false; error: string }> {
+  if (!isCalorieChatEnabled()) {
+    return { ok: false, error: 'Metin analizi şu an kapalı.' };
+  }
   const trimmed = text.trim();
   if (!trimmed) return { ok: false, error: 'Metin gerekli' };
   if (trimmed.length > 2000) {
@@ -75,6 +96,9 @@ export async function analyzeFoodVision(
   imageBase64: string,
   mimeType = 'image/jpeg',
 ): Promise<{ ok: true; analysis: CalorieAnalysis } | { ok: false; error: string }> {
+  if (!isCalorieVisionEnabled()) {
+    return { ok: false, error: 'Fotoğraf analizi şu an kapalı.' };
+  }
   if (!imageBase64) return { ok: false, error: 'Görsel gerekli' };
 
   if (isUiOnly()) {

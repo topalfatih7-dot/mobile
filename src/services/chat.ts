@@ -13,6 +13,7 @@ import {
   type UiChatThread,
 } from '@/data/uiChat';
 import { requireSupabase } from '@/services/supabase';
+import { notifyMemberChatMessage } from '@/services/memberNotifications';
 import type { ChatContact } from '@/utils/chatContacts';
 import {
   CONTACT_INFO_BLOCK_MESSAGE,
@@ -87,6 +88,37 @@ export function subscribeMemberChat(
   };
 }
 
+/** Staff: chat_threads for staff_id + all chat_messages (RLS scoped). */
+export function subscribeStaffClientChat(
+  listener: () => void,
+  staffId?: string,
+): () => void {
+  if (isUiOnly() || !staffId) return () => {};
+  const sb = requireSupabase();
+  channelSequence += 1;
+  const channel = sb
+    .channel(`staff-client-chat-${staffId}-${channelSequence}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'chat_threads',
+        filter: `staff_id=eq.${staffId}`,
+      },
+      () => listener(),
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'chat_messages' },
+      () => listener(),
+    )
+    .subscribe();
+  return () => {
+    void sb.removeChannel(channel);
+  };
+}
+
 export async function fetchMemberChatThreads(
   memberId: string,
 ): Promise<ChatThread[]> {
@@ -116,7 +148,7 @@ export async function loadMemberChat(
   const sb = requireSupabase();
   let threads = await fetchMemberChatThreads(memberId);
 
-  // Ensure a thread per assigned contact (getOrCreate parity)
+  // Ensure a thread per assigned contact (getOrCreate parity — web chatDb.js)
   for (const c of contacts) {
     if (threads.some((t) => t.staffRole === c.staffRole)) continue;
     const seed = {
@@ -137,6 +169,12 @@ export async function loadMemberChat(
       .maybeSingle();
     if (!insErr && created) {
       threads = [...threads, rowToChatThread(created as Record<string, unknown>)];
+      continue;
+    }
+    // Unique race / RLS: yeniden çek — sessizce yok sayma
+    threads = await fetchMemberChatThreads(memberId);
+    if (!threads.some((t) => t.staffRole === c.staffRole) && insErr) {
+      throw new Error(insErr.message || 'Sohbet oluşturulamadı.');
     }
   }
 
@@ -159,25 +197,37 @@ export async function loadMemberChat(
   return { threads, messages };
 }
 
-export async function recordChatConsent(threadId: string): Promise<void> {
+/**
+ * Web chatDb.recordChatConsent parity — hata fırlatmaz (local consent asıl kapı).
+ */
+export async function recordChatConsent(threadId: string): Promise<boolean> {
   if (isUiOnly()) {
     uiConsent(threadId);
-    return;
+    return true;
   }
-  const sb = requireSupabase();
-  const iso = new Date().toISOString();
-  const { data: row, error: readErr } = await sb
-    .from('chat_threads')
-    .select('data')
-    .eq('id', threadId)
-    .maybeSingle();
-  if (readErr || !row) throw readErr || new Error('Sohbet bulunamadı.');
-  const data = { ...((row?.data as object) || {}), memberConsentAt: iso };
-  const { error: updateErr } = await sb
-    .from('chat_threads')
-    .update({ data })
-    .eq('id', threadId);
-  if (updateErr) throw updateErr;
+  if (!threadId) return false;
+  try {
+    const sb = requireSupabase();
+    const iso = new Date().toISOString();
+    const { data: row, error: readErr } = await sb
+      .from('chat_threads')
+      .select('data')
+      .eq('id', threadId)
+      .maybeSingle();
+    if (readErr || !row) return false;
+    const prev =
+      row.data && typeof row.data === 'object'
+        ? (row.data as Record<string, unknown>)
+        : {};
+    const data = { ...prev, memberConsentAt: iso };
+    const { error: updateErr } = await sb
+      .from('chat_threads')
+      .update({ data })
+      .eq('id', threadId);
+    return !updateErr;
+  } catch {
+    return false;
+  }
 }
 
 export async function markChatThreadRead(threadId: string): Promise<void> {
@@ -231,30 +281,175 @@ export async function sendChatMessage(
     };
   }
 
+  // Web chatDb.js: mesaj insert başarılıysa thread meta güncellemesi best-effort
+  // (update hatası send'i düşürmez — aksi halde UI "gönderilemedi" gösterir ama satır DB'de kalır)
   const preview =
     trimmed.length > 120 ? `${trimmed.slice(0, 119)}…` : trimmed;
-  const { data: row, error: threadReadErr } = await sb
+  try {
+    const { data: row } = await sb
+      .from('chat_threads')
+      .select('data')
+      .eq('id', threadId)
+      .maybeSingle();
+    if (row) {
+      const prev = (row.data as Record<string, unknown>) || {};
+      const data = {
+        ...prev,
+        lastPreview: preview,
+        staffUnread: Number(prev.staffUnread || 0) + 1,
+      };
+      await sb
+        .from('chat_threads')
+        .update({ last_message_at: new Date().toISOString(), data })
+        .eq('id', threadId);
+    }
+  } catch {
+    /* ignore meta update */
+  }
+
+  return { success: true };
+}
+
+/** Staff: threads for assigned clients (by staff_id). */
+export async function fetchStaffChatThreads(staffId: string): Promise<ChatThread[]> {
+  if (isUiOnly() || !staffId) return [];
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from('chat_threads')
+    .select('*')
+    .eq('staff_id', staffId)
+    .order('last_message_at', { ascending: false, nullsFirst: false });
+  if (error) throw error;
+  return (data || []).map((row) => rowToChatThread(row as Record<string, unknown>));
+}
+
+export async function loadStaffClientThread(
+  memberId: string,
+  staffId: string,
+  staffRole: string,
+  memberName: string,
+  staffName: string,
+): Promise<{ thread: ChatThread | null; messages: ChatMessage[] }> {
+  if (isUiOnly()) {
+    return { thread: null, messages: [] };
+  }
+  const sb = requireSupabase();
+  let { data: row } = await sb
+    .from('chat_threads')
+    .select('*')
+    .eq('member_id', memberId)
+    .eq('staff_role', staffRole)
+    .maybeSingle();
+
+  if (!row) {
+    const { data: created } = await sb
+      .from('chat_threads')
+      .insert({
+        member_id: memberId,
+        staff_id: staffId,
+        staff_role: staffRole,
+        data: {
+          memberName: memberName || 'Üye',
+          staffName: staffName || '',
+          memberUnread: 0,
+          staffUnread: 0,
+        },
+      })
+      .select('*')
+      .maybeSingle();
+    row = created;
+  }
+
+  if (!row) return { thread: null, messages: [] };
+  const thread = rowToChatThread(row as Record<string, unknown>);
+  const { data: msgRows } = await sb
+    .from('chat_messages')
+    .select('*')
+    .eq('thread_id', thread.id)
+    .order('created_at', { ascending: true });
+  const messages = (msgRows || []).map((r) =>
+    rowToChatMessage(r as Record<string, unknown>),
+  );
+  return { thread, messages };
+}
+
+export async function sendStaffChatMessage(
+  threadId: string,
+  staffId: string,
+  text: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const trimmed = text.trim();
+  if (!trimmed) return { success: false, error: 'Mesaj boş.' };
+  if (detectExternalContactInfo(trimmed)) {
+    return { success: false, error: CONTACT_INFO_BLOCK_MESSAGE };
+  }
+  if (isUiOnly()) return { success: false, error: 'Demo modda mesaj yok.' };
+
+  const sb = requireSupabase();
+  const { error: insErr } = await sb.from('chat_messages').insert({
+    thread_id: threadId,
+    sender_type: 'staff',
+    sender_id: staffId,
+    data: { text: trimmed },
+  });
+  if (insErr) {
+    return {
+      success: false,
+      error: insErr.message.includes('CONTACT_INFO_BLOCKED')
+        ? CONTACT_INFO_BLOCK_MESSAGE
+        : insErr.message || 'Mesaj gönderilemedi.',
+    };
+  }
+
+  const preview = trimmed.length > 120 ? `${trimmed.slice(0, 119)}…` : trimmed;
+  let memberId = '';
+  let staffRole = '';
+  try {
+    const { data: row } = await sb
+      .from('chat_threads')
+      .select('member_id, staff_role, data')
+      .eq('id', threadId)
+      .maybeSingle();
+    if (row) {
+      memberId = String((row as { member_id?: string }).member_id || '');
+      staffRole = String((row as { staff_role?: string }).staff_role || '');
+      const prev = (row.data as Record<string, unknown>) || {};
+      const data = {
+        ...prev,
+        lastPreview: preview,
+        memberUnread: Number(prev.memberUnread || 0) + 1,
+      };
+      await sb
+        .from('chat_threads')
+        .update({ last_message_at: new Date().toISOString(), data })
+        .eq('id', threadId);
+    }
+  } catch {
+    /* ignore meta update */
+  }
+
+  // Web parity: staff → member bell + push (chatDb.notifyMemberChatMessage)
+  if (memberId) {
+    void notifyMemberChatMessage({
+      memberId,
+      preview,
+      threadId,
+      staffRole,
+    });
+  }
+
+  return { success: true };
+}
+
+export async function markStaffChatThreadRead(threadId: string): Promise<void> {
+  if (isUiOnly()) return;
+  const sb = requireSupabase();
+  const { data: row } = await sb
     .from('chat_threads')
     .select('data')
     .eq('id', threadId)
     .maybeSingle();
-  if (threadReadErr || !row) {
-    return {
-      success: false,
-      error: threadReadErr?.message || 'Sohbet bulunamadı.',
-    };
-  }
-  const prev = (row?.data as Record<string, unknown>) || {};
-  const data = {
-    ...prev,
-    lastPreview: preview,
-    staffUnread: Number(prev.staffUnread || 0) + 1,
-  };
-  const { error: updateErr } = await sb
-    .from('chat_threads')
-    .update({ last_message_at: new Date().toISOString(), data })
-    .eq('id', threadId);
-  if (updateErr) return { success: false, error: updateErr.message };
-
-  return { success: true };
+  if (!row) return;
+  const data = { ...((row?.data as object) || {}), staffUnread: 0 };
+  await sb.from('chat_threads').update({ data }).eq('id', threadId);
 }

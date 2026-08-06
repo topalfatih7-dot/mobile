@@ -110,10 +110,15 @@ export function rowToProgram(row: Record<string, unknown>) {
 }
 
 export function rowToPost(row: Record<string, unknown>) {
+  const data = (row.data && typeof row.data === 'object' ? row.data : {}) as Record<
+    string,
+    unknown
+  >;
   return {
-    ...((row.data as object) || {}),
+    ...data,
     id: row.id,
     published: row.published,
+    createdAt: data.createdAt || row.created_at || null,
   };
 }
 
@@ -162,11 +167,17 @@ export function rowToActivity(row: Record<string, unknown>) {
 
 export function rowToPlan(row: Record<string, unknown>) {
   return {
-    ...((row.data as object) || {}),
     id: row.id,
     name: row.name,
+    price: row.price,
+    period: row.period,
     isActive: row.is_active,
-    sortOrder: row.sort_order,
+    badge: row.badge || null,
+    features: row.features || [],
+    limits: row.limits || [],
+    pricingTiers: row.pricing_tiers || [],
+    color: row.color || 'sage',
+    sortOrder: row.sort_order || 0,
   };
 }
 

@@ -54,3 +54,17 @@ Auth Bearer. Body encoding: **copy from web CalorieCalculatorPage / vision clien
 ## Daily tip
 
 Prefer existing member fetch path used by `useDailyTip` (site_content cache and/or `ai-blog-generate?task=daily-tip`). Fallback string from `dailyTipFallback.js` if network fails — read that file for exact fallbacks.
+
+## POST /api/ai-nutrition-tips — task: health-score
+
+Auth Bearer. Body:
+
+```json
+{
+  "task": "health-score",
+  "profile": { "age": 30, "gender": "female", "height": 165, "weight": 62, "goals": [], "fitnessLevel": "beginner" },
+  "categorySummaries": { "general": "...", "medical": "...", "nutrition": "...", "physical": "...", "lifestyle": "...", "special": "..." }
+}
+```
+
+Success includes `scores` (8 keys: general, nutrition, movement, sleep, stress, lifestyle, motivation, readiness), `overallScore`, `summary`, `staffBrief`. Client: `healthScoreAnalysis.ts` → `fetchAiHealthScore` / fallback `computeFallbackHealthScores`.

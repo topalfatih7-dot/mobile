@@ -19,3 +19,15 @@
 - Re-subscribe on app foreground
 - Avoid duplicate channels on React Strict remounts (web comment: session id stable)
 - Push supplements realtime when backgrounded
+
+## Chat presence (üye / staff sohbet)
+
+Web parity — admin paneliyle sınırlı değil:
+
+| Direction | Table / view |
+|-----------|----------------|
+| Write heartbeat | `user_presence` (60s; `OFFLINE_MS` 180s) |
+| Chat peer read | `user_presence_public` (`user_id, last_seen_at, role`) |
+| UI | Inbox avatar + thread “Çevrimiçi / Çevrimdışı” |
+
+Mobil: `src/services/presence.ts` + `useChatPresence` + `PresenceBootstrap`.

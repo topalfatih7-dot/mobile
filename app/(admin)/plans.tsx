@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -18,18 +18,42 @@ import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { TextField } from '@/components/ui/TextField';
+import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { ALL_PLANS, formatTry, type PlanCard } from '@/data/membershipPlans';
+import { upsertPlan } from '@/services/adminDb';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /** LOCK: docs/mobile/screens/admin/plans.md */
 export default function AdminPlans() {
   const insets = useSafeAreaInsets();
   const { toast } = useToast();
+  const { platform, refreshData } = useData();
+  const dbPlans = platform.plans || [];
   const [plans, setPlans] = useState<PlanCard[]>(() => ALL_PLANS.map((p) => ({ ...p })));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
   const [blurbDraft, setBlurbDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Prefer DB plans when hydrated; merge onto ALL_PLANS cards for blurb/UI.
+  useEffect(() => {
+    if (!dbPlans.length) return;
+    setPlans((prev) =>
+      prev.map((p) => {
+        const row = dbPlans.find((d) => String(d.id) === p.id) as
+          | { price?: number; period?: string; name?: string }
+          | undefined;
+        if (!row) return p;
+        return {
+          ...p,
+          name: String(row.name || p.name),
+          price: Number(row.price ?? p.price),
+          period: String(row.period || p.period),
+        };
+      }),
+    );
+  }, [dbPlans]);
 
   const editing = plans.find((p) => p.id === editingId);
   const parsedPrice = Number(priceDraft.replace(',', '.'));
@@ -41,16 +65,30 @@ export default function AdminPlans() {
     setEditingId(plan.id);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!editing || !priceValid) return;
-    const name = editing.name;
+    setSaving(true);
+    const res = await upsertPlan({
+      id: editing.id,
+      name: editing.name,
+      price: parsedPrice,
+      period: editing.period,
+      isActive: true,
+      sortOrder: ALL_PLANS.findIndex((p) => p.id === editing.id),
+    });
+    setSaving(false);
+    if (!res.success) {
+      toast(res.error || 'Kaydedilemedi.', 'error');
+      return;
+    }
     setPlans((prev) =>
       prev.map((p) =>
         p.id === editing.id ? { ...p, price: parsedPrice, blurb: blurbDraft.trim() } : p,
       ),
     );
     setEditingId(null);
-    toast(`${name} güncellendi.`, 'success');
+    toast(`${editing.name} güncellendi.`, 'success');
+    await refreshData();
   };
 
   return (
@@ -133,7 +171,7 @@ export default function AdminPlans() {
                     style={styles.blurbInput}
                     value={blurbDraft}
                   />
-                  <Button disabled={!priceValid} label="Kaydet" onPress={save} />
+                  <Button disabled={!priceValid || saving} label="Kaydet" onPress={() => void save()} />
                   <Button label="Vazgeç" onPress={() => setEditingId(null)} variant="ghost" />
                 </ScrollView>
               </KeyboardAvoidingView>

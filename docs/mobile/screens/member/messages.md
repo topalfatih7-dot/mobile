@@ -71,12 +71,24 @@ Registered member. Contacts from `getMemberChatContacts(member, staffList)` — 
 ## Layout
 
 1. Role tabs/segments: only roles with contacts (coach/dietitian/doctor)  
-2. Thread header: staffName  
-3. Consent gate if `!memberConsentAt` → `ChatConsentModal` parity → `recordChatConsent`  
-4. Message list chronological  
-5. Composer  
+2. Thread header: staffName + presence (`Çevrimiçi` / `Çevrimdışı` — `user_presence_public`)  
+3. Collapsible programs under header: coach → workout, dietitian → nutrition; **doctor → gizli** (`ChatCollapsiblePrograms`)  
+4. Consent gate if `!memberConsentAt` → `ChatConsentModal` parity → `recordChatConsent`  
+5. Message list chronological  
+6. Composer  
 
 Empty: uzman atanmadı — contact list empty.
+
+### Presence (web parity)
+
+- Write: authenticated heartbeat → `user_presence` (60s; offline 180s)
+- Read: `user_presence_public` for peer staff ids
+- Inbox avatar dot + thread header label
+
+### Program panel
+
+- Data: `myPrograms` (existing); no new fields
+- Toggle Göster/Gizle; compact `MemberProgramsPanel`
 
 ## Send rules (birebir `sendChatMessage`)
 

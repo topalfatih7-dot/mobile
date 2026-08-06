@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { AuthBackButton } from '@/components/auth/AuthBackButton';
 import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -32,7 +33,8 @@ export default function ForgotPasswordScreen() {
   return (
     <AuthScreenShell
       subtitle="E-posta adresine sıfırlama bağlantısı gönderilir."
-      title="Şifremi unuttum">
+      title="Şifremi unuttum"
+      topSlot={<AuthBackButton href="/(auth)/login" label="Girişe dön" />}>
       {sent ? (
         <View style={styles.success}>
           <View style={styles.checkCircle}>

@@ -35,5 +35,5 @@ Value shape: `[{ path, name, contentType }, …]`
 
 - [ ] required fields enforced per question.required (+ detail/followUps)  
 - [ ] No invented options  
-- [ ] gender-gated sections (women/men/diet_women)  
+- [ ] gender-gated sections (women/men)  
 - [ ] Flat keys match web  

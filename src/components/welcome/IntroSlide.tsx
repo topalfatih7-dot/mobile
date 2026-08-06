@@ -227,6 +227,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 0,
     flexGrow: 0,
+    marginBottom: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   badge: {
     paddingHorizontal: spacing.md,
@@ -265,6 +267,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   pill: {
     flexDirection: 'row',

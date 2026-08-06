@@ -1,29 +1,29 @@
+/**
+ * LOCK: docs/mobile/screens/staff/payments.md
+ * Web mock payout UI — Demo badge; rows from live staffClients (no invented payout math).
+ */
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
+import { getPlanLabel } from '@/data/membershipPlans';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-const ROWS: { id: string; name: string; plan: string; planBg: string; planFg: string }[] = [
-  {
-    id: 'ui-demo-member',
-    name: 'Demo Üye',
-    plan: 'Vip',
-    planBg: colors.gold[400],
-    planFg: colors.white,
-  },
-  {
-    id: 'ui-client-2',
-    name: 'Ayşe Yılmaz',
-    plan: 'Spor',
-    planBg: colors.brand[100],
-    planFg: colors.brand[700],
-  },
-];
+const PLAN_COLORS: Record<string, { bg: string; fg: string }> = {
+  vip: { bg: colors.gold[400], fg: colors.white },
+  spor: { bg: colors.brand[100], fg: colors.brand[700] },
+  diyet: { bg: colors.sage[100], fg: colors.sage[700] },
+  doktor: { bg: colors.warm[100], fg: colors.warm[500] },
+  eko: { bg: colors.mint[50], fg: colors.sage[700] },
+};
 
-/** LOCK: docs/mobile/screens/staff/payments.md */
 export default function StaffPayments() {
+  const { loading, staffClients } = useData();
+
   return (
     <PanelScaffold subtitle="Hak ediş özeti" title="Ödemeler" titleBadge="Demo">
       <FadeIn delay={40}>
@@ -31,25 +31,42 @@ export default function StaffPayments() {
           <View style={styles.kpiIcon}>
             <Ionicons color={colors.sage[600]} name="trending-up" size={18} />
           </View>
-          <Text style={styles.kpi}>₺12.400</Text>
-          <Text style={styles.label}>Bu ay tahmini hak ediş</Text>
+          <Text style={styles.kpi}>{staffClients.length}</Text>
+          <Text style={styles.label}>Aktif danışan (hakediş hesabı web P2)</Text>
         </View>
       </FadeIn>
-      {ROWS.map((r, i) => (
-        <FadeIn key={r.id} delay={70 + i * 30}>
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle}>{r.name}</Text>
-              <View style={[styles.planBadge, { backgroundColor: r.planBg }]}>
-                <Text style={[styles.planBadgeText, { color: r.planFg }]}>{r.plan}</Text>
+      {loading && staffClients.length === 0 ? (
+        <InlineSpinner fill />
+      ) : staffClients.length === 0 ? (
+        <EmptyState title="Danışan yok." />
+      ) : (
+        staffClients.map((c, i) => {
+          const plan = String(c.membership || 'free');
+          const colorsFor = PLAN_COLORS[plan] || {
+            bg: colors.cream[100],
+            fg: colors.cream[800],
+          };
+          return (
+            <FadeIn key={String(c.id)} delay={70 + i * 30}>
+              <View style={styles.row}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowTitle}>{String(c.name)}</Text>
+                  <View style={[styles.planBadge, { backgroundColor: colorsFor.bg }]}>
+                    <Text style={[styles.planBadgeText, { color: colorsFor.fg }]}>
+                      {getPlanLabel(plan)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusBadgeText}>
+                    {String(c.membershipStatus || 'active')}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Aktif</Text>
-            </View>
-          </View>
-        </FadeIn>
-      ))}
+            </FadeIn>
+          );
+        })
+      )}
     </PanelScaffold>
   );
 }

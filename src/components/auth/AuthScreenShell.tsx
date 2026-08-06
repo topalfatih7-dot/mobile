@@ -16,10 +16,11 @@ type Props = {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  topSlot?: ReactNode;
 };
 
 /** Ortak auth kabuğu — input’lar animasyonlu wrapper’da değil (focus/scroll bug). */
-export function AuthScreenShell({ title, subtitle, children }: Props) {
+export function AuthScreenShell({ title, subtitle, children, topSlot }: Props) {
   const insets = useSafeAreaInsets();
 
   const body = (
@@ -31,6 +32,7 @@ export function AuthScreenShell({ title, subtitle, children }: Props) {
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
+      {topSlot}
       <Text style={styles.brand}>Yeni Form</Text>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}

@@ -16,7 +16,6 @@ type WelcomeFooterProps = {
   isLandscape?: boolean;
   onRegister: () => void;
   onLogin: () => void;
-  onExplore?: () => void;
 };
 
 function Dot({
@@ -46,7 +45,6 @@ export function WelcomeFooter({
   isLandscape = false,
   onRegister,
   onLogin,
-  onExplore,
 }: WelcomeFooterProps) {
   return (
     <View style={[styles.wrap, isLandscape && styles.wrapLandscape]}>
@@ -72,12 +70,6 @@ export function WelcomeFooter({
           variant="glass"
         />
       </View>
-
-      {onExplore && !isLandscape ? (
-        <Text onPress={onExplore} style={styles.explore}>
-          Uygulamayı keşfet
-        </Text>
-      ) : null}
 
       {!isLandscape ? (
         <Text style={styles.legal}>
@@ -121,14 +113,6 @@ const styles = StyleSheet.create({
   secondary: {
     marginTop: spacing.sm,
   },
-  explore: {
-    marginTop: spacing.md,
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    textAlign: 'center',
-    color: colors.white,
-    textDecorationLine: 'underline',
-  },
   legal: {
     marginTop: spacing.md,
     fontFamily: fonts.regular,
@@ -136,9 +120,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     color: 'rgba(255,255,255,0.78)',
-  },
-  legalLink: {
-    fontFamily: fonts.semibold,
-    color: colors.white,
   },
 });

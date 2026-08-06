@@ -18,6 +18,7 @@ import { getPlanLabel } from '@/data/membershipPlans';
 import { fetchMemberById } from '@/services/memberDb';
 import {
   getAvailablePackages,
+  getIapConfigStatus,
   openCustomerCenter,
   purchasePackage,
   restorePurchases,
@@ -66,6 +67,8 @@ export default function PaymentsScreen() {
   const membership = String(member?.membership || 'free');
   const status = String(member?.membershipStatus || 'active');
   const expires = member?.premiumExpiresAt ? String(member.premiumExpiresAt) : null;
+  const iapStatus = getIapConfigStatus();
+  const storeReady = iapStatus.ready;
 
   const packages = useMemo(
     () =>
@@ -77,8 +80,10 @@ export default function PaymentsScreen() {
 
   useEffect(() => {
     let alive = true;
-    if (!userId) {
+    if (!userId || !storeReady) {
       setPackagesLoading(false);
+      setStorePackages([]);
+      setPackagesError(null);
       return;
     }
 
@@ -98,7 +103,7 @@ export default function PaymentsScreen() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, storeReady]);
 
   const pollAuthoritativeEntitlement = async (
     baseline: string,
@@ -224,7 +229,16 @@ export default function PaymentsScreen() {
 
         <FadeIn delay={130}>
           <Text style={styles.section}>Mağaza paketleri</Text>
-          {packagesLoading ? (
+          {!storeReady && iapStatus.reason === 'no_key' ? (
+            <View style={styles.setupCard}>
+              <Ionicons color={colors.brand[600]} name="storefront-outline" size={22} />
+              <Text style={styles.setupTitle}>Mobil satın alma yakında</Text>
+              <Text style={styles.setupBody}>
+                App Store / Play ürünleri ve RevenueCat anahtarları bağlanınca burada paket
+                yükseltebilirsin. Web’den aldığın üyelik giriş yaptığında zaten geçerlidir.
+              </Text>
+            </View>
+          ) : packagesLoading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={colors.brand[600]} />
               <Text style={styles.loadingText}>Paketler yükleniyor…</Text>
@@ -270,14 +284,17 @@ export default function PaymentsScreen() {
           <View style={styles.note}>
             <Ionicons color={colors.gold[500]} name="information-circle" size={20} />
             <Text style={styles.noteText}>
-              Abonelik ve ödemeleriniz App Store veya Google Play hesabınız üzerinden yönetilir.
+              {storeReady
+                ? 'Abonelik ve ödemeleriniz App Store veya Google Play hesabınız üzerinden yönetilir.'
+                : 'Üyelik bilgin Supabase’ten gelir. Mağaza yönetimi RevenueCat bağlanınca açılır.'}
             </Text>
           </View>
           <Button
+            disabled={!storeReady}
             label="Aboneliği yönet"
             loading={managing}
             onPress={async () => {
-              if (!userId) return;
+              if (!userId || !storeReady) return;
               setManaging(true);
               try {
                 const result = await openCustomerCenter(userId);
@@ -293,6 +310,7 @@ export default function PaymentsScreen() {
             style={{ marginBottom: spacing.sm }}
           />
           <Button
+            disabled={!storeReady}
             label={
               restoring
                 ? 'Üyelik güncelleniyor…'
@@ -300,7 +318,7 @@ export default function PaymentsScreen() {
             }
             loading={restoring}
             onPress={async () => {
-              if (!userId) return;
+              if (!userId || !storeReady) return;
               const baseline = entitlementSignature(member);
               setRestoring(true);
               try {
@@ -412,6 +430,25 @@ const styles = StyleSheet.create({
   storeDuration: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.brand[700] },
   storePrice: { fontFamily: fonts.displayExtra, fontSize: 21, color: colors.brand[700] },
   actions: { gap: spacing.sm },
+  setupCard: {
+    backgroundColor: colors.brand[50],
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.brand[100],
+    gap: spacing.sm,
+  },
+  setupTitle: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 16,
+    color: colors.cream[900],
+  },
+  setupBody: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.cream[800],
+  },
   note: {
     flexDirection: 'row',
     gap: spacing.sm,

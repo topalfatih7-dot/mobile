@@ -30,7 +30,7 @@ import { MeshBackground } from '@/components/ui/MeshBackground';
 import { useActions } from '@/context/ActionsContext';
 import { useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
-import { analyzeFoodText, analyzeFoodVision } from '@/services/calorieAi';
+import { analyzeFoodText, analyzeFoodVision, isCalorieAiEnabled } from '@/services/calorieAi';
 import {
   pickImageFromCamera,
   pickImageFromLibrary,
@@ -45,9 +45,65 @@ import { colors, fonts, radius, spacing } from '@/theme';
 type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string };
 
 const TYPING_ID = 'typing';
+const DAILY_GOAL = 2000;
 
 function itemsTotalCal(items: { cal?: number }[] = []) {
   return items.reduce((sum, i) => sum + (Number(i.cal) || 0), 0);
+}
+
+/** Web parity: CalorieCalculatorPage.estimateMacros */
+function estimateMacros(totalCal: number) {
+  return {
+    protein: Math.round((totalCal * 0.25) / 4),
+    carb: Math.round((totalCal * 0.45) / 4),
+    fat: Math.round((totalCal * 0.3) / 9),
+  };
+}
+
+function CalorieSummaryCard({ totalCal }: { totalCal: number }) {
+  const macros = estimateMacros(totalCal);
+  const level =
+    totalCal < 300 ? 'Az' : totalCal < 600 ? 'Orta' : totalCal < 900 ? 'Yüksek' : 'Çok Yüksek';
+  const pct = Math.min(Math.round((totalCal / DAILY_GOAL) * 100), 100);
+
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.summaryLabel}>Toplam Kalori</Text>
+          <Text style={styles.summaryCal}>{totalCal}</Text>
+          <Text style={styles.summaryUnit}>kcal · {level}</Text>
+        </View>
+        <Ionicons color="rgba(255,255,255,0.35)" name="flame" size={36} />
+      </View>
+      {totalCal > 0 ? (
+        <View style={styles.macroGrid}>
+          {[
+            { label: 'Protein', value: macros.protein },
+            { label: 'Karb.', value: macros.carb },
+            { label: 'Yağ', value: macros.fat },
+          ].map((m) => (
+            <View key={m.label} style={styles.macroCell}>
+              <Text style={styles.macroVal}>{m.value}g</Text>
+              <Text style={styles.macroLabel}>{m.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {totalCal > 0 ? (
+        <View style={styles.summaryFooter}>
+          <Text style={styles.summaryHint}>
+            Günlük 2000 kcal hedefinin{' '}
+            <Text style={styles.summaryHintBold}>{Math.round((totalCal / DAILY_GOAL) * 100)}%</Text>
+            &apos;i
+          </Text>
+          <View style={styles.summaryTrack}>
+            <View style={[styles.summaryFill, { width: `${pct}%` }]} />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 /** Web parity: CalorieCalculatorPage.buildCalorieLogEntry + appendCalorieHistory */
@@ -111,6 +167,7 @@ export default function CalorieScreen() {
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [activeTotal, setActiveTotal] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       id: 'welcome',
@@ -119,8 +176,10 @@ export default function CalorieScreen() {
     },
   ]);
 
-  const canManual = memberHasManualCalorieAccess(member as never);
-  const canPhoto = memberHasPhotoCalorieAccess(member as never);
+  const canManual =
+    isCalorieAiEnabled() && memberHasManualCalorieAccess(member as never);
+  const canPhoto =
+    isCalorieAiEnabled() && memberHasPhotoCalorieAccess(member as never);
 
   const persistHistory = async (
     mode: 'text' | 'photo',
@@ -160,6 +219,7 @@ export default function CalorieScreen() {
       return;
     }
     void persistHistory('text', trimmed, result.analysis);
+    setActiveTotal(itemsTotalCal(result.analysis.items));
     const reply = formatAnalysisReply(result.analysis);
     setMessages((m) => [
       ...m,
@@ -193,6 +253,7 @@ export default function CalorieScreen() {
       return;
     }
     void persistHistory('photo', 'fotoğraf', result.analysis);
+    setActiveTotal(itemsTotalCal(result.analysis.items));
     const reply = formatAnalysisReply(result.analysis);
     setMessages((m) => [
       ...m,
@@ -292,6 +353,10 @@ export default function CalorieScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.summaryWrap}>
+          <CalorieSummaryCard totalCal={activeTotal} />
+        </View>
+
         <FlatList
           contentContainerStyle={styles.list}
           data={list}
@@ -359,6 +424,88 @@ export default function CalorieScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
+  summaryWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  summaryCard: {
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    backgroundColor: colors.brand[600],
+  },
+  summaryTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: spacing.md,
+  },
+  summaryLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  summaryCal: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 40,
+    color: colors.white,
+    lineHeight: 44,
+  },
+  summaryUnit: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  macroGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  macroCell: {
+    flex: 1,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  macroVal: {
+    fontFamily: fonts.sansBold,
+    fontSize: 16,
+    color: colors.white,
+  },
+  macroLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+  },
+  summaryFooter: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  summaryHint: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  summaryHintBold: {
+    fontFamily: fonts.sansSemi,
+    color: colors.white,
+  },
+  summaryTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  summaryFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.white,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

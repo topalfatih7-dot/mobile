@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,10 +16,17 @@ import {
 import Animated, { withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatConsentModal } from '@/components/chat/ChatConsentModal';
+import { ChatCollapsiblePrograms } from '@/components/chat/ChatCollapsiblePrograms';
+import { PresenceIndicator } from '@/components/chat/PresenceIndicator';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
+import { useChatPresence } from '@/hooks/useChatPresence';
+import { setActiveChatThreadId } from '@/services/activeChatThread';
 import {
   loadMemberChat,
   markChatThreadRead,
@@ -29,14 +36,14 @@ import {
   type ChatMessage,
   type ChatThread,
 } from '@/services/chat';
-import { getMemberChatContacts } from '@/utils/chatContacts';
+import { CHAT_CONSENT_KEY, getMemberChatContacts } from '@/utils/chatContacts';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-const CHAT_CONSENT_TEXT = `Bu mesajlaşma alanı, atanmış koçunuz, diyetisyeniniz ve/veya doktorunuzla paketiniz kapsamında iletişim kurmanız içindir.
-
-Gönderdiğiniz ve aldığınız tüm mesajlar güvenli şekilde kaydedilir; hizmet kalitesi, uyumluluk ve olası süreç takipleri için saklanabilir.
-
-Tıbbi acil durumlarda bu kanalı kullanmayın; 112 veya en yakın sağlık kuruluşuna başvurun.`;
+const ROLE_LABEL: Record<string, string> = {
+  coach: 'Koç',
+  dietitian: 'Diyetisyen',
+  doctor: 'Doktor',
+};
 
 /** Yeni balon: alttan 8px slide + fade (02-design-system motion). */
 const bubbleEntering = () => {
@@ -52,37 +59,54 @@ const bubbleEntering = () => {
 
 /**
  * LOCK: docs/mobile/screens/member/messages.md — thread + consent + composer
+ * Web: MessagesPage.jsx /messages/:role
  */
 export default function MessageThreadScreen() {
   const insets = useSafeAreaInsets();
   const { threadId: rawId } = useLocalSearchParams<{ threadId: string }>();
   const threadRef = String(rawId || '');
   const member = useMember();
-  const { staffById } = useData();
+  const { staffById, loading: dataLoading, myPrograms } = useData();
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [thread, setThread] = useState<ChatThread | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [localConsent, setLocalConsent] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const markedReadRef = useRef<string | null>(null);
 
   const contacts = useMemo(
     () => getMemberChatContacts(member, staffById),
     [member, staffById],
   );
 
+  const contact = useMemo(
+    () => contacts.find((c) => c.staffRole === threadRef) || null,
+    [contacts, threadRef],
+  );
+
+  const peerId = contact?.staffId || null;
+  const { isOnline, lastSeenAt } = useChatPresence(peerId ? [peerId] : []);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(CHAT_CONSENT_KEY).then((v) => {
+      if (v === '1') setLocalConsent(true);
+    });
+  }, []);
+
   const reload = useCallback(async () => {
     if (!member?.id) {
-      setThread(null);
-      setMessages([]);
-      setLoaded(true);
       return;
     }
     try {
+      setLoadError(null);
       const snap = await loadMemberChat(
         contacts,
         String(member.id),
-        String(member?.name || 'Üye'),
+        String(member.name || 'Üye'),
       );
       const t =
         snap.threads.find(
@@ -90,7 +114,11 @@ export default function MessageThreadScreen() {
         ) || null;
       setThread(t);
       setMessages(t ? snap.messages[t.id] || [] : []);
-    } catch {
+      if (!t) {
+        setLoadError('Bu sohbet bulunamadı. Uzman atamanızı kontrol edin.');
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Sohbet yüklenemedi');
       setThread(null);
       setMessages([]);
     } finally {
@@ -99,46 +127,146 @@ export default function MessageThreadScreen() {
   }, [contacts, member?.id, member?.name, threadRef]);
 
   useEffect(() => {
+    setLoaded(false);
     void reload();
+    if (!member?.id) return;
     return subscribeMemberChat(() => {
       void reload();
-    }, member?.id ? String(member.id) : undefined);
+    }, String(member.id));
   }, [reload, member?.id]);
 
   useEffect(() => {
-    if (!loaded) return;
-    if (!thread) {
-      router.replace('/(member)/messages' as Href);
-      return;
-    }
-    void markChatThreadRead(thread.id).catch(() => {});
-  }, [loaded, thread?.id]);
+    if (!member?.id || !thread?.id) return;
+    const id = setInterval(() => {
+      void reload();
+    }, 8000);
+    return () => clearInterval(id);
+  }, [reload, member?.id, thread?.id]);
 
-  const needsConsent = thread && !thread.memberConsentAt;
+  useEffect(() => {
+    if (!thread?.id) return;
+    setActiveChatThreadId(thread.id);
+    if (markedReadRef.current !== thread.id) {
+      markedReadRef.current = thread.id;
+      void markChatThreadRead(thread.id).catch(() => {});
+    }
+    return () => setActiveChatThreadId(null);
+  }, [thread?.id]);
+
+  const needsConsent = Boolean(thread && !thread.memberConsentAt && !localConsent);
 
   const onSend = async () => {
     if (!member?.id || !thread) return;
+    const body = text.trim();
+    if (!body || sending) return;
+
     setSending(true);
-    const res = await sendChatMessage(thread.id, String(member.id), text);
+    const optimisticId = `local-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: optimisticId,
+      threadId: thread.id,
+      senderType: 'member',
+      senderId: String(member.id),
+      text: body,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setText('');
+
+    const res = await sendChatMessage(thread.id, String(member.id), body);
     setSending(false);
     if (!res.success) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setText(body);
       toast(res.error, 'error');
       return;
     }
-    setText('');
     void reload();
+  };
+
+  const acceptConsent = async () => {
+    if (!thread || accepting) return;
+    setAccepting(true);
+    try {
+      await AsyncStorage.setItem(CHAT_CONSENT_KEY, '1');
+      setLocalConsent(true);
+      void recordChatConsent(thread.id).then((ok) => {
+        if (ok) void reload();
+      });
+    } catch {
+      toast('Onay kaydedilemedi. Tekrar deneyin.', 'error');
+    } finally {
+      setAccepting(false);
+    }
   };
 
   const sortedMessages = useMemo(
     () =>
-      messages.slice().sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      ),
+      messages
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
     [messages],
   );
 
-  if (!loaded || !thread) {
-    return <MeshBackground style={styles.root} />;
+  const title =
+    thread?.staffName || contact?.name || ROLE_LABEL[threadRef] || 'Sohbet';
+  const subtitle =
+    ROLE_LABEL[thread?.staffRole || threadRef] || thread?.staffRole || '';
+  const staffRole = String(thread?.staffRole || threadRef || '');
+  const peerOnline = peerId ? isOnline(peerId) : false;
+  const peerLastSeen = peerId ? lastSeenAt(peerId) : null;
+
+  if (!member?.id && dataLoading) {
+    return (
+      <MeshBackground style={styles.root}>
+        <InlineSpinner fill />
+      </MeshBackground>
+    );
+  }
+
+  if (!loaded && member?.id) {
+    return (
+      <MeshBackground style={styles.root}>
+        <InlineSpinner fill />
+      </MeshBackground>
+    );
+  }
+
+  if (!thread) {
+    return (
+      <MeshBackground style={styles.root}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Pressable
+            accessibilityLabel="Geri"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => router.replace('/(member)/messages' as Href)}
+            style={styles.back}>
+            <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+          </Pressable>
+          <View style={styles.headerMeta}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <Text style={styles.headerSub}>{subtitle}</Text>
+          </View>
+        </View>
+        <EmptyState
+          description={loadError || 'Sohbet açılamadı. Tekrar deneyin.'}
+          icon="chatbubble-ellipses-outline"
+          title="Sohbet bulunamadı"
+        />
+        <View style={styles.retryWrap}>
+          <Button label="Yeniden dene" onPress={() => void reload()} />
+          <Button
+            label="Mesajlara dön"
+            onPress={() => router.replace('/(member)/messages' as Href)}
+            variant="ghost"
+          />
+        </View>
+      </MeshBackground>
+    );
   }
 
   return (
@@ -156,16 +284,25 @@ export default function MessageThreadScreen() {
             <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
           </Pressable>
           <View style={styles.headerMeta}>
-            <Text style={styles.headerTitle}>{thread.staffName}</Text>
-            <Text style={styles.headerSub}>
-              {thread.staffRole === 'dietitian'
-                ? 'Diyetisyen'
-                : thread.staffRole === 'doctor'
-                  ? 'Doktor'
-                  : 'Koç'}
-            </Text>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <View style={styles.headerSubRow}>
+              <Text style={styles.headerSub}>{subtitle}</Text>
+              {peerId ? (
+                <PresenceIndicator
+                  lastSeenAt={peerLastSeen}
+                  online={peerOnline}
+                  showLabel
+                />
+              ) : null}
+            </View>
           </View>
         </View>
+
+        <ChatCollapsiblePrograms
+          memberName={String(member?.name || '')}
+          programs={myPrograms as never}
+          role={staffRole}
+        />
 
         <FlatList
           contentContainerStyle={styles.list}
@@ -174,7 +311,7 @@ export default function MessageThreadScreen() {
           ListEmptyComponent={
             <View style={styles.emptyChat}>
               <Ionicons color={colors.cream[300]} name="chatbubble-outline" size={38} />
-              <Text style={styles.emptyTitle}>{thread.staffName} ile sohbete başlayın</Text>
+              <Text style={styles.emptyTitle}>{title} ile sohbete başlayın</Text>
               <Text style={styles.emptyText}>Mesajlar güvenli şekilde saklanır.</Text>
             </View>
           }
@@ -183,7 +320,11 @@ export default function MessageThreadScreen() {
             if (item.senderType === 'system') {
               return (
                 <View style={styles.systemBubble}>
-                  <Ionicons color={colors.gold[500]} name="information-circle-outline" size={16} />
+                  <Ionicons
+                    color={colors.gold[500]}
+                    name="information-circle-outline"
+                    size={16}
+                  />
                   <Text style={styles.systemText}>{item.text}</Text>
                 </View>
               );
@@ -231,34 +372,14 @@ export default function MessageThreadScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <Modal animationType="fade" transparent visible={Boolean(needsConsent)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalBadge}>
-              <Ionicons color={colors.brand[600]} name="shield-checkmark" size={24} />
-            </View>
-            <Text style={styles.modalTitle}>Mesajlaşma Bilgilendirmesi</Text>
-            <Text style={styles.modalBody}>{CHAT_CONSENT_TEXT}</Text>
-            <Button
-              label="Okudum, mesajlaşmaya başla"
-              onPress={() => {
-                void recordChatConsent(thread.id)
-                  .then(() => {
-                    void reload();
-                  })
-                  .catch(() => {
-                    toast('Onay kaydedilemedi.', 'error');
-                  });
-              }}
-            />
-            <Button
-              label="Vazgeç"
-              onPress={() => router.back()}
-              variant="ghost"
-            />
-          </View>
-        </View>
-      </Modal>
+      <ChatConsentModal
+        accepting={accepting}
+        onAccept={() => void acceptConsent()}
+        onClose={() => {
+          if (!accepting) router.back();
+        }}
+        visible={Boolean(needsConsent)}
+      />
     </MeshBackground>
   );
 }
@@ -279,6 +400,12 @@ const styles = StyleSheet.create({
   back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerMeta: { flex: 1 },
   headerTitle: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
+  headerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
   headerSub: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
   list: { padding: spacing.lg, gap: 8, paddingBottom: spacing.md },
   emptyChat: {
@@ -301,6 +428,7 @@ const styles = StyleSheet.create({
     color: colors.cream[800],
     opacity: 0.55,
   },
+  retryWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   systemBubble: {
     maxWidth: '92%',
     alignSelf: 'center',
@@ -401,26 +529,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendDisabled: { opacity: 0.45 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,35,50,0.45)',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  modalBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.lg,
-    backgroundColor: colors.brand[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: { fontFamily: fonts.displayExtra, fontSize: 20, color: colors.cream[900] },
-  modalBody: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[800], lineHeight: 20 },
 });

@@ -1,9 +1,10 @@
 /**
  * Free register path — contracts/api-auth signup + members upsert.
- * Paid → pending_registration + IAP (P0.2 IAP SDK sonraki dilim; UI hazır).
+ * Paid → pending_registration + IAP (P2).
+ * MOBILE DIFF: client=yeniform-mobile; Turnstile yok.
  */
 import { isUiOnly } from '@/config/runtime';
-import { isTurnstileEnabled } from '@/config/turnstile';
+import { AUTH_CLIENT_MOBILE } from '@/config/turnstile';
 import { postJson } from '@/services/api';
 import { requireSupabase, supabase } from '@/services/supabase';
 import { sanitizeEmailInput } from '@/utils/email';
@@ -48,10 +49,7 @@ export async function savePendingRegistrationMetadata(
   return { success: true as const };
 }
 
-export async function registerFreeMember(
-  profile: RegisterProfile,
-  turnstileToken = '',
-) {
+export async function registerFreeMember(profile: RegisterProfile, _turnstileToken = '') {
   if (isUiOnly()) {
     return {
       success: false as const,
@@ -59,86 +57,66 @@ export async function registerFreeMember(
     };
   }
 
-  if (isTurnstileEnabled() && !turnstileToken) {
-    return { success: false as const, error: 'Bot doğrulamasını tamamlayın.' };
-  }
-
   const email = sanitizeEmailInput(profile.email);
   const client = requireSupabase();
 
-  // TEMP: captcha kapalı — API bot gate’ini atla, doğrudan auth + members
-  if (!isTurnstileEnabled()) {
-    const { data: signUpData, error: signUpError } = await client.auth.signUp({
+  const { ok, json } = await postJson<{
+    ok?: boolean;
+    error?: string;
+    session?: { access_token?: string; refresh_token?: string };
+  }>(
+    '/api/auth',
+    {
+      action: 'signup',
       email,
       password: profile.password,
-      options: { data: { name: profile.name.trim() } },
+      name: profile.name.trim(),
+      phone: profile.phone,
+      client: AUTH_CLIENT_MOBILE,
+      turnstileToken: '',
+    },
+    { auth: false },
+  );
+
+  if (!ok) {
+    return {
+      success: false as const,
+      error: json?.error || 'Kayıt tamamlanamadı.',
+    };
+  }
+
+  if (json.session?.access_token && json.session?.refresh_token) {
+    await client.auth.setSession({
+      access_token: json.session.access_token,
+      refresh_token: json.session.refresh_token,
     });
-    if (signUpError) {
-      const msg = signUpError.message || '';
-      if (/registered|already|exists/i.test(msg)) {
-        const signIn = await client.auth.signInWithPassword({
-          email,
-          password: profile.password,
-        });
-        if (signIn.error) {
-          return { success: false as const, error: 'Bu e-posta zaten kayıtlı.' };
-        }
-      } else {
-        return { success: false as const, error: msg || 'Kayıt tamamlanamadı.' };
-      }
-    } else if (!signUpData.session) {
-      const signIn = await client.auth.signInWithPassword({
-        email,
-        password: profile.password,
-      });
-      if (signIn.error) {
-        return {
-          success: false as const,
-          error: signIn.error.message || 'Kayıt tamamlanamadı.',
-        };
-      }
-    }
   } else {
-    const { ok, json } = await postJson<{
+    /* Signup sonrası session yoksa mobile login ile aç */
+    const login = await postJson<{
       ok?: boolean;
       error?: string;
       session?: { access_token?: string; refresh_token?: string };
     }>(
       '/api/auth',
       {
-        action: 'signup',
+        action: 'password-login',
         email,
         password: profile.password,
-        name: profile.name.trim(),
-        turnstileToken: turnstileToken || '',
+        client: AUTH_CLIENT_MOBILE,
+        turnstileToken: '',
       },
       { auth: false },
     );
-
-    if (!ok) {
+    if (!login.ok || !login.json.session?.access_token || !login.json.session?.refresh_token) {
       return {
         success: false as const,
-        error: json?.error || 'Kayıt tamamlanamadı.',
+        error: login.json?.error || 'Kayıt tamamlanamadı.',
       };
     }
-
-    if (json.session?.access_token && json.session?.refresh_token) {
-      await client.auth.setSession({
-        access_token: json.session.access_token,
-        refresh_token: json.session.refresh_token,
-      });
-    } else {
-      const signIn = await client.auth.signInWithPassword({
-        email,
-        password: profile.password,
-      });
-      if (signIn.error) {
-        return {
-          success: false as const,
-          error: signIn.error.message || 'Kayıt tamamlanamadı.',
-        };
-      }
-    }
+    await client.auth.setSession({
+      access_token: login.json.session.access_token,
+      refresh_token: login.json.session.refresh_token,
+    });
   }
 
   const { data: userData } = await client.auth.getUser();

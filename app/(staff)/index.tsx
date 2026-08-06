@@ -148,7 +148,7 @@ export default function StaffOverview() {
           <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
         </Pressable>
         <Pressable
-          onPress={() => router.push('/(staff)/messages/admin/ui-admin-1' as Href)}
+          onPress={() => router.push('/(staff)/messages/admin' as Href)}
           style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
           <Ionicons color={colors.brand[600]} name="shield" size={18} />
           <Text style={styles.linkText}>Admin mesajları</Text>
@@ -156,7 +156,7 @@ export default function StaffOverview() {
         </Pressable>
         {(role === 'coach' || role === 'dietitian') && (
           <Pressable
-            onPress={() => router.push('/(staff)/messages/collab/ui-collab-1' as Href)}
+            onPress={() => router.push('/(staff)/messages/collab' as Href)}
             style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
             <Ionicons color={colors.brand[600]} name="git-network" size={18} />
             <Text style={styles.linkText}>Ekip (collab)</Text>

@@ -1,4 +1,8 @@
-import { useState } from 'react';
+/**
+ * LOCK: docs/mobile/screens/staff/profile.md
+ * Web: StaffSelfProfilePage — availability via updateStaffSelfProfile
+ */
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
@@ -6,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { updateStaffSelfProfile } from '@/services/staffDb';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const HOURS = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
@@ -32,15 +37,24 @@ function initialsOf(name: string) {
     .join('');
 }
 
-/** LOCK: docs/mobile/screens/staff/profile.md */
+function normalizeAvail(raw: unknown): Record<string, string[]> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    out[k] = Array.isArray(v) ? v.map(String) : [];
+  }
+  return out;
+}
+
 export default function StaffProfile() {
-  const { staff, email } = useAuth();
+  const { staff, email, refreshAuth } = useAuth();
   const { toast } = useToast();
-  const [avail, setAvail] = useState<Record<string, string[]>>({
-    '1': ['09:00', '10:00'],
-    '3': ['14:00'],
-    '5': ['09:00', '11:00'],
-  });
+  const [avail, setAvail] = useState<Record<string, string[]>>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setAvail(normalizeAvail(staff?.availability));
+  }, [staff?.availability]);
 
   const name = String(staff?.name || 'Personel');
   const roleBadge = ROLE_BADGES[String(staff?.role || '')];
@@ -51,6 +65,23 @@ export default function StaffProfile() {
       const next = cur.includes(hour) ? cur.filter((h) => h !== hour) : [...cur, hour];
       return { ...prev, [day]: next };
     });
+  };
+
+  const save = async () => {
+    if (!staff?.id) return;
+    setSaving(true);
+    const res = await updateStaffSelfProfile(String(staff.id), {
+      ...staff,
+      name,
+      availability: avail,
+    });
+    setSaving(false);
+    if (!res.success) {
+      toast(res.error || 'Kaydedilemedi.', 'error');
+      return;
+    }
+    toast('Müsaitlik bilgileriniz kaydedildi', 'success');
+    await refreshAuth();
   };
 
   return (
@@ -110,8 +141,9 @@ export default function StaffProfile() {
 
       <View style={styles.saveDivider} />
       <Button
+        disabled={saving}
         label="Müsaitliği kaydet"
-        onPress={() => toast('Müsaitlik bilgileriniz kaydedildi', 'success')}
+        onPress={() => void save()}
       />
     </PanelScaffold>
   );
@@ -121,7 +153,7 @@ const styles = StyleSheet.create({
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 12,
     backgroundColor: colors.white,
     borderRadius: radius.xl,
     padding: spacing.md,
@@ -129,59 +161,54 @@ const styles = StyleSheet.create({
     borderColor: colors.cream[200],
   },
   avatar: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.full,
     backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: fonts.sansSemi, fontSize: 20, color: colors.white },
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: 18, color: colors.white },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  name: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  name: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
   roleBadge: {
     borderRadius: radius.full,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
   roleBadgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
   emailText: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
   section: {
-    fontFamily: fonts.sansSemi,
-    fontSize: 12,
-    color: colors.brand[600],
-    textTransform: 'uppercase',
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    color: colors.cream[900],
     marginTop: spacing.sm,
   },
   dayCard: {
     backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    gap: spacing.sm,
-    marginBottom: 8,
+    padding: spacing.md,
+    gap: 10,
   },
   dayLabel: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
-  dayCount: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
-  hours: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  dayCount: { fontFamily: fonts.sans, color: colors.brand[600] },
+  hours: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   hour: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
-    backgroundColor: colors.white,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.cream[50],
   },
-  hourOn: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
-  hourPressed: { transform: [{ scale: 0.92 }] },
-  hourText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[800] },
+  hourOn: {
+    backgroundColor: colors.brand[500],
+    borderColor: colors.brand[500],
+  },
+  hourPressed: { opacity: 0.85 },
+  hourText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.cream[800] },
   hourTextOn: { color: colors.white },
-  saveDivider: {
-    height: 1,
-    backgroundColor: colors.cream[200],
-    marginVertical: spacing.sm,
-  },
+  saveDivider: { height: spacing.md },
 });

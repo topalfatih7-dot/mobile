@@ -12,8 +12,9 @@ description: >-
 ## Health test
 
 - Hub `/health-test` → section `/health-test/:sectionId` → back to hub (finish route removed; radar on hub)
-- Sections: all `general`, `medical`, `physical`, `lifestyle` + `diet_*` for every member; only `women` / `men` / `diet_women` gated by gender
-- Stored in `members.data.healthTest` JSONB; analysis via `aiAnalysis.js` / sync services (full HT → radarScores + AI summaries)
+- Sections: `general`, `medical`, `nutrition`, `physical`, `lifestyle` for every member; only `women` / `men` gated by gender
+- Stored in `members.data.healthTest` JSONB; analysis via `healthScoreAnalysis` + `useHealthAnalysisSync` (full HT → 8-dim scores + AI summary + history)
+- Panel: `HealthScoreCard` on dashboard (not hub radar)
 - Full question catalog must live in `docs/mobile/domains/health-test-catalog.md`
 
 ## Calendar / programs

@@ -32,4 +32,11 @@ See `screens/member/notifications.md`.
 
 ## Push (mobile)
 
-Store Expo push tokens; on insert of notification or chat, server/worker sends push with `data: { type, staffRole, ... }` matching navigate map.
+1. Client: `registerForPushNotifications(userId)` → Expo token → upsert `device_push_tokens` (RLS own row).
+2. On `append_member_notification` + `POST /api/application-notify` `{ memberId, notification }`:
+   - WhatsApp fan-out (program/chat, existing)
+   - **Expo Push** via `api/_expoPush.js` → `https://exp.host/--/api/v2/push/send`
+3. Respect `members.data.settings.pushNotifs === false` → skip Expo.
+4. Payload `data`: `{ type, staffRole?, ticketId?, action?, threadId?, ... }` — same navigate map as in-app.
+
+Table: `device_push_tokens (user_id PK, expo_push_token, platform, updated_at)`.

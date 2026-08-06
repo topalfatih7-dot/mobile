@@ -11,6 +11,7 @@ import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { ALL_PLANS, getPlanLabel } from '@/data/membershipPlans';
+import { adminUpdatePremiumMembership } from '@/services/adminDb';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const DURATION_MONTHS = [1, 3, 6, 12] as const;
@@ -58,7 +59,7 @@ function PlanBadge({ plan }: { plan: string }) {
 export default function AdminPremium() {
   const { toast } = useToast();
   const insets = useSafeAreaInsets();
-  const { loading, platform, staffById } = useData();
+  const { loading, platform, staffById, refreshData } = useData();
   const members = platform.members;
   const [edits, setEdits] = useState<Record<string, MemberEdit>>({});
   const [openId, setOpenId] = useState<string | null>(null);
@@ -96,11 +97,27 @@ export default function AdminPremium() {
     setDraft(null);
   };
 
-  const save = () => {
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
     if (!openId || !draft || !openMember) return;
+    setSaving(true);
+    const res = await adminUpdatePremiumMembership(openId, {
+      membership: draft.plan,
+      durationMonths: draft.months,
+      assignedCoachId: draft.coachId,
+      assignedDietitianId: draft.dietitianId,
+      assignedDoctorId: draft.doctorId,
+    });
+    setSaving(false);
+    if (!res.success) {
+      toast(res.error || 'Kaydedilemedi', 'error');
+      return;
+    }
     setEdits((prev) => ({ ...prev, [openId]: draft }));
     const name = String(openMember.name);
     closeSheet();
+    await refreshData();
     toast(`${name} için paket güncellendi.`, 'success');
   };
 
@@ -222,8 +239,8 @@ export default function AdminPremium() {
                   </View>
                 ))}
 
-                <Button label="Paketi güncelle" onPress={save} />
-                <Button label="Vazgeç" onPress={closeSheet} variant="ghost" />
+                <Button label="Paketi güncelle" loading={saving} onPress={() => void save()} />
+                <Button disabled={saving} label="Vazgeç" onPress={closeSheet} variant="ghost" />
               </ScrollView>
             </Animated.View>
           ) : null}

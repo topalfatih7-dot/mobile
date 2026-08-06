@@ -8,7 +8,12 @@
     "start:go": "expo start",
     "android": "expo start --dev-client --android",
     "ios": "expo start --dev-client --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:dev:android": "eas build --profile development-device --platform android",
+    "build:dev:ios": "eas build --profile development-device --platform ios",
+    "build:preview": "eas build --profile preview --platform all",
+    "build:preview:android": "eas build --profile preview --platform android",
+    "build:preview:ios": "eas build --profile preview --platform ios"
   },
   "dependencies": {
     "@daily-co/react-native-daily-js": "^0.86.0",
@@ -24,6 +29,7 @@
     "expo-av": "^16.0.8",
     "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.18",
+    "expo-dev-client": "~56.0.24",
     "expo-device": "~56.0.4",
     "expo-font": "~56.0.7",
     "expo-image": "~56.0.11",

@@ -4,9 +4,13 @@
 2. Open section `/health-test/:sectionId` — answer required questions  
    - Types: `single`, `emoji`, `multi`, `text`, `time`, `scale` (0–10), `file`  
    - Support `followUps`, `detail`, `softWarning`, exclusive multi  
-3. Applicable sections: **all sections for everyone**, except gender-only (`women` / `men` / `diet_women`) via `getApplicableSections`  
-4. Save answers into `members.data.healthTest`  
-5. On full completion: hub shows **360° radarScores**; analysis sync via `memberHealthSync` / `aiAnalysis` (full HT → insights + AI program prompts)  
-6. Dashboard / staff can read answers; admin sees analysis + 360 dims  
+3. Applicable sections: **general, medical, nutrition, physical, lifestyle** for everyone; gender-only `women` / `men` via `getApplicableSections`  
+4. Save answers into `members.data.healthTest` (flat keys)  
+5. On full completion + consent:  
+   - Hub done banner (“Kişisel sağlık analizi kaydedildi”)  
+   - `useHealthAnalysisSync` → `resolveHealthScoreAnalysis` → save `healthAnalysis` + `healthScoreHistory`  
+   - Dashboard `HealthScoreCard` shows 8-dim YeniForm Sağlık Skoru (+ trend)  
+   - Optional: `memberHealthSync` auto program for free/eko  
+6. Staff can read answers; admin/staff brief via `staffBrief` (not member-facing)  
 
 Empty: incomplete badge on nav. Offline: block submit with message.

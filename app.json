@@ -7,9 +7,21 @@
     "icon": "./assets/icon.png",
     "scheme": "yeniform",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2d8fc4"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yeniform.app"
+      "bundleIdentifier": "com.yeniform.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"],
+        "NSCameraUsageDescription": "Görüntülü görüşme ve kalori foto analizi için kamera erişimi gerekir.",
+        "NSMicrophoneUsageDescription": "Görüntülü görüşme için mikrofon erişimi gerekir.",
+        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı ve sağlık belgesi yüklemek için galeri erişimi gerekir.",
+        "NSPhotoLibraryAddUsageDescription": "Fotoğraf kaydetmek için galeri erişimi gerekir."
+      }
     },
     "android": {
       "package": "com.yeniform.app",
@@ -18,7 +30,13 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -27,7 +45,16 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-splash-screen",
+      "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#2d8fc4"
+        }
+      ],
       "expo-secure-store",
       "expo-image",
       [
@@ -35,9 +62,7 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2d8fc4",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ]
+          "sounds": ["./assets/sounds/notification.wav"]
         }
       ],
       "expo-av",
@@ -60,6 +85,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0799a1b3-4e0a-4d73-9961-918878977fbb"
+      }
+    },
+    "owner": "yeniform"
   }
 }

@@ -1,12 +1,14 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from 'expo-router';
 import { addDays, format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,11 +37,28 @@ const FILTERS = [
 /** LOCK: docs/mobile/screens/member/programs.md */
 export default function ProgramsScreen() {
   const insets = useSafeAreaInsets();
-  const { myPrograms } = useData();
+  const { myPrograms, refreshData } = useData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [active, setActive] = useState<Record<string, unknown> | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loadingVideo, setLoadingVideo] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Ekran odaklanınca yeniden çek (realtime kaçarsa / arka plandan dönüş)
+  useFocusEffect(
+    useCallback(() => {
+      void refreshData();
+    }, [refreshData]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshData]);
 
   const filtered = useMemo(
     () =>
@@ -67,6 +86,13 @@ export default function ProgramsScreen() {
           styles.content,
           { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.brand[500]}
+          />
+        }
         showsVerticalScrollIndicator={false}>
         <FadeIn>
           <View style={styles.header}>

@@ -13,13 +13,14 @@ Self-contained question list extracted for mobile handoff.
 
 **Engine extras:** `detail`, `followUps[]` (conditional), `softWarning`, `footerNote`, `infoNote` / `infoNoteWhen`, exclusive multi options (`exclusive: true`).
 
-**360 scores:** After all applicable sections complete, hub shows `HealthRadarScores` via `calculateRadarScores` (client-side) or stored `healthAnalysis.radarScores`.
+**Scores (YeniForm Sağlık Skoru):** After all applicable sections + consent complete, `useHealthAnalysisSync` writes `healthAnalysis` (8 dims + overall + staffBrief) and `healthScoreHistory`. Panel shows `HealthScoreCard`. Hub only shows done banner (no radar). Engine: `src/services/healthScoreAnalysis.ts`. AI: `POST /api/ai-nutrition-tips` `task: health-score`; fallback deterministic.
 
 **Lab uploads:** Private bucket `health-lab-results`, path `{userId}/{ts}-{rand}.{ext}`, via `uploadHealthLabResult`.
 
-**Sections:** `general`, `medical`, `physical`, `lifestyle`, diet_* (all members), `women` / `men` / `diet_women` (gender-only). No package gating.
+**Sections (6 + cinsiyet):** `general` (Genel Sağlık), `medical` (Tıbbi Geçmiş), `nutrition` (Beslenme Profili), `physical` (Hareket Profili), `lifestyle` (Günlük Yaşam), plus `women` / `men` (Size Özel Sorular, gender-only). No package gating. Legacy `diet_*` sections removed — replaced by single `nutrition`.
 
 ## Notes
 
 - Full option lists live in the TS ports of web source — do not invent.
-- Analysis: `normalizeHealthTestForAnalysis` + `calculateRadarScores` use the full flat answer set.
+- Analysis: `normalizeHealthTestForAnalysis` + `resolveHealthScoreAnalysis` / `computeFallbackHealthScores` use the full flat answer set.
+- Legacy `radarScores` / `HealthRadarScores` are obsolete — do not use for new UI.

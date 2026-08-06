@@ -220,5 +220,15 @@ export async function createProgram(input: {
   };
   const { data, error } = await client.from('programs').insert(row).select('*').maybeSingle();
   if (error || !data) return null;
-  return rowToProgram(data as Record<string, unknown>);
+  const program = rowToProgram(data as Record<string, unknown>);
+  if (input.memberId) {
+    const { notifyMemberProgram } = await import('@/services/memberNotifications');
+    void notifyMemberProgram({
+      memberId: input.memberId,
+      title: input.title,
+      programType: input.type,
+      programId: String(program?.id || id),
+    });
+  }
+  return program;
 }

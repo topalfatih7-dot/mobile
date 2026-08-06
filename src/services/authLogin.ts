@@ -1,9 +1,9 @@
 /**
  * Password login — docs/mobile/screens/public/login.md + contracts/api-auth.md
- * Production: her zaman POST /api/auth (Supabase CAPTCHA + Turnstile).
+ * Production: POST /api/auth (MOBILE DIFF: client=yeniform-mobile, Turnstile yok).
  * Doğrudan signInWithPassword captcha_failed verir — kullanma.
  */
-import { isTurnstileEnabled } from '@/config/turnstile';
+import { AUTH_CLIENT_MOBILE } from '@/config/turnstile';
 import { postJson } from '@/services/api';
 import { requireSupabase } from '@/services/supabase';
 import { setRememberMe } from '@/services/authStorage';
@@ -42,7 +42,7 @@ function mapLoginError(status: number, apiError?: string): string {
     /bot|captcha|turnstile|doğrulama/i.test(msg) ||
     lower.includes('captcha')
   ) {
-    return msg || 'Bot doğrulamasını tamamlayın ve tekrar deneyin.';
+    return msg || 'Giriş şu an tamamlanamadı. Lütfen tekrar deneyin.';
   }
   if (status === 0) {
     return msg || 'Giriş servisine ulaşılamadı. İnternet bağlantınızı kontrol edin.';
@@ -54,15 +54,11 @@ export async function passwordLogin(opts: {
   email: string;
   password: string;
   remember: boolean;
-  turnstileToken: string;
+  turnstileToken?: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   const v = validateLoginForm(opts.email, opts.password);
   if (!v.ok || !v.email) {
     return { success: false, error: v.formError || 'Lütfen formu kontrol edin.' };
-  }
-
-  if (isTurnstileEnabled() && !opts.turnstileToken) {
-    return { success: false, error: 'Bot doğrulamasını tamamlayın.' };
   }
 
   const client = requireSupabase();
@@ -77,7 +73,8 @@ export async function passwordLogin(opts: {
       action: 'password-login',
       email: v.email,
       password: opts.password,
-      turnstileToken: opts.turnstileToken || '',
+      client: AUTH_CLIENT_MOBILE,
+      turnstileToken: '',
     },
     { auth: false },
   );

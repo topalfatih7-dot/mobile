@@ -14,18 +14,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AuthBackButton } from '@/components/auth/AuthBackButton';
 import { AuthSceneBackground } from '@/components/auth/AuthSceneBackground';
-import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
-import { TurnstileWidget } from '@/components/security/TurnstileWidget';
 import { Button } from '@/components/ui/Button';
 import { CheckboxRow } from '@/components/ui/CheckboxRow';
 import { TextField } from '@/components/ui/TextField';
-import { isTurnstileEnabled } from '@/config/turnstile';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { getRememberMe } from '@/services/authStorage';
 import { validateLoginForm } from '@/services/authLogin';
-import { colors, fonts, radius, spacing } from '@/theme';
+import { colors, fonts, spacing } from '@/theme';
 
 /**
  * LOCK: docs/mobile/screens/public/login.md
@@ -41,8 +39,6 @@ export default function LoginScreen() {
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileKey, setTurnstileKey] = useState(0);
 
   useEffect(() => {
     void getRememberMe().then(setRemember);
@@ -54,11 +50,6 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, routeForRole]);
 
-  const resetTurnstile = () => {
-    setTurnstileToken('');
-    setTurnstileKey((k) => k + 1);
-  };
-
   const onSubmit = async () => {
     const v = validateLoginForm(email, password);
     setErrors(v.fieldErrors);
@@ -66,16 +57,11 @@ export default function LoginScreen() {
       Alert.alert('Giriş', v.formError || 'Lütfen formu kontrol edin.');
       return;
     }
-    if (isTurnstileEnabled() && !turnstileToken) {
-      Alert.alert('Giriş', 'Bot doğrulamasını tamamlayın.');
-      return;
-    }
 
     setLoading(true);
     try {
-      const result = await login({ email, password, remember, turnstileToken });
+      const result = await login({ email, password, remember });
       if (!result.success) {
-        resetTurnstile();
         Alert.alert('Giriş', result.error || 'E-posta veya şifre hatalı.');
         return;
       }
@@ -98,6 +84,7 @@ export default function LoginScreen() {
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
+      <AuthBackButton label="Ana ekran" />
       <View style={styles.hero}>
         <LinearGradient
           colors={[colors.white, colors.brand[50], colors.sage[50]]}
@@ -146,21 +133,14 @@ export default function LoginScreen() {
             value={password}
           />
           <CheckboxRow checked={remember} label="Beni hatırla" onChange={setRemember} />
-          <TurnstileWidget onToken={setTurnstileToken} remountKey={turnstileKey} />
           <Button label="Giriş Yap" loading={loading} onPress={onSubmit} />
-          <Link asChild href="/(auth)/onboarding">
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.registerBtn,
-                pressed && styles.registerBtnPressed,
-              ]}>
-              <Text style={styles.registerBtnText}>Kayıt ol</Text>
-            </Pressable>
-          </Link>
+          <Button
+            label="Kayıt ol"
+            onPress={() => router.push('/(auth)/onboarding')}
+            rightIcon="person-add-outline"
+            style={styles.registerBtn}
+          />
         </View>
-
-        <SocialAuthButtons />
 
         <View style={styles.links}>
           <Link asChild href="/(auth)/forgot-password">
@@ -266,20 +246,7 @@ const styles = StyleSheet.create({
   },
   form: { gap: spacing.md },
   registerBtn: {
-    minHeight: 52,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sage[50],
-    borderWidth: 1.5,
-    borderColor: colors.sage[200],
-    paddingHorizontal: spacing.lg,
-  },
-  registerBtnPressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
-  registerBtnText: {
-    fontFamily: fonts.sansSemi,
-    fontSize: 16,
-    color: colors.sage[700],
+    marginTop: 2,
   },
   links: {
     marginTop: spacing.lg,

@@ -16,7 +16,7 @@ hasPhotoCalorieAccess(membership)   // vision
 
 - Manual false → paywall / membership CTA; **API çağırma**
 - Photo false → foto butonu kilitli veya upgrade
-- Also: `isCalorieAiEnabled()` — env `VITE_AI_CHAT_ENABLED` / `VITE_AI_VISION_ENABLED` both `false` → feature off
+- Also: `isCalorieAiEnabled()` — env `EXPO_PUBLIC_AI_CHAT_ENABLED` / `EXPO_PUBLIC_AI_VISION_ENABLED` (web `VITE_AI_*`); both `false` → feature off
 
 ## Text API
 

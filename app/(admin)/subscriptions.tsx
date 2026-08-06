@@ -1,34 +1,60 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useData } from '@/context/DataContext';
+import { isPaidMembership } from '@/data/membershipPlans';
+import { getRemainingDays } from '@/services/premiumMembership';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-/** LOCK: docs/mobile/screens/admin/subscriptions.md */
+/** LOCK: docs/mobile/screens/admin/subscriptions.md — KPIs from platform.members */
 export default function AdminSubscriptions() {
+  const { loading, platform } = useData();
+
+  const { activePaid, expiringSoon } = useMemo(() => {
+    let active = 0;
+    let expiring = 0;
+    for (const m of platform.members || []) {
+      const plan = String(m.membership || 'free');
+      if (!isPaidMembership(plan)) continue;
+      active += 1;
+      const days = getRemainingDays(
+        m.premiumExpiresAt ? String(m.premiumExpiresAt) : null,
+      );
+      if (days != null && days >= 0 && days <= 7) expiring += 1;
+    }
+    return { activePaid: active, expiringSoon: expiring };
+  }, [platform.members]);
+
   return (
     <PanelScaffold showBack subtitle="Abonelik özeti" title="Abonelikler">
-      <View style={styles.grid}>
-        <FadeIn style={styles.cell}>
-          <View style={styles.card}>
-            <View style={[styles.iconBox, { backgroundColor: colors.sage[100] }]}>
-              <Ionicons color={colors.sage[600]} name="checkmark-circle" size={20} />
+      {loading && (platform.members || []).length === 0 ? (
+        <InlineSpinner fill />
+      ) : (
+        <View style={styles.grid}>
+          <FadeIn style={styles.cell}>
+            <View style={styles.card}>
+              <View style={[styles.iconBox, { backgroundColor: colors.sage[100] }]}>
+                <Ionicons color={colors.sage[600]} name="checkmark-circle" size={20} />
+              </View>
+              <Text style={styles.kpi}>{activePaid}</Text>
+              <Text style={styles.label}>Aktif ücretli üyelik</Text>
             </View>
-            <Text style={styles.kpi}>86</Text>
-            <Text style={styles.label}>Aktif ücretli üyelik</Text>
-          </View>
-        </FadeIn>
-        <FadeIn delay={40} style={styles.cell}>
-          <View style={styles.card}>
-            <View style={[styles.iconBox, { backgroundColor: colors.warm[100] }]}>
-              <Ionicons color={colors.warm[500]} name="time" size={20} />
+          </FadeIn>
+          <FadeIn delay={40} style={styles.cell}>
+            <View style={styles.card}>
+              <View style={[styles.iconBox, { backgroundColor: colors.warm[100] }]}>
+                <Ionicons color={colors.warm[500]} name="time" size={20} />
+              </View>
+              <Text style={[styles.kpi, styles.kpiWarn]}>{expiringSoon}</Text>
+              <Text style={styles.label}>7 gün içinde bitiyor</Text>
             </View>
-            <Text style={[styles.kpi, styles.kpiWarn]}>12</Text>
-            <Text style={styles.label}>7 gün içinde bitiyor</Text>
-          </View>
-        </FadeIn>
-      </View>
+          </FadeIn>
+        </View>
+      )}
     </PanelScaffold>
   );
 }

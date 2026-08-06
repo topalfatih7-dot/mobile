@@ -24,7 +24,7 @@ export const MEMBER_NAV: MemberNavItem[] = [
   {
     href: '/(member)/health-test',
     icon: 'heart-outline',
-    label: 'Sağlık Testleri',
+    label: 'Kişisel Sağlık Analizi',
     healthTestBadge: true,
   },
   { href: '/(member)/calendar', icon: 'calendar-outline', label: 'Takvim' },

@@ -1,52 +1,87 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { fetchAdminSessionSummaries } from '@/services/adminDb';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-const ROWS = [
-  {
-    id: '1',
-    kind: 'coach' as const,
-    title: 'Koç Görüşmesi',
-    who: 'Demo Üye · Demo Koç',
-    when: '2 gün sonra · 10:00',
-  },
-  {
-    id: '2',
-    kind: 'dietitian' as const,
-    title: 'Diyetisyen Görüşmesi',
-    who: 'Demo Üye · Demo Diyetisyen',
-    when: '4 gün sonra · 14:00',
-  },
-];
-
 const KIND_BAR: Record<string, string> = {
-  coach: colors.brand[400],
-  dietitian: colors.sage[400],
+  Koç: colors.brand[400],
+  Diyetisyen: colors.sage[400],
+  Doktor: colors.gold[400],
 };
 
 /** LOCK: docs/mobile/screens/admin/sessions.md */
 export default function AdminSessions() {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<
+    { memberId: string; memberName: string; sessionType: string; startsAt?: string }[]
+  >([]);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setLoading(true);
+      const list = await fetchAdminSessionSummaries();
+      if (!alive) return;
+      const upcoming = list
+        .filter((s) => s.startsAt && new Date(s.startsAt).getTime() >= Date.now() - 3600000)
+        .sort(
+          (a, b) =>
+            new Date(a.startsAt || 0).getTime() - new Date(b.startsAt || 0).getTime(),
+        )
+        .slice(0, 40);
+      setRows(upcoming);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <PanelScaffold showBack subtitle="Yaklaşan randevular" title="Seanslar">
-      {ROWS.map((r, i) => (
-        <FadeIn delay={i * 40} key={r.id}>
-          <View style={styles.card}>
-            <View style={[styles.kindBar, { backgroundColor: KIND_BAR[r.kind] }]} />
-            <View style={styles.body}>
-              <View style={styles.topRow}>
-                <Text style={styles.title}>{r.title}</Text>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>Planlandı</Text>
+      {loading ? (
+        <InlineSpinner fill />
+      ) : rows.length === 0 ? (
+        <EmptyState title="Yaklaşan seans yok." />
+      ) : (
+        rows.map((r, i) => {
+          const when = r.startsAt
+            ? new Date(r.startsAt).toLocaleString('tr-TR', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '—';
+          return (
+            <FadeIn delay={i * 40} key={`${r.memberId}-${r.sessionType}-${r.startsAt}-${i}`}>
+              <View style={styles.card}>
+                <View
+                  style={[
+                    styles.kindBar,
+                    { backgroundColor: KIND_BAR[r.sessionType] || colors.cream[300] },
+                  ]}
+                />
+                <View style={styles.body}>
+                  <View style={styles.topRow}>
+                    <Text style={styles.title}>{r.sessionType} Görüşmesi</Text>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Planlandı</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.meta}>{r.memberName}</Text>
+                  <Text style={styles.when}>{when}</Text>
                 </View>
               </View>
-              <Text style={styles.meta}>{r.who}</Text>
-              <Text style={styles.when}>{r.when}</Text>
-            </View>
-          </View>
-        </FadeIn>
-      ))}
+            </FadeIn>
+          );
+        })
+      )}
     </PanelScaffold>
   );
 }

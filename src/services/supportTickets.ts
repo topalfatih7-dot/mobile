@@ -165,17 +165,31 @@ export async function sendTicketReply(
     .eq('id', id);
   if (updateError) return { success: false, error: updateError.message };
 
+  if (from === 'admin' && ticket.memberId) {
+    const { notifyMemberSupportReply } = await import('@/services/memberNotifications');
+    void notifyMemberSupportReply({
+      memberId: String(ticket.memberId),
+      preview: `"${ticket.subject || 'Destek'}" talebinize yanıt geldi.`,
+      ticketId: id,
+    });
+  }
+
   return {
     success: true,
     ticket: { ...ticket, messages, status },
   };
 }
 
+let ticketChannelSequence = 0;
+
 /** F09: web app bundle gibi ticket değişikliklerini canlı yenile. */
 export function subscribeMemberTickets(memberId: string, onChange: () => void) {
   if (!memberId || isUiOnly() || !supabase) return () => {};
+  // Unique topic — layout + support screen can both subscribe without
+  // reusing a channel that already called subscribe().
+  ticketChannelSequence += 1;
   const channel = supabase
-    .channel(`member-support-${memberId}`)
+    .channel(`member-support-${memberId}-${ticketChannelSequence}`)
     .on(
       'postgres_changes',
       {

@@ -1,4 +1,10 @@
-import { useState } from 'react';
+/**
+ * LOCK: docs/mobile/screens/staff/admin-messages.md
+ * Param is admin_staff_threads.id
+ */
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,41 +17,97 @@ import {
 } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import {
+  fetchAdminStaffMessages,
+  getOrCreateAdminStaffThread,
+  markAdminStaffThreadRead,
+  sendAdminStaffMessage,
+  subscribeAdminStaffChat,
+  type AdminStaffMessage,
+  type AdminStaffThread,
+} from '@/services/adminStaffChat';
+import { setActiveChatThreadId } from '@/services/activeChatThread';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-/** LOCK: docs/mobile/screens/staff/admin-messages.md */
 export default function StaffAdminMessages() {
+  const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const insets = useSafeAreaInsets();
+  const { staff } = useAuth();
   const { toast } = useToast();
   const [text, setText] = useState('');
-  const [msgs, setMsgs] = useState<
-    { id: string; from: 'admin' | 'staff'; text: string }[]
-  >([
-    {
-      id: '1',
-      from: 'admin',
-      text: 'Merhaba, bu haftaki seans planını kontrol eder misiniz?',
-    },
-    {
-      id: '2',
-      from: 'staff',
-      text: 'Kontrol ettim, plan hazır. İki danışan için saat güncellemesi gerekiyor.',
-    },
-  ]);
+  const [thread, setThread] = useState<AdminStaffThread | null>(null);
+  const [msgs, setMsgs] = useState<AdminStaffMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  const send = () => {
-    const t = text.trim();
-    if (!t) {
-      toast('Mesaj boş.', 'error');
+  const reload = useCallback(async () => {
+    if (!staff?.id) {
+      setLoading(false);
       return;
     }
-    setMsgs((m) => [...m, { id: String(Date.now()), from: 'staff', text: t }]);
+    try {
+      const t =
+        (await getOrCreateAdminStaffThread({
+          id: String(staff.id),
+          name: String(staff.name || ''),
+          role: String(staff.role || ''),
+        })) || null;
+      // Prefer route id if it matches an existing thread
+      if (t && threadId && t.id !== threadId) {
+        // still use created/fetched thread for this staff
+      }
+      setThread(t);
+      if (t) {
+        setMsgs(await fetchAdminStaffMessages(t.id));
+        await markAdminStaffThreadRead(t.id, 'staff');
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Sohbet yüklenemedi', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [staff, threadId, toast]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  useEffect(() => subscribeAdminStaffChat(() => void reload()), [reload]);
+
+  useEffect(() => {
+    const id = setInterval(() => void reload(), 8000);
+    return () => clearInterval(id);
+  }, [reload]);
+
+  useEffect(() => {
+    if (thread?.id) {
+      setActiveChatThreadId(thread.id);
+      return () => setActiveChatThreadId(null);
+    }
+    return undefined;
+  }, [thread?.id]);
+
+  const send = async () => {
+    if (!thread || !staff?.id) return;
+    setSending(true);
+    const res = await sendAdminStaffMessage({
+      thread,
+      senderType: 'staff',
+      senderId: String(staff.id),
+      text,
+    });
+    setSending(false);
+    if (!res.success) {
+      toast(res.error || 'Gönderilemedi', 'error');
+      return;
+    }
     setText('');
+    await reload();
   };
 
   return (
@@ -58,41 +120,34 @@ export default function StaffAdminMessages() {
             <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
           </Pressable>
           <View>
-            <Text style={styles.title}>Admin mesajları</Text>
-            <Text style={styles.subtitle}>Yönetim ile yazışma</Text>
+            <Text style={styles.title}>Admin</Text>
+            <Text style={styles.sub}>Yönetim sohbeti</Text>
           </View>
         </View>
-        <FlatList
-          contentContainerStyle={styles.list}
-          data={msgs}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item }) => (
-            <Animated.View
-              entering={FadeInUp.duration(200)}
-              style={[styles.msgRow, item.from === 'staff' && styles.msgRowMine]}>
-              {item.from !== 'staff' ? (
-                <View style={styles.peerAvatar}>
-                  <Ionicons color={colors.white} name="shield" size={12} />
-                </View>
-              ) : null}
-              <View
-                style={[
-                  styles.bubble,
-                  item.from === 'staff' ? styles.mine : styles.other,
-                ]}>
-                {item.from !== 'staff' ? (
-                  <Text style={styles.senderLabel}>Admin</Text>
-                ) : null}
-                <Text
-                  style={[styles.bubbleText, item.from === 'staff' && { color: colors.white }]}>
-                  {item.text}
-                </Text>
-              </View>
-            </Animated.View>
-          )}
-        />
+        {loading ? (
+          <InlineSpinner fill />
+        ) : (
+          <FlatList
+            contentContainerStyle={styles.list}
+            data={msgs}
+            keyExtractor={(m) => m.id}
+            renderItem={({ item }) => {
+              const mine = item.senderType === 'staff';
+              return (
+                <Animated.View
+                  entering={FadeInUp.duration(200)}
+                  style={[styles.msgRow, mine && styles.msgRowMine]}>
+                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleThem]}>
+                    <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>
+                  </View>
+                </Animated.View>
+              );
+            }}
+          />
+        )}
         <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
           <TextInput
+            editable={!sending}
             multiline
             onChangeText={setText}
             placeholder="Mesaj yazın…"
@@ -101,8 +156,9 @@ export default function StaffAdminMessages() {
             value={text}
           />
           <Pressable
-            onPress={send}
-            style={({ pressed }) => [styles.send, pressed && styles.sendPressed]}>
+            disabled={sending || !text.trim()}
+            onPress={() => void send()}
+            style={[styles.send, (!text.trim() || sending) && styles.sendOff]}>
             <Ionicons color={colors.white} name="send" size={18} />
           </Pressable>
         </View>
@@ -116,79 +172,56 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     paddingHorizontal: spacing.lg,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cream[200],
+    paddingBottom: spacing.sm,
   },
-  title: { fontFamily: fonts.sansSemi, fontSize: 17, color: colors.cream[900] },
-  subtitle: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 1 },
-  list: { padding: spacing.lg },
-  msgRow: {
+  title: { fontFamily: fonts.displayBold, fontSize: 18, color: colors.cream[900] },
+  sub: { fontFamily: fonts.sans, fontSize: 12, color: colors.brand[600] },
+  list: { padding: spacing.lg, gap: 8, flexGrow: 1 },
+  msgRow: { flexDirection: 'row', marginBottom: 8 },
+  msgRowMine: { justifyContent: 'flex-end' },
+  bubble: {
+    maxWidth: '80%',
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  bubbleThem: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.cream[200] },
+  bubbleMine: { backgroundColor: colors.brand[500] },
+  msgText: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[900] },
+  msgTextMine: { color: colors.white },
+  composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,
-    marginBottom: 8,
-  },
-  msgRowMine: { justifyContent: 'flex-end' },
-  peerAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.full,
-    backgroundColor: colors.brand[600],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bubble: {
-    maxWidth: '82%',
-    borderRadius: radius.lg,
-    padding: 12,
-    gap: 2,
-  },
-  mine: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.brand[600],
-    borderBottomRightRadius: 6,
-  },
-  other: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.cream[200],
-    borderBottomLeftRadius: 6,
-  },
-  senderLabel: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.brand[600] },
-  bubbleText: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[900], lineHeight: 20 },
-  composer: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: spacing.md,
-    paddingTop: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.cream[200],
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   input: {
     flex: 1,
     minHeight: 44,
-    maxHeight: 100,
+    maxHeight: 120,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    backgroundColor: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sans,
     fontSize: 15,
     color: colors.cream[900],
+    backgroundColor: colors.white,
   },
   send: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.brand[600],
+    borderRadius: radius.lg,
+    backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendPressed: { transform: [{ scale: 0.92 }] },
+  sendOff: { opacity: 0.4 },
 });

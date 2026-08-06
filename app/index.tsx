@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 
 /**
  * İlk açılış — kaydırmalı welcome.
- * Oturum varsa role redirect. Çıkış → /(auth)/login (welcome değil).
+ * Oturum varsa role redirect.
  */
 export default function Index() {
   const { loading, isAuthenticated, routeForRole } = useAuth();
@@ -24,7 +24,6 @@ export default function Index() {
     <>
       <StatusBar style="light" />
       <IntroCarousel
-        onExplore={() => router.push('/(public)/membership')}
         onLogin={() => router.push('/(auth)/login')}
         onStart={() => router.push('/(auth)/onboarding')}
       />

@@ -11,7 +11,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { HealthRadarScores } from '@/components/health-test/HealthRadarScores';
 import { FreeTrialExpiredGate } from '@/components/membership/FreeTrialExpiredGate';
 import { Button } from '@/components/ui/Button';
 import { CheckboxRow } from '@/components/ui/CheckboxRow';
@@ -26,7 +25,7 @@ import {
   HEALTH_AUDIENCE_META,
   isHealthTestComplete,
 } from '@/data/healthTest';
-import { calculateRadarScores } from '@/services/aiAnalysis';
+import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
 import { getMissingAnalysisProfileFields } from '@/utils/healthProfile';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
 import { colors, fonts, radius, spacing } from '@/theme';
@@ -87,47 +86,11 @@ const CARD_THEME: Record<
     iconBg: colors.white,
     iconColor: colors.cream[800],
   },
-  diet_reason: {
+  nutrition: {
     bg: colors.sage[50],
     border: colors.sage[200],
     iconBg: colors.white,
     iconColor: colors.sage[600],
-  },
-  diet_health: {
-    bg: colors.danger[50],
-    border: colors.danger[100],
-    iconBg: colors.white,
-    iconColor: colors.danger[600],
-  },
-  diet_lifestyle: {
-    bg: colors.brand[50],
-    border: colors.brand[200],
-    iconBg: colors.white,
-    iconColor: colors.brand[500],
-  },
-  diet_activity: {
-    bg: colors.warm[50],
-    border: colors.warm[200],
-    iconBg: colors.white,
-    iconColor: colors.warm[500],
-  },
-  diet_nutrition: {
-    bg: colors.sage[50],
-    border: colors.sage[200],
-    iconBg: colors.white,
-    iconColor: colors.sage[600],
-  },
-  diet_women: {
-    bg: colors.warm[50],
-    border: colors.warm[200],
-    iconBg: colors.white,
-    iconColor: colors.warm[500],
-  },
-  diet_extra: {
-    bg: colors.brand[50],
-    border: colors.brand[200],
-    iconBg: colors.white,
-    iconColor: colors.brand[600],
   },
 };
 
@@ -193,23 +156,13 @@ export default function HealthTestHub() {
     Boolean(member?.healthAck) &&
     Boolean(member?.disclaimer);
 
+  // Analiz tamamlanınca skor üretimi (dashboard ile aynı sync)
+  useHealthAnalysisSync();
+
   const missingProfile = useMemo(
     () => getMissingAnalysisProfileFields(member as Record<string, unknown>),
     [member],
   );
-
-  const radarScores = useMemo(() => {
-    if (!fullyComplete) return null;
-    const stored = (member?.healthAnalysis as { radarScores?: Record<string, number> })
-      ?.radarScores;
-    if (stored) return stored;
-    return calculateRadarScores({
-      ...(member as Record<string, unknown>),
-      healthTest,
-      gender,
-      packageConfig,
-    });
-  }, [fullyComplete, member, healthTest, gender, packageConfig]);
 
   const saveConsent = async () => {
     if (!healthAck || !disclaimer) {
@@ -219,7 +172,7 @@ export default function HealthTestHub() {
     setSaving(true);
     await updateProfile(
       { healthAck, disclaimer },
-      { toastMsg: 'Onaylar kaydedildi. Testlere başlayabilirsiniz.' },
+      { toastMsg: 'Onaylar kaydedildi. Analize başlayabilirsiniz.' },
     );
     setSaving(false);
   };
@@ -245,10 +198,10 @@ export default function HealthTestHub() {
             <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
             <Text style={styles.backText}>Geri</Text>
           </Pressable>
-          <Text style={styles.title}>Sağlık Testleri</Text>
+          <Text style={styles.title}>Kişisel Sağlık Analizi</Text>
           <Text style={styles.sub}>
             {needsConsent
-              ? 'Testlere başlamadan önce onayları işaretleyin'
+              ? 'Analize başlamadan önce onayları işaretleyin'
               : 'Her kategoriyi ayrı ayrı tamamlayın — istediğiniz sırayla ilerleyebilirsiniz'}
           </Text>
         </FadeIn>
@@ -318,7 +271,7 @@ export default function HealthTestHub() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.overallKicker}>Toplam ilerleme</Text>
                     <Text style={styles.overallTitle}>
-                      {overall.completed} / {overall.total} test
+                      {overall.completed} / {overall.total} kategori
                     </Text>
                     <Text style={styles.overallSub}>
                       Her kategoriyi ayrı ayrı tamamlayın — istediğiniz sırayla
@@ -345,20 +298,15 @@ export default function HealthTestHub() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.doneBannerText}>
-                      Tüm sağlık testleri kaydedildi
+                      Kişisel sağlık analizi kaydedildi
                     </Text>
                     <Text style={styles.doneBannerSub}>
-                      Cevaplarınız profilinizde saklanır; koç, diyetisyen ve doktor
-                      panelinde görünür. İstediğiniz kategoriyi tekrar açıp
+                      Cevaplarınız profilinizde saklanır; panelde YeniForm Sağlık
+                      Skoru güncellenir. İstediğiniz kategoriyi tekrar açıp
                       güncelleyebilirsiniz.
                     </Text>
                   </View>
                 </View>
-                {radarScores ? (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <HealthRadarScores radarScores={radarScores} />
-                  </View>
-                ) : null}
               </FadeIn>
             ) : null}
 

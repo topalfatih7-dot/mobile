@@ -42,14 +42,14 @@ export function staffNavForRole(role: string | null | undefined): StaffNavItem[]
   const normalized = normalizeStaffRole(role);
   if (normalized === 'coach' || normalized === 'dietitian') {
     base.push({
-      href: '/(staff)/messages/collab/ui-collab-1',
+      href: '/(staff)/messages/collab',
       icon: 'people-circle-outline',
       label: 'Ekip Mesajları',
       collabChatBadge: true,
     });
   }
   base.push({
-    href: '/(staff)/messages/admin/ui-admin-1',
+    href: '/(staff)/messages/admin',
     icon: 'shield-outline',
     label: 'Admin Mesajları',
     adminChatBadge: true,

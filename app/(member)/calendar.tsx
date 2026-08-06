@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import {
   addMonths,
   eachDayOfInterval,
@@ -113,9 +113,15 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ avail?: string }>();
   const member = useMember();
-  const { myPrograms } = useData();
+  const { myPrograms, refreshData } = useData();
   const { toggleActivityCompletion, toggleMealCompletion, updateProfile } = useActions();
   const { toast } = useToast();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshData();
+    }, [refreshData]),
+  );
 
   const [current, setCurrent] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(

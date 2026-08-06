@@ -19,7 +19,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
-import { DEMO_EXERCISES } from '@/data/uiDemo';
 import { fetchExercisesPage } from '@/services/exerciseLibrary';
 import { colors, fonts, radius, spacing } from '@/theme';
 
@@ -127,7 +126,7 @@ export default function ClientProgram() {
   const insets = useSafeAreaInsets();
 
   const [search, setSearch] = useState('');
-  const [exercises, setExercises] = useState<Record<string, unknown>[]>(DEMO_EXERCISES);
+  const [exercises, setExercises] = useState<Record<string, unknown>[]>([]);
   const [exLoading, setExLoading] = useState(true);
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [days, setDays] = useState<number[]>([]);
@@ -141,10 +140,10 @@ export default function ClientProgram() {
       try {
         const res = await fetchExercisesPage({ page: 1, pageSize: 200 });
         if (!cancelled) {
-          setExercises(res.items.length > 0 ? res.items : DEMO_EXERCISES);
+          setExercises(res.items);
         }
       } catch {
-        if (!cancelled) setExercises(DEMO_EXERCISES);
+        if (!cancelled) setExercises([]);
       } finally {
         if (!cancelled) setExLoading(false);
       }

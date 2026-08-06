@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { WeeklyAdherenceCard } from '@/components/dashboard/WeeklyAdherenceCard';
 import { WeightChart } from '@/components/dashboard/WeightChart';
+import { HealthScoreCard } from '@/components/dashboard/HealthScoreCard';
 import { MembershipBadge } from '@/components/home/MembershipBadge';
 import { QuickLinkTile } from '@/components/home/QuickLinkTile';
 import { StatCard } from '@/components/home/StatCard';
@@ -32,22 +33,12 @@ import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { getPlanLabel, isPaidMembership } from '@/data/membershipPlans';
 import { useDailyTip } from '@/hooks/useDailyTip';
+import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
 import { getRemainingDays } from '@/services/premiumMembership';
-import { blogPostPath } from '@/utils/blog';
+import { blogPostHref, resolveBlogCover } from '@/utils/blog';
 import { resolveFirstName } from '@/utils/displayName';
 import { buildWeeklyAdherence } from '@/utils/memberProgress';
 import { colors, fonts, radius, spacing } from '@/theme';
-
-const BLOG_COVER_BY_CATEGORY: Record<string, string> = {
-  Beslenme:
-    'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=80',
-  Antrenman:
-    'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=1200&q=80',
-  Motivasyon:
-    'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
-  Yaşam:
-    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1200&q=80',
-};
 
 /**
  * LOCK: docs/mobile/screens/member/dashboard.md
@@ -61,6 +52,13 @@ export default function MemberDashboard() {
   const member = useMember();
   const { myPrograms, isFreeTrialExpired, posts } = useData();
   const { tip: dailyTip, loading: tipLoading } = useDailyTip();
+  const {
+    analysis: healthAnalysis,
+    history: healthScoreHistory,
+    loading: healthScoreLoading,
+    complete: healthAnalysisComplete,
+    error: healthScoreError,
+  } = useHealthAnalysisSync();
   const { submitSuccessStory } = useActions();
   const { toast } = useToast();
   const [storyOpen, setStoryOpen] = useState(false);
@@ -213,12 +211,22 @@ export default function MemberDashboard() {
                   style={styles.ctaGhost}>
                   <Ionicons color={colors.white} name="heart" size={15} />
                   <Text style={styles.ctaGhostText} numberOfLines={1}>
-                    Sağlık Testleri
+                    Kişisel Sağlık Analizi
                   </Text>
                 </Pressable>
               </View>
             </View>
           </View>
+        </FadeIn>
+
+        <FadeIn delay={40}>
+          <HealthScoreCard
+            analysis={healthAnalysis}
+            complete={healthAnalysisComplete}
+            error={healthScoreError}
+            history={healthScoreHistory}
+            loading={healthScoreLoading}
+          />
         </FadeIn>
 
         <FadeIn delay={60}>
@@ -464,19 +472,18 @@ export default function MemberDashboard() {
               </View>
               {latestPosts.map((post) => {
                 const category = String(post.category || 'Yaşam');
-                const cover = String(
-                  post.coverImage ||
-                    BLOG_COVER_BY_CATEGORY[category] ||
-                    BLOG_COVER_BY_CATEGORY.Yaşam,
-                );
-                const path = blogPostPath(post);
-                const id = path.split('/').filter(Boolean).pop() || String(post.id);
+                const cover = resolveBlogCover(post);
                 return (
                   <Pressable
                     key={String(post.id)}
-                    onPress={() => router.push(`/(public)/blog/${id}` as Href)}
+                    onPress={() => router.push(blogPostHref(post) as Href)}
                     style={styles.blogCard}>
-                    <Image contentFit="cover" source={{ uri: cover }} style={styles.blogCover} />
+                    <Image
+                      accessibilityLabel={cover.alt}
+                      contentFit="cover"
+                      source={{ uri: cover.url }}
+                      style={styles.blogCover}
+                    />
                     <View style={styles.blogBody}>
                       <Text style={styles.blogCategory}>{category}</Text>
                       <Text numberOfLines={2} style={styles.blogTitle}>

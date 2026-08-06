@@ -8,7 +8,6 @@ import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
-import { DEMO_EXERCISES } from '@/data/uiDemo';
 import { fetchExercisesPage } from '@/services/exerciseLibrary';
 import { colors, fonts, radius, spacing } from '@/theme';
 
@@ -46,9 +45,9 @@ export default function StaffLibrary() {
         pageSize: 200,
         filters: { search, difficulty, location, requiresMachine },
       });
-      setExercises(res.items.length > 0 ? res.items : DEMO_EXERCISES);
+      setExercises(res.items);
     } catch {
-      setExercises(DEMO_EXERCISES);
+      setExercises([]);
     } finally {
       setLoading(false);
     }
