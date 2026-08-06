@@ -1,18 +1,67 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-06 — Member store P3–P6 kod iskeleti + messages presence/program panel  
+> **Son güncelleme:** 2026-08-06 — Sağlık testi 2 aşama + kayıt telefon PhoneField  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-06 sağlık testi 2 aşama + telefon
+
+| Madde | Durum |
+|-------|--------|
+| Kayıt `PhoneField` + TR 10 hane cap (`onboarding.tsx`) | ✅ |
+| `coreHealthTest.ts` + remaining/detailed/lock helpers | ✅ |
+| `useHealthAnalysisSync` core manuel / detailed auto + `optionalCompletedAt` | ✅ |
+| Hub 2 aşama UI + Analizi Başlat + kilit/retake | ✅ |
+| `/(member)/health-test/core` route | ✅ |
+| Section remaining mode + nav badge | ✅ |
+| `HealthScoreCard` lock badge + staff health meta | ✅ |
+| AI `POST /api/ai-health-analysis` (web parity) | ✅ |
+| Docs/skill F04 + hub/core/section LOCK | ✅ |
+| `npx tsc --noEmit` | ✅ |
+| Elle QA: core→skor→opsiyonel→kilit→retake | 🔄 cihaz |
+
+## 2026-08-06 elle QA kickoff
+
+| Madde | Durum |
+|-------|--------|
+| Kütüphane docs arşivi (`docs/library-refs/`) — Expo 56 / RN 0.85 / RC / Daily / Supabase / Reanimated / Expo modules | ✅ |
+| Elle test planı (`docs/qa/MANUAL_TEST_PLAN.md`) — T0–T10, bug formatı, flow eşlemesi | ✅ |
+| Agent smoke (`docs/qa/RESULTS-2026-08-06.md`) — tsc/import/API/DB/web export + Metro | ✅ |
+| IAP `setLogLevel` null crash fix (`src/services/iap.ts`) | ✅ kod; cihaz reload doğrulama bekliyor |
+| Kullanıcı elle UI T1+; FCM credential USER | 🔄 devam |
+
+## 2026-08-06 full audit
+
+Kapsamlı native audit + store hazırlık turu özeti:
+
+| Madde | Durum |
+|-------|--------|
+| Docs cleanup (`docs/` kök kopyaları silindi; otorite `docs/mobile/`) | ✅ |
+| FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ config; `google-services.json` / `GoogleService-Info.plist` kullanıcı sağlar |
+| RevenueCat test key + `PaywallModal` / `CustomerCenterButton` / entitlement | ✅ |
+| `shadow*` → `boxShadow` + `pointerEvents` style migrasyonu | ✅ |
+| Library virtualization + admin members pagination | ✅ |
+| Admin messages audit sekmeleri, applications staff create, content/blog/library CRUD | ✅ |
+| Push permission prompt + camera/mic gate (video call) | ✅ |
+| `npx tsc --noEmit` | ✅ 0 hata |
+| `npx expo export --platform web` | ✅ bundle |
+| EAS `whoami` | ✅ `yeniform` / logged in |
+| EAS profiles (`development`, `preview`, `production`) + `projectId` | ✅ |
+
+**Kalan USER blockers:**
+1. Proje köküne `google-services.json` + `GoogleService-Info.plist` koy (`SETUP_REQUIRED.md`)
+2. App Store / Play Console ürün ID’leri + RevenueCat dashboard ürün eşlemesi
+3. Cihazda EAS preview: `npm run build:preview:ios` / `npm run build:preview:android`
 
 ## Store yolu (üye)
 
 | Faz | Durum | Gate doc |
 |-----|-------|----------|
-| P0 Hesaplar | ⬜ sen (RC keys) | `store/P0-handoff-checklist.md` |
+| P0 Hesaplar | 🔑 test key eklendi | `store/P0-handoff-checklist.md` |
 | P1 Auth | ✅ kod | — |
-| P2 IAP | ✅ iskelet (keys boş) | `store/P2-live-gate.md` |
-| P3 Push | ✅ + yerel banner | `store/P3-push-test-gate.md` |
-| P4 Splash/EAS | ✅ projectId bağlı | `store/P4-splash-eas-gate.md` |
+| P2 IAP | ✅ kod + test keys; store ürünleri bekliyor | `store/P2-live-gate.md` |
+| P3 Push | ✅ + yerel banner; FCM files USER | `store/P3-push-test-gate.md` |
+| P4 Splash/EAS | ✅ projectId; preview build USER | `store/P4-splash-eas-gate.md` |
 | P5 Parity | ✅ messages presence/programs | `store/P5-parity-gate.md` |
 | P6 Store | ✅ listing şablon | `store/P6-store-gate.md` |
 
@@ -32,7 +81,8 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 | **Public** | Landing/membership/blog native; about/team/legal WebView; SKIP stubs | ✅ |
 | **Web parity taraması** | Faz A–D checklist | ✅ 2026-07-26 |
 | **Smoke re-scan** | tsc + 77 app import resolve + `expo export --platform web` + Supabase tablo/count | ✅ 2026-07-26 |
-| RevenueCat keys | iOS/Android public SDK | ⬜ GAP (env boş) |
+| RevenueCat keys | iOS/Android public SDK | ✅ test key bağlandı — 2026-08-06 |
+| RevenueCat paywall | `PaywallModal` + `CustomerCenterButton` + `checkEntitlement` | ✅ 2026-08-06 |
 | Push tokens | `device_push_tokens` + Expo Push | ✅ kod; cihaz smoke bekliyor |
 | Messages presence | `user_presence` + program panel | ✅ 2026-08-06 |
 
@@ -128,18 +178,15 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Kalan doğrulanmış GAP’ler (blocked — karar / env)
 
-1. **RevenueCat keys:** `EXPO_PUBLIC_REVENUECAT_API_KEY_IOS` / `_ANDROID` boş — sandbox IAP
-2. **Push cihaz smoke:** native build + `device_push_tokens` satırı + arka plan banner
-3. **Library equipment filter:** mobil eski spec; web UI yok — otorite: web only (yapılmadı)
-4. **Payments history ledger:** RC tam ledger yok
-5. **EAS preview build:** credentials ile `npm run build:preview:*` (sen)
-7. **Admin applications approve:** status güncellenir; web’deki tam `addStaff` + temp password yolu mobil kısmi
-8. **Admin premium Eko AI sync:** paket persist OK; AppContext Eko program tetikleme mobil GAP
-9. **Admin content CRUD / library CRUD:** list OK; create/update/delete UI sonraki
+1. **FCM native files:** `google-services.json` / `GoogleService-Info.plist` yok — `SETUP_REQUIRED.md`
+2. **Push cihaz smoke:** native preview build + `device_push_tokens` satırı + arka plan banner
+3. **App Store / Play ürünleri:** store ürün ID’leri + RevenueCat dashboard eşlemesi
+4. **EAS preview build:** `npm run build:preview:ios` / `npm run build:preview:android` (cihaz)
+5. **Library equipment filter:** mobil eski spec; web UI yok — otorite: web only (yapılmadı)
+6. **Payments history ledger:** RC tam ledger yok
 
 ## Sonraki
 
-1. Kontrat GAP’leri kullanıcı kararıyla kapat
-2. RevenueCat anahtarları + cihaz IAP smoke
-3. Admin content/library full CRUD (web parity)
-4. Applications approve → staff hesap oluşturma (web `addStaff`)
+1. `google-services.json` + `GoogleService-Info.plist` yerleştir
+2. EAS preview iOS/Android → cihaz smoke (push + IAP)
+3. Store ürünleri + RevenueCat dashboard eşlemesi

@@ -33,7 +33,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { CITY_NAMES, getDistricts } from '@/data/turkeyCities';
-import { getPlanLabel } from '@/data/membershipPlans';
+import {
+  getPlanLabel,
+  packageIncludesCoach,
+  packageIncludesDietitian,
+  packageIncludesDoctor,
+} from '@/data/membershipPlans';
 import {
   confirmEmailVerification,
   confirmPhoneVerification,
@@ -41,17 +46,16 @@ import {
   sendEmailVerification,
   sendPhoneVerification,
 } from '@/services/authVerification';
-import {
-  pickImageFromLibrary,
-  uploadMemberFile,
-} from '@/services/memberMedia';
+import { uploadMemberFile } from '@/services/memberMedia';
 import { getRemainingDays } from '@/services/premiumMembership';
 import {
   countUsedDoctorSessions,
   isOneTimePlan,
   isPackageEntryActive,
   migrateLegacyToPackages,
+  resolveMemberEntitlements,
 } from '@/utils/memberPackages';
+import { pickProfilePhoto } from '@/utils/pickProfilePhoto';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /** LOCK: docs/mobile/screens/member/profile.md — web ProfilePage parity */
@@ -131,29 +135,58 @@ export default function ProfileScreen() {
     ? staffById[String(member.assignedDoctorId)]
     : null;
 
-  const experts = [
-    {
-      label: 'Koç',
-      name: coach ? String(coach.name || '') : '',
-      href: '/(member)/schedule?tab=coach' as Href,
-      icon: 'barbell' as const,
-      color: colors.brand[500],
-    },
-    {
-      label: 'Diyetisyen',
-      name: dietitian ? String(dietitian.name || '') : '',
-      href: '/(member)/schedule?tab=dietitian' as Href,
-      icon: 'nutrition' as const,
-      color: colors.sage[500],
-    },
-    {
-      label: 'Doktor',
-      name: doctor ? String(doctor.name || '') : '',
-      href: '/(member)/schedule?tab=doctor' as Href,
-      icon: 'medkit' as const,
-      color: colors.warm[500],
-    },
-  ];
+  const { packageConfig } = useMemo(
+    () =>
+      member
+        ? resolveMemberEntitlements(member as never)
+        : { packageConfig: {} as Record<string, unknown> },
+    [member],
+  );
+
+  /** Web ProfilePage expertCards — yalnızca pakette olan roller */
+  const experts = useMemo(() => {
+    const cards: {
+      label: string;
+      name: string;
+      href: Href;
+      icon: 'barbell' | 'nutrition' | 'medkit';
+      color: string;
+    }[] = [];
+    const pkg = (packageConfig || {}) as Record<string, unknown>;
+    if (packageIncludesCoach(pkg)) {
+      cards.push({
+        label: 'Koç',
+        name: coach ? String(coach.name || '') : '',
+        href: '/(member)/schedule?tab=coach',
+        icon: 'barbell',
+        color: colors.brand[500],
+      });
+    }
+    if (packageIncludesDietitian(pkg)) {
+      cards.push({
+        label: 'Diyetisyen',
+        name: dietitian ? String(dietitian.name || '') : '',
+        href: '/(member)/schedule?tab=dietitian',
+        icon: 'nutrition',
+        color: colors.sage[500],
+      });
+    }
+    const offersDoctor =
+      packageIncludesDoctor(pkg) ||
+      (Number(pkg.doctorSessionsTotal) || 0) > 0 ||
+      (Number(pkg.doctorMeetingsPerMonth) || 0) > 0 ||
+      Boolean(member?.assignedDoctorId);
+    if (offersDoctor) {
+      cards.push({
+        label: 'Doktor',
+        name: doctor ? String(doctor.name || '') : '',
+        href: '/(member)/schedule?tab=doctor',
+        icon: 'medkit',
+        color: colors.warm[500],
+      });
+    }
+    return cards;
+  }, [packageConfig, coach, dietitian, doctor, member?.assignedDoctorId]);
 
   const quickLinks = [
     {
@@ -214,11 +247,14 @@ export default function ProfileScreen() {
 
   const onPickPhoto = async () => {
     if (!member?.id) return;
-    const picked = await pickImageFromLibrary();
-    if (!picked) {
-      toast('Fotoğraf seçilemedi veya izin verilmedi.', 'warning');
-      return;
-    }
+    const wasOpen = editOpen;
+    const picked = await pickProfilePhoto({
+      // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
+      beforePick: wasOpen ? () => setEditOpen(false) : undefined,
+      afterPick: wasOpen ? () => setEditOpen(true) : undefined,
+    });
+    // null = vazgeç / izin yok — sessiz dön
+    if (!picked) return;
     setUploadingPhoto(true);
     try {
       const uploaded = await uploadMemberFile({
@@ -302,7 +338,8 @@ export default function ProfileScreen() {
                 )}
                 <Pressable
                   accessibilityLabel="Fotoğraf değiştir"
-                  onPress={openHeroEdit}
+                  disabled={uploadingPhoto}
+                  onPress={() => void onPickPhoto()}
                   style={styles.cameraBtn}>
                   <Ionicons color={colors.white} name="camera" size={14} />
                 </Pressable>
@@ -323,20 +360,22 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.experts}>
-              {experts.map((e) => (
-                <Pressable
-                  key={e.label}
-                  onPress={() => router.push(e.href)}
-                  style={styles.expertCard}>
-                  <Ionicons color={e.color} name={e.icon} size={18} />
-                  <Text style={styles.expertLabel}>{e.label}</Text>
-                  <Text numberOfLines={1} style={styles.expertName}>
-                    {e.name || 'Atanmadı'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {experts.length > 0 ? (
+              <View style={styles.experts}>
+                {experts.map((e) => (
+                  <Pressable
+                    key={e.label}
+                    onPress={() => router.push(e.href)}
+                    style={styles.expertCard}>
+                    <Ionicons color={e.color} name={e.icon} size={18} />
+                    <Text style={styles.expertLabel}>{e.label}</Text>
+                    <Text numberOfLines={1} style={styles.expertName}>
+                      {e.name || 'Atanmadı'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
         </FadeIn>
 
@@ -583,8 +622,8 @@ export default function ProfileScreen() {
                   {uploadingPhoto
                     ? 'Yükleniyor…'
                     : photo
-                      ? 'Değiştirmek için dokunun.'
-                      : 'Galeriden fotoğraf seçin.'}
+                      ? 'Kamera veya galeriden değiştirin.'
+                      : 'Kamera veya galeriden fotoğraf seçin.'}
                 </Text>
               </View>
               <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />

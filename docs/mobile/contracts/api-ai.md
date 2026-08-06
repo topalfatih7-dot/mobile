@@ -55,16 +55,23 @@ Auth Bearer. Body encoding: **copy from web CalorieCalculatorPage / vision clien
 
 Prefer existing member fetch path used by `useDailyTip` (site_content cache and/or `ai-blog-generate?task=daily-tip`). Fallback string from `dailyTipFallback.js` if network fails — read that file for exact fallbacks.
 
-## POST /api/ai-nutrition-tips — task: health-score
+## POST /api/ai-health-analysis
 
-Auth Bearer. Body:
+Auth Bearer. Web parity — sağlık skoru + staffBrief / memberBrief (program üretmez).
+
+Body:
 
 ```json
 {
-  "task": "health-score",
   "profile": { "age": 30, "gender": "female", "height": 165, "weight": 62, "goals": [], "fitnessLevel": "beginner" },
-  "categorySummaries": { "general": "...", "medical": "...", "nutrition": "...", "physical": "...", "lifestyle": "...", "special": "..." }
+  "categorySummaries": { "general": "...", "medical": "...", "nutrition": "...", "physical": "...", "lifestyle": "...", "special": "..." },
+  "force": false,
+  "memberId": null
 }
 ```
 
-Success includes `scores` (8 keys: general, nutrition, movement, sleep, stress, lifestyle, motivation, readiness), `overallScore`, `summary`, `staffBrief`. Client: `healthScoreAnalysis.ts` → `fetchAiHealthScore` / fallback `computeFallbackHealthScores`.
+Client sets `analysisStage: 'core' | 'detailed'` on the saved `healthAnalysis` after response.
+
+Success includes `scores` (8 keys: general, nutrition, movement, sleep, stress, lifestyle, motivation, readiness), `overallScore`, `summary`, `staffBrief`, `memberBrief?`, `sourceFingerprint`.  
+`423` when `fullLock` (14-day lock after detailed). `409` when fingerprint unchanged (force required for staff).  
+Client: `healthScoreAnalysis.ts` → `fetchAiHealthScore` / fallback `computeFallbackHealthScores`.

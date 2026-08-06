@@ -6,6 +6,7 @@ import { router, type Href } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -95,7 +96,7 @@ function PulseRing() {
     transform: [{ scale: 1 + progress.value * 0.25 }],
     opacity: 0.6 * (1 - progress.value),
   }));
-  return <Animated.View pointerEvents="none" style={[styles.pulseRing, anim]} />;
+  return <Animated.View style={[styles.pulseRing, anim, { pointerEvents: 'none' }]} />;
 }
 
 function ConnectingDot() {
@@ -164,6 +165,21 @@ export function VideoCallShell({
     style?: object;
   }> | null>(null);
   const callRef = useRef<DailyCall | null>(null);
+
+  // Camera/mic permission state (6B)
+  const [permsDenied, setPermsDenied] = useState(false);
+
+  useEffect(() => {
+    if (isUiOnly()) return;
+    let alive = true;
+    void requestCamMicPermissions().then((granted) => {
+      if (!alive) return;
+      if (!granted) setPermsDenied(true);
+    });
+    return () => { alive = false; };
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const label = TYPE_LABEL[sessionType] || 'Görüntülü görüşme';
   const roomName = buildDailyRoomName(sessionType, sessionId);
@@ -343,6 +359,60 @@ export function VideoCallShell({
     remote?.tracks?.audio?.persistentTrack || remote?.tracks?.audio?.track || null;
   const localVideo =
     local?.tracks?.video?.persistentTrack || local?.tracks?.video?.track || null;
+
+  // 6B: Camera/mic denied — show settings redirect UI (non-blocking for demo/Expo Go)
+  if (permsDenied && !isUiOnly()) {
+    return (
+      <MeshBackground style={styles.root}>
+        <LinearGradient
+          colors={[colors.brand[800], colors.brand[900], '#0f1720']}
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          style={[
+            styles.content,
+            { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 },
+          ]}>
+          <Pressable
+            accessibilityLabel="Geri dön"
+            hitSlop={12}
+            onPress={() => {
+              if (backHref) router.replace(backHref);
+              else router.back();
+            }}
+            style={styles.back}>
+            <Ionicons color={colors.white} name="chevron-back" size={22} />
+            <Text style={styles.backText}>Geri Dön</Text>
+          </Pressable>
+
+          <View style={styles.permDeniedCard}>
+            <View style={styles.permIcon}>
+              <Ionicons color={colors.warm[500]} name="videocam-off" size={36} />
+            </View>
+            <Text style={styles.permTitle}>İzin Gerekli</Text>
+            <Text style={styles.permBody}>
+              Video görüşme için kamera ve mikrofon izni gerekli. Lütfen ayarlardan
+              izin verin.
+            </Text>
+            <Pressable
+              onPress={() => void Linking.openSettings()}
+              style={styles.settingsBtn}>
+              <Ionicons color={colors.white} name="settings" size={18} />
+              <Text style={styles.settingsBtnText}>Ayarları Aç</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (backHref) router.replace(backHref);
+                else router.back();
+              }}
+              style={styles.backBtn}>
+              <Text style={styles.backBtnText}>Geri Dön</Text>
+            </Pressable>
+          </View>
+        </View>
+      </MeshBackground>
+    );
+  }
 
   if (inCall && webViewUrl) {
     return (
@@ -781,5 +851,62 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: spacing.sm,
+  },
+  permDeniedCard: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 24,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  permIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: colors.warm[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permTitle: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 22,
+    color: colors.white,
+    textAlign: 'center',
+  },
+  permBody: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  settingsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 48,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    backgroundColor: colors.brand[500],
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  settingsBtnText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.white },
+  backBtn: {
+    height: 44,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+  },
+  backBtnText: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
   },
 });

@@ -211,10 +211,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cream[200],
     backgroundColor: colors.white,
-    shadowColor: colors.cream[900],
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    boxShadow: '0px 4px 12px rgba(26,35,50,0.06)',
     elevation: 2,
   },
   heroMedia: {

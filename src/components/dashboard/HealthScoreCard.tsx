@@ -27,8 +27,22 @@ import {
   type HealthScoreAnalysis,
   type HealthScoreHistoryEntry,
   type HealthScoreKey,
+  type HealthTestLockState,
 } from '@/services/healthScoreAnalysis';
 import { colors, fonts, radius, spacing } from '@/theme';
+
+function formatRetakeDate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  try {
+    return new Intl.DateTimeFormat('tr-TR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(date instanceof Date ? date : new Date(date));
+  } catch {
+    return '';
+  }
+}
 
 function scoreTone(score: number) {
   if (score >= 75) {
@@ -223,6 +237,7 @@ type Props = {
   loading?: boolean;
   complete?: boolean;
   error?: string | null;
+  lockState?: HealthTestLockState | null;
 };
 
 export function HealthScoreCard({
@@ -231,6 +246,7 @@ export function HealthScoreCard({
   loading = false,
   complete = false,
   error = null,
+  lockState = null,
 }: Props) {
   if (!complete) {
     return (
@@ -249,7 +265,8 @@ export function HealthScoreCard({
               Kişisel sağlık analizinizi tamamlayın
             </Text>
             <Text style={styles.incompleteSub}>
-              6 kategorilik analiziniz bittiğinde 8 boyutlu skorunuz panelde görünecek.
+              Genel Sağlık Testini (1. aşama) tamamlayıp analizi başlattığınızda
+              8 boyutlu skorunuz burada görünecek.
             </Text>
           </View>
           <Pressable
@@ -288,6 +305,20 @@ export function HealthScoreCard({
               Cevaplarınıza göre 8 boyutta değerlendirildiniz.
             </Text>
           )}
+          {lockState?.locked && lockState?.lockedUntil ? (
+            <View style={styles.lockBadge}>
+              <Ionicons color={colors.warm[500]} name="time-outline" size={12} />
+              <Text style={styles.lockBadgeText}>
+                Güncellenebilir: {formatRetakeDate(lockState.lockedUntil)}
+              </Text>
+            </View>
+          ) : null}
+          {lockState?.canRetake ? (
+            <View style={styles.lockBadge}>
+              <Ionicons color={colors.brand[600]} name="refresh" size={12} />
+              <Text style={styles.lockBadgeText}>Yeniden çözebilirsiniz</Text>
+            </View>
+          ) : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
@@ -344,6 +375,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: 'rgba(58,69,80,0.6)',
+  },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.warm[50],
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  lockBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: colors.cream[900],
   },
   cta: {
     alignSelf: 'flex-start',

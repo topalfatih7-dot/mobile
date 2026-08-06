@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn as ReFadeIn, FadeOut as ReFadeOut } from 'react-native-reanimated';
 
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
@@ -23,6 +23,8 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   intermediate: 'Orta',
   advanced: 'İleri',
 };
+
+const ITEM_HEIGHT = 90; // padding 16*2 + thumbnail 64 - some margin
 
 /** LOCK: docs/mobile/screens/staff/library.md */
 export default function StaffLibrary() {
@@ -129,13 +131,27 @@ export default function StaffLibrary() {
         </Animated.View>
       ) : null}
 
-      {loading && items.length === 0 ? (
-        <InlineSpinner fill />
-      ) : items.length === 0 ? (
-        <EmptyState description="Filtreleri temizleyip tekrar deneyin." title="Sonuç yok" />
-      ) : (
-        items.map((ex, i) => (
-          <FadeIn key={String(ex.id)} delay={40 + i * 30}>
+      <FlatList
+        data={items}
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
+          index,
+        })}
+        initialNumToRender={15}
+        keyExtractor={(ex) => String(ex.id)}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        windowSize={5}
+        ListEmptyComponent={
+          loading ? (
+            <InlineSpinner fill />
+          ) : (
+            <EmptyState description="Filtreleri temizleyip tekrar deneyin." title="Sonuç yok" />
+          )
+        }
+        renderItem={({ item: ex, index: i }) => (
+          <FadeIn delay={40 + i * 30}>
             <Pressable onPress={() => setActive(ex)} style={styles.row}>
               <ExerciseVideoThumbnail
                 pending={Boolean(ex.videoPending)}
@@ -155,8 +171,10 @@ export default function StaffLibrary() {
               <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
             </Pressable>
           </FadeIn>
-        ))
-      )}
+        )}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+      />
 
       <Modal animationType="slide" transparent visible={Boolean(active)}>
         <View style={styles.modalBackdrop}>
@@ -252,4 +270,5 @@ const styles = StyleSheet.create({
   noVideo: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800], textAlign: 'center' },
   closeBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
   closeText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
+  list: { flex: 1 },
 });

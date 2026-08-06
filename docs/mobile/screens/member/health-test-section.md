@@ -1,39 +1,34 @@
 # Member — Health Test Section (IMPLEMENTATION LOCK)
 
 - **Expo:** `/(member)/health-test/[sectionId]`
-- **Web:** `/health-test/:sectionId` → `HealthTestSectionPage.jsx` + `HealthTestFlow` + `HealthTestStep`
+- **Web:** `/health-test/:sectionId` (mode=`remaining`)
 - **Priority:** P1
+- **Flow:** F04
 
 ---
 
-## Data
+## Purpose
 
-- Load questions: `getSectionQuestions(sectionId, gender, packageConfig)` from `src/data/healthTest.ts` (web parity)
-- Persist **flat** `healthTest` via `updateHealthTestPartial(nextFlatHealthTest)` — no section nesting
-- Autosave debounce ~700ms + save on section complete (web `saveHealthTestProgress`)
-- Consent required: missing `healthAck`/`disclaimer` → redirect hub
-- Invalid sectionId → hub
+2. aşama — opsiyonel kategori soruları. Core key’ler hariç (`getRemainingSectionQuestions`).
 
-## Question engine (required)
+## Gates / redirects → hub
 
-Support: `emoji | single | multi | text | time | scale | file`  
-Plus: `detail`, `followUps[]`, `softWarning`, `exclusive` multi, `infoNote`/`infoNoteWhen`, `footerNote`, `hint`  
-Options / catalog: web `healthTestSections.js` + `healthTestDietitianSections.js` (ported).
+- `sectionId === 'core'` → `/(member)/health-test/core`
+- Missing consent / profile / core incomplete
+- `fullLock` or awaiting retake
 
-## Completion
+## Flow
 
-- Enforce `isQuestionFullyAnswered` (detail + follow-ups)
-- On last question → `isSectionComplete` → toast → hub (or AI program sync for free/eko then `/programs`)
-- **No** `/health-test/finish` route
-
-## Lab uploads
-
-Private bucket `health-lab-results`, path `{userId}/{ts}-{rand}.{ext}` via `uploadHealthLabResult`.  
-Value shape: `[{ path, name, contentType }, …]`
+- `required: false` — boş bırakılabilir; yarım detail/follow-up engeller
+- Resume: `getRemainingSectionResumeState`
+- Autosave 700ms
+- Finish toast:
+  - all detailed → detaylı analiz hazırlanıyor (+ free/eko program sync)
+  - section strict complete → tamamlandı
+  - else → istediğiniz zaman devam
 
 ## Acceptance
 
-- [ ] required fields enforced per question.required (+ detail/followUps)  
-- [ ] No invented options  
-- [ ] gender-gated sections (women/men)  
-- [ ] Flat keys match web  
+- [ ] Core questions not re-asked  
+- [ ] Optional free-text keys excluded from count  
+- [ ] Lock blocks entry  

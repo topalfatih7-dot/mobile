@@ -32,8 +32,8 @@ import { useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { analyzeFoodText, analyzeFoodVision, isCalorieAiEnabled } from '@/services/calorieAi';
 import {
-  pickImageFromCamera,
-  pickImageFromLibrary,
+  pickImageFromCameraDetailed,
+  pickImageFromLibraryDetailed,
 } from '@/services/memberMedia';
 import { formatAnalysisReply, type CalorieAnalysis } from '@/utils/calorieFormat';
 import {
@@ -230,9 +230,16 @@ export default function CalorieScreen() {
 
   const runVision = async (useCamera: boolean) => {
     if (!canPhoto || busy) return;
-    const picked = useCamera
-      ? await pickImageFromCamera()
-      : await pickImageFromLibrary();
+    const result = useCamera
+      ? await pickImageFromCameraDetailed()
+      : await pickImageFromLibraryDetailed();
+    if (!result.ok) {
+      if (result.code !== 'canceled') {
+        toast(result.message, result.code === 'native_missing' ? 'error' : 'warning');
+      }
+      return;
+    }
+    const picked = result.image;
     if (!picked?.base64) {
       toast('Görsel seçilemedi veya izin verilmedi.', 'warning');
       return;
@@ -243,18 +250,18 @@ export default function CalorieScreen() {
       { id: `u-${Date.now()}`, role: 'user', text: '📷 Fotoğraf gönderildi' },
     ]);
     setBusy(true);
-    const result = await analyzeFoodVision(
+    const analysis = await analyzeFoodVision(
       picked.base64,
       picked.mimeType || 'image/jpeg',
     );
-    if (!result.ok) {
-      toast(result.error, 'error');
+    if (!analysis.ok) {
+      toast(analysis.error, 'error');
       setBusy(false);
       return;
     }
-    void persistHistory('photo', 'fotoğraf', result.analysis);
-    setActiveTotal(itemsTotalCal(result.analysis.items));
-    const reply = formatAnalysisReply(result.analysis);
+    void persistHistory('photo', 'fotoğraf', analysis.analysis);
+    setActiveTotal(itemsTotalCal(analysis.analysis.items));
+    const reply = formatAnalysisReply(analysis.analysis);
     setMessages((m) => [
       ...m,
       { id: `a-${Date.now()}`, role: 'assistant', text: reply },

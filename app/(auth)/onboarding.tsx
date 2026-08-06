@@ -17,14 +17,19 @@ import { Button } from '@/components/ui/Button';
 import { CheckboxRow } from '@/components/ui/CheckboxRow';
 import { GenderSelect } from '@/components/ui/GenderSelect';
 import { PasswordRules } from '@/components/ui/PasswordRules';
+import { PhoneField } from '@/components/ui/PhoneField';
 import { TextField } from '@/components/ui/TextField';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import {
+  DEFAULT_COUNTRY_ISO,
+  isValidNationalNumber,
+  toE164,
+} from '@/data/countryCodes';
 import { legalUrl } from '@/data/legalSlugs';
 import { registerFreeMember } from '@/services/authRegister';
 import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/email';
 import { isPasswordValid } from '@/utils/password';
-import { normalizeTrNational, toE164Tr, trPhoneError } from '@/utils/phone';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /**
@@ -39,6 +44,7 @@ export default function OnboardingScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_COUNTRY_ISO);
   const [gender, setGender] = useState<'' | 'female' | 'male'>('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -78,8 +84,9 @@ export default function OnboardingScreen() {
     if (!isValidEmailAddress(clean)) {
       errors.email = 'Geçerli bir e-posta adresi girin (ör. ad@site.com).';
     }
-    const phoneErr = trPhoneError(phone);
-    if (phoneErr) errors.phone = phoneErr;
+    if (!phone.trim() || !isValidNationalNumber(phoneCountry, phone)) {
+      errors.phone = 'Geçerli bir cep telefonu numarası girin.';
+    }
     if (gender !== 'female' && gender !== 'male') {
       errors.gender = 'Cinsiyet seçimi zorunludur — Kadın veya Erkek seçin.';
     }
@@ -102,8 +109,8 @@ export default function OnboardingScreen() {
     const profile = {
       name: name.trim(),
       email: clean,
-      phone: toE164Tr(phone),
-      phoneCountry: 'TR',
+      phone: toE164(phoneCountry, phone),
+      phoneCountry,
       gender: gender as 'female' | 'male',
       password,
       membership: 'free',
@@ -166,39 +173,37 @@ export default function OnboardingScreen() {
               placeholder="ornek@yeniform.com"
               value={email}
             />
-            <TextField
-              accent="sage"
+            <PhoneField
+              country={phoneCountry}
               error={fieldErrors.phone}
-              icon="call-outline"
-              keyboardType="phone-pad"
               label="Telefon"
-              onChangeText={(t) => {
-                setPhone(t);
+              onCountryChange={(iso) => {
+                setPhoneCountry(iso);
+                setPhone('');
                 if (fieldErrors.phone) {
-                  const err = trPhoneError(t);
                   setFieldErrors((prev) => {
                     const next = { ...prev };
-                    if (err) next.phone = err;
-                    else delete next.phone;
+                    delete next.phone;
                     return next;
                   });
                 }
               }}
-              onBlur={() => {
-                const err = trPhoneError(phone);
-                setFieldErrors((prev) => {
-                  const next = { ...prev };
-                  if (err) next.phone = err;
-                  else delete next.phone;
-                  return next;
-                });
+              onValueChange={(t) => {
+                setPhone(t);
+                if (fieldErrors.phone) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    if (!t.trim() || !isValidNationalNumber(phoneCountry, t)) {
+                      next.phone = 'Geçerli bir cep telefonu numarası girin.';
+                    } else {
+                      delete next.phone;
+                    }
+                    return next;
+                  });
+                }
               }}
-              placeholder="05xxxxxxxxx"
               value={phone}
             />
-            {phone && !fieldErrors.phone && normalizeTrNational(phone).length > 0 ? (
-              <Text style={styles.phoneHint}>Kayıt: {toE164Tr(phone)}</Text>
-            ) : null}
             <GenderSelect error={fieldErrors.gender} onChange={setGender} value={gender} />
             <TextField
               accent="warm"
@@ -284,19 +289,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    shadowColor: colors.brand[900],
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    boxShadow: '0px 10px 20px rgba(26,69,92,0.1)',
     elevation: 6,
   },
   form: { gap: spacing.md },
-  phoneHint: {
-    marginTop: -8,
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.sage[700],
-  },
   err: { fontFamily: fonts.sans, fontSize: 12, color: '#c2410c' },
   legalLinks: {
     flexDirection: 'row',

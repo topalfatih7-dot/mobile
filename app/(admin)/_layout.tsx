@@ -97,8 +97,10 @@ export default function AdminLayout() {
         <Stack.Screen name="support" />
         <Stack.Screen name="messages/index" />
         <Stack.Screen name="messages/[threadId]" />
+        <Stack.Screen name="messages/audit/[threadId]" />
         <Stack.Screen name="library" />
         <Stack.Screen name="blog" />
+        <Stack.Screen name="blog/[id]" />
         <Stack.Screen name="content" />
         <Stack.Screen name="payments" />
         <Stack.Screen name="plans" />

@@ -4,7 +4,11 @@
  */
 import { isUiOnly } from '@/config/runtime';
 import { postJson } from '@/services/api';
-import { allApplicableComplete, isHealthTestComplete } from '@/data/healthTest';
+import {
+  getCoreHealthTestKeySet,
+  isCoreHealthTestComplete,
+} from '@/data/coreHealthTest';
+import { isDetailedHealthTestComplete } from '@/data/healthTest';
 import { getDefaultPackageForPlan } from '@/data/membershipPlans';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
 
@@ -16,14 +20,19 @@ type SyncResult = {
   ok?: boolean;
 };
 
+/** Free/eko program üretimi yalnızca 2. aşama (detailed) tamamlanınca. */
 function profileReadyForAnalysis(profile: Record<string, unknown> | null | undefined) {
   if (!profile) return false;
   const { packageConfig } = resolveMemberEntitlements(profile as never);
   const gender = profile.gender ? String(profile.gender) : null;
-  return isHealthTestComplete(
-    (profile.healthTest as Record<string, unknown>) || {},
+  const ht = (profile.healthTest as Record<string, unknown>) || {};
+  if (!isCoreHealthTestComplete(ht, gender)) return false;
+  const coreKeys = getCoreHealthTestKeySet(gender);
+  return isDetailedHealthTestComplete(
+    ht,
     gender,
     packageConfig || getDefaultPackageForPlan(String(profile.membership || 'free')),
+    coreKeys,
   );
 }
 

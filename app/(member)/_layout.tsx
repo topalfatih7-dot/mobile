@@ -1,12 +1,18 @@
 import { Stack, router, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { buildMemberNavItems } from '@/data/memberNav';
-import { allApplicableComplete } from '@/data/healthTest';
+import {
+  getCoreHealthTestKeySet,
+  isCoreHealthTestComplete,
+} from '@/data/coreHealthTest';
+import { isDetailedHealthTestComplete } from '@/data/healthTest';
+import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
 import { loadMemberChat, subscribeMemberChat } from '@/services/chat';
 import { configureIap } from '@/services/iap';
 import {
@@ -25,6 +31,8 @@ import {
 import { unlockNotificationAudio } from '@/services/notificationSound';
 import { getMemberChatContacts } from '@/utils/chatContacts';
 
+const PUSH_ASKED_KEY = 'push_permission_asked';
+
 type NotifRow = {
   id?: string;
   title?: string;
@@ -41,6 +49,45 @@ function MemberPushBootstrap() {
   const { role, userId } = useAuth();
   const member = useMember();
   const seenIdsRef = useRef<Set<string> | null>(null);
+
+  // Delayed push permission request shown once after login (6A)
+  useEffect(() => {
+    if (role !== 'member' || !userId || Platform.OS === 'web') return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        const asked = await AsyncStorage.getItem(PUSH_ASKED_KEY);
+        if (asked) return;
+        Alert.alert(
+          'Bildirim İzni',
+          'Koçundan ve diyetisyeninden anlık bildirim almak ister misin?',
+          [
+            {
+              text: 'Şimdi Değil',
+              style: 'cancel',
+              onPress: async () => {
+                await AsyncStorage.setItem(PUSH_ASKED_KEY, 'true');
+              },
+            },
+            {
+              text: 'Evet, İzin Ver',
+              onPress: async () => {
+                await AsyncStorage.setItem(PUSH_ASKED_KEY, 'true');
+                await registerForPushNotifications(userId);
+              },
+            },
+          ],
+        );
+      } catch {
+        /* ignore storage errors */
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [role, userId]);
 
   useEffect(() => {
     if (role !== 'member') return;
@@ -181,11 +228,31 @@ export default function MemberLayout() {
 
   const notifications = (member?.notifications as { read?: boolean }[]) || [];
   const notificationUnreadCount = notifications.filter((n) => !n.read).length;
-  const healthTestIncomplete = !allApplicableComplete(
-    member?.gender as string | undefined,
-    (member?.healthTest as Record<string, unknown>) || {},
-    member?.packageConfig as Record<string, unknown> | undefined,
-  );
+  const healthTestIncomplete = useMemo(() => {
+    if (!member) return false;
+    const gender = member.gender ? String(member.gender) : null;
+    const ht = (member.healthTest as Record<string, unknown>) || {};
+    if (!isCoreHealthTestComplete(ht, gender)) return true;
+    const coreKeys = getCoreHealthTestKeySet(gender);
+    const detailed = isDetailedHealthTestComplete(
+      ht,
+      gender,
+      (member.packageConfig as Record<string, unknown>) || null,
+      coreKeys,
+    );
+    if (detailed) {
+      const lock = getHealthTestLockState({
+        healthAnalysis: member.healthAnalysis as never,
+        detailedComplete: true,
+        optionalCompletedAt: ht.optionalCompletedAt
+          ? String(ht.optionalCompletedAt)
+          : null,
+      });
+      // Kilitliyken rozet yok; retake açılınca tekrar göster
+      return Boolean(lock.canRetake);
+    }
+    return true;
+  }, [member]);
 
   const items = useMemo(
     () =>
@@ -233,6 +300,7 @@ export default function MemberLayout() {
         <Stack.Screen name="messages/index" />
         <Stack.Screen name="messages/[threadId]" />
         <Stack.Screen name="health-test/index" />
+        <Stack.Screen name="health-test/core" />
         <Stack.Screen name="health-test/[sectionId]" />
         <Stack.Screen name="profile/index" />
         <Stack.Screen name="profile/payments" />

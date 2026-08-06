@@ -1,0 +1,14 @@
+---
+description: RevenueCat IAP/MCP — dashboard bağlantıları MCP üzerinden
+alwaysApply: true
+---
+
+# RevenueCat MCP
+
+Üyelik / IAP / paket / entitlement / offering / paywall / RC ürün veya public API key işlerinde:
+
+1. **Önce RevenueCat MCP** kullan — dashboard’a gitmesini veya manuel ürün oluşturmasını söyleme.
+2. MCP `needsAuth` ise `mcp_auth` ile OAuth tamamla; sonra projeyi listele ve Yeni Form projesine bağlan.
+3. Product id sözleşmesi (`docs/mobile/04-payments-iap.md`): `yf_{planId}_{1|3|6}m` / `yf_doktor_once`. Entitlement: `Yeniform Pro`.
+4. Public SDK key’leri MCP’den alıp `EXPO_PUBLIC_REVENUECAT_API_KEY_IOS` / `_ANDROID` (.env / EAS) senkronla; secret key’i chat’e yazma.
+5. Webhook / Supabase membership güncellemesi web parity’de kalır — MCP yalnızca RC tarafı.

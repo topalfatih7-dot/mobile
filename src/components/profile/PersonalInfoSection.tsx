@@ -26,17 +26,16 @@ import {
   DEFAULT_COUNTRY_ISO,
   formatE164,
   formatNationalNumber,
+  isValidNationalNumber,
   parseE164,
   toE164,
 } from '@/data/countryCodes';
 import { MEMBER_GENDERS, isValidMemberGender } from '@/data/genders';
 import { CITY_NAMES, getDistricts } from '@/data/turkeyCities';
-import {
-  pickImageFromLibrary,
-  uploadMemberFile,
-} from '@/services/memberMedia';
+import { uploadMemberFile } from '@/services/memberMedia';
 import type { MemberRecord } from '@/services/mappers';
 import { ageFromBirthDate, birthDateError, formatBirthDate } from '@/utils/birthDate';
+import { pickProfilePhoto } from '@/utils/pickProfilePhoto';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const GOALS: {
@@ -214,11 +213,13 @@ export function PersonalInfoSection({ user }: Props) {
 
   const onPickPhoto = async () => {
     if (!user.id) return;
-    const picked = await pickImageFromLibrary();
-    if (!picked) {
-      toast('Fotoğraf seçilemedi veya izin verilmedi.', 'warning');
-      return;
-    }
+    const picked = await pickProfilePhoto({
+      // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
+      beforePick: () => setOpen(false),
+      afterPick: () => setOpen(true),
+    });
+    // null = vazgeç / izin yok — sessiz dön
+    if (!picked) return;
     setUploadingPhoto(true);
     try {
       const uploaded = await uploadMemberFile({
@@ -246,6 +247,10 @@ export function PersonalInfoSection({ user }: Props) {
     }
     if (!user.phone && !form.phone?.trim()) {
       toast('Telefon numarası zorunludur.', 'warning');
+      return;
+    }
+    if (!user.phone && form.phone && !isValidNationalNumber(form.phoneCountry, form.phone)) {
+      toast('Geçerli bir cep telefonu numarası girin.', 'warning');
       return;
     }
     if (errors.birthDate || errors.weight || errors.height || errors.waist) {
@@ -418,8 +423,8 @@ export function PersonalInfoSection({ user }: Props) {
                     {uploadingPhoto
                       ? 'Yükleniyor…'
                       : form.photo
-                        ? 'Değiştirmek için dokunun.'
-                        : 'Galeriden fotoğraf seçin.'}
+                        ? 'Kamera veya galeriden değiştirin.'
+                        : 'Kamera veya galeriden fotoğraf seçin.'}
                   </Text>
                 </View>
                 <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />

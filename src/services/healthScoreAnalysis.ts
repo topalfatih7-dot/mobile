@@ -6,10 +6,11 @@ import { describeHealthTest } from '@/data/healthTest';
 import { apiUrl, getApiAuthHeaders } from '@/services/api';
 import { isUiOnly } from '@/config/runtime';
 
-/** healthAnalysis şema sürümü — eski radar özetleri yenilenir */
-export const HEALTH_ANALYSIS_VERSION = 10;
+/** healthAnalysis şema sürümü — web HEALTH_SCORE_ANALYSIS_VERSION ile hizalı */
+export const HEALTH_ANALYSIS_VERSION = 11;
+export const HEALTH_SCORE_ANALYSIS_VERSION = HEALTH_ANALYSIS_VERSION;
 
-const AI_FETCH_TIMEOUT_MS = 15_000;
+const AI_FETCH_TIMEOUT_MS = 45_000;
 
 export const HEALTH_SCORE_KEYS = [
   'general',
@@ -98,9 +99,23 @@ export const STAFF_BRIEF_META: Record<StaffBriefKey, { label: string }> = {
 
 export const HEALTH_SCORE_HISTORY_MAX = 24;
 
+/** Analiz sonrası sağlık testi yeniden çözme aralığı (gün). */
+export const HEALTH_TEST_RETAKE_DAYS = 14;
+
+/** healthTest içindeki meta alanlar — cevap fingerprint'ine dahil edilmez. */
+export const HEALTH_TEST_META_KEYS = new Set(['retakeAt', 'optionalCompletedAt']);
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export type AnalysisStage = 'core' | 'detailed';
+
 export type HealthScores = Record<HealthScoreKey, number>;
 
 export type StaffBrief = Record<StaffBriefKey, string>;
+
+export const MEMBER_BRIEF_KEYS = ['strengths', 'focus', 'planPitch'] as const;
+export type MemberBriefKey = (typeof MEMBER_BRIEF_KEYS)[number];
+export type MemberBrief = Record<MemberBriefKey, string>;
 
 export type HealthScoreAnalysis = {
   version: number;
@@ -109,6 +124,9 @@ export type HealthScoreAnalysis = {
   overallScore: number;
   summary: string;
   staffBrief: StaffBrief;
+  memberBrief?: MemberBrief | null;
+  analysisStage?: AnalysisStage | null;
+  sourceFingerprint?: string;
   aiGenerated: boolean;
   aiAttemptedAt: string;
   fallbackReason?: string;
@@ -119,7 +137,32 @@ export type HealthScoreAnalysis = {
   coachRecommendations?: unknown;
   dietitianRecommendations?: unknown;
   radarScores?: Record<string, number>;
+  questionsLockedAt?: string | null;
 };
+
+export type HealthTestLockState = {
+  locked: boolean;
+  lockedUntil: Date | null;
+  daysLeft: number;
+  canRetake: boolean;
+  fullLock: boolean;
+};
+
+export class HealthAnalysisError extends Error {
+  code: 'health_analysis_locked' | 'health_analysis_unchanged';
+  lockedUntil?: string | null;
+
+  constructor(
+    message: string,
+    code: 'health_analysis_locked' | 'health_analysis_unchanged',
+    lockedUntil?: string | null,
+  ) {
+    super(message);
+    this.name = 'HealthAnalysisError';
+    this.code = code;
+    this.lockedUntil = lockedUntil ?? null;
+  }
+}
 
 export type HealthScoreHistoryEntry = {
   at: string;
@@ -199,6 +242,226 @@ function normalizeStaffBrief(raw: unknown): StaffBrief | null {
     out[key] = text.slice(0, 1200);
   }
   return out;
+}
+
+function normalizeMemberBrief(raw: unknown): MemberBrief | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const out = {} as MemberBrief;
+  for (const key of MEMBER_BRIEF_KEYS) {
+    const text = String(obj[key] || '').trim();
+    if (!text) return null;
+    out[key] = text.slice(0, 1200);
+  }
+  return out;
+}
+
+export function buildFallbackMemberBrief(
+  scores: Partial<HealthScores> = {},
+  overallScore = 50,
+): MemberBrief {
+  const s = scores || {};
+  const strong = HEALTH_SCORE_KEYS.filter((k) => (s[k] ?? 50) >= 70).map(
+    (k) => HEALTH_SCORE_META[k]?.label || k,
+  );
+  const weak = HEALTH_SCORE_KEYS.filter((k) => (s[k] ?? 50) < 55).map(
+    (k) => HEALTH_SCORE_META[k]?.label || k,
+  );
+
+  const strengths = strong.length
+    ? `Tebrikler — ${strong.join(', ').toLowerCase()} alanlarında gerçekten iyi durumdasın. Bu alışkanlıklar en büyük avantajın; doğru bir planla bunların üstüne koymak çok daha kolay.`
+    : `Genel skorun ${overallScore}/100 — bu bir başlangıç noktası, etiket değil. Küçük ve düzenli adımlarla bu skorun yükseldiğini kısa sürede görebilirsin.`;
+
+  const focus = weak.length
+    ? `${weak.join(', ')} tarafında gelişime açık alanların var. Bunlar irade eksikliği değil, çoğu zaman doğru plan eksikliğinden kaynaklanır — birlikte, küçük hedeflerle adım adım düzeltebiliriz.`
+    : 'Belirgin bir zayıf alanın yok; şimdi hedefin mevcut dengeyi korumak ve skorlarını bir üst seviyeye taşımak olabilir.';
+
+  const nutritionWeak = (s.nutrition ?? 50) < 55;
+  const movementWeak = (s.movement ?? 50) < 55;
+  let planPitch: string;
+  if (nutritionWeak && movementWeak) {
+    planPitch =
+      'Hem beslenme hem hareket tarafında destek almak için Vip Paket senin için çok avantajlı: koç, diyetisyen ve doktor görüşmesi tek pakette — iki alanı aynı anda, birbirini destekleyecek şekilde toparlarsın.';
+  } else if (nutritionWeak) {
+    planPitch =
+      'Beslenme skorunu en hızlı yükseltecek şey birebir diyetisyen desteği. Diyet Paketi ile sana özel beslenme planı ve düzenli takip alırsın — tek başına deneme-yanılma yapmana gerek kalmaz.';
+  } else if (movementWeak) {
+    planPitch =
+      'Hareket tarafını toparlamak için Spor Paketi senin için ideal: antrenörün seviyene uygun kişisel program hazırlar ve seni düzenli takip eder — böylece başladığın gibi bırakmazsın.';
+  } else {
+    planPitch =
+      'Bu iyi tabloyu kalıcı hale getirmenin en kolay yolu profesyonel takip. Yeni Form paketleriyle koç ve diyetisyen desteği alarak skorlarını korur, hedeflerine daha hızlı ulaşırsın.';
+  }
+
+  return { strengths, focus, planPitch };
+}
+
+export function resolveMemberBrief(
+  analysis: HealthScoreAnalysis | null | undefined,
+): MemberBrief | null {
+  if (!analysis) return null;
+  const stored = normalizeMemberBrief(analysis.memberBrief);
+  if (stored) return stored;
+  if (analysis.overallScore == null && analysis.overallScore !== 0) return null;
+  return buildFallbackMemberBrief(analysis.scores, analysis.overallScore);
+}
+
+export function getAnalysisTimestamp(
+  analysis: HealthScoreAnalysis | null | undefined,
+): number | null {
+  const raw = analysis?.aiAttemptedAt || analysis?.generatedAt || null;
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function parseTimestamp(raw: unknown): number | null {
+  if (!raw) return null;
+  const t = new Date(String(raw)).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+export function getHealthTestLockTimestamp({
+  optionalCompletedAt = null,
+  healthAnalysis = null,
+}: {
+  optionalCompletedAt?: string | null;
+  healthAnalysis?: HealthScoreAnalysis | null;
+} = {}): number | null {
+  return (
+    parseTimestamp(optionalCompletedAt) ||
+    parseTimestamp(healthAnalysis?.questionsLockedAt) ||
+    getAnalysisTimestamp(healthAnalysis)
+  );
+}
+
+export function stripHealthTestMeta(
+  healthTest: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!healthTest || typeof healthTest !== 'object') return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(healthTest)) {
+    if (HEALTH_TEST_META_KEYS.has(key)) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+/** 14 günlük kilit — yalnızca tüm opsiyoneller bitince / stage=detailed. */
+export function getHealthTestLockState({
+  healthAnalysis,
+  detailedComplete = false,
+  optionalCompletedAt = null,
+}: {
+  healthAnalysis?: HealthScoreAnalysis | null;
+  detailedComplete?: boolean;
+  optionalCompletedAt?: string | null;
+} = {}): HealthTestLockState {
+  const stage = healthAnalysis?.analysisStage;
+  const questionsDone = detailedComplete === true || stage === 'detailed';
+
+  if (!questionsDone) {
+    return {
+      locked: false,
+      lockedUntil: null,
+      daysLeft: 0,
+      canRetake: false,
+      fullLock: false,
+    };
+  }
+
+  const ts = getHealthTestLockTimestamp({ optionalCompletedAt, healthAnalysis });
+  if (!ts) {
+    const lockedUntilMs = Date.now() + HEALTH_TEST_RETAKE_DAYS * MS_PER_DAY;
+    return {
+      locked: true,
+      lockedUntil: new Date(lockedUntilMs),
+      daysLeft: HEALTH_TEST_RETAKE_DAYS,
+      canRetake: false,
+      fullLock: true,
+    };
+  }
+
+  const lockedUntilMs = ts + HEALTH_TEST_RETAKE_DAYS * MS_PER_DAY;
+  const lockedUntil = new Date(lockedUntilMs);
+  const now = Date.now();
+  const locked = now < lockedUntilMs;
+  const daysLeft = locked
+    ? Math.max(1, Math.ceil((lockedUntilMs - now) / MS_PER_DAY))
+    : 0;
+
+  return {
+    locked,
+    lockedUntil,
+    daysLeft,
+    canRetake: !locked,
+    fullLock: locked,
+  };
+}
+
+/** Deterministik fingerprint — web/api ile aynı (djb2). */
+export function buildHealthAnalysisFingerprint(
+  profile: Record<string, unknown> = {},
+): string {
+  const ht = stripHealthTestMeta(
+    profile.healthTest as Record<string, unknown> | undefined,
+  );
+  const payload = JSON.stringify({
+    ht,
+    age: profile.age ?? null,
+    gender: profile.gender ?? null,
+    height: profile.height ?? null,
+    weight: profile.weight ?? null,
+  });
+  let hash = 5381;
+  for (let i = 0; i < payload.length; i += 1) {
+    hash = ((hash << 5) + hash) ^ payload.charCodeAt(i);
+  }
+  return `v1:${(hash >>> 0).toString(36)}`;
+}
+
+export function needsInitialHealthAnalysis(
+  analysis: HealthScoreAnalysis | null | undefined,
+): boolean {
+  if (!analysis?.overallScore && analysis?.overallScore !== 0) return true;
+  if (!analysis?.scores || typeof analysis.scores !== 'object') return true;
+  for (const key of HEALTH_SCORE_KEYS) {
+    if (analysis.scores[key] == null) return true;
+  }
+  if (!normalizeStaffBrief(analysis.staffBrief)) return true;
+  if (analysis.radarScores && !analysis.scores) return true;
+  return false;
+}
+
+export function needsDetailedHealthAnalysis(
+  analysis: HealthScoreAnalysis | null | undefined,
+  isDetailedComplete: boolean,
+): boolean {
+  if (!isDetailedComplete) return false;
+  if (needsInitialHealthAnalysis(analysis)) return false;
+  if (analysis?.analysisStage === 'detailed') return false;
+  return true;
+}
+
+export function resolveAnalysisStage(
+  analysis: HealthScoreAnalysis | null | undefined,
+  isDetailedComplete = false,
+): AnalysisStage | null {
+  if (!analysis || needsInitialHealthAnalysis(analysis)) return null;
+  if (analysis.analysisStage === 'detailed' || analysis.analysisStage === 'core') {
+    return analysis.analysisStage;
+  }
+  return isDetailedComplete ? 'detailed' : 'core';
+}
+
+export function isHealthAnalysisStale(
+  analysis: HealthScoreAnalysis | null | undefined,
+  profile: Record<string, unknown> = {},
+): boolean {
+  if (!analysis || needsInitialHealthAnalysis(analysis)) return false;
+  const current = buildHealthAnalysisFingerprint(profile);
+  if (!analysis.sourceFingerprint) return true;
+  return analysis.sourceFingerprint !== current;
 }
 
 async function fetchJsonWithTimeout(
@@ -535,64 +798,93 @@ export function computeFallbackHealthScores(
     summary:
       'Cevaplarınıza göre kişisel sağlık skorunuz hesaplandı. Düzenli güncellemelerle skoru yükseltebilirsiniz.',
     staffBrief,
+    memberBrief: buildFallbackMemberBrief(scores, overallScore),
     aiGenerated: false,
     aiAttemptedAt: new Date().toISOString(),
   };
 }
 
+/** @deprecated use needsInitialHealthAnalysis — kept for callers */
 export function needsHealthScoreRefresh(
   analysis: HealthScoreAnalysis | null | undefined,
   _healthTest?: Record<string, unknown> | null,
 ): boolean {
-  if (!analysis?.overallScore && analysis?.overallScore !== 0) return true;
-  if (!analysis?.scores || typeof analysis.scores !== 'object') return true;
-  if ((analysis.version || 0) < HEALTH_ANALYSIS_VERSION) return true;
-  for (const key of HEALTH_SCORE_KEYS) {
-    if (analysis.scores[key] == null) return true;
-  }
-  if (!normalizeStaffBrief(analysis.staffBrief)) return true;
-  if (analysis.radarScores && !analysis.scores) return true;
-  return false;
+  if ((analysis?.version || 0) < HEALTH_ANALYSIS_VERSION) return true;
+  return needsInitialHealthAnalysis(analysis);
 }
+
+type AiHealthScoreOk = HealthScoreAnalysis & { ok: true };
+type AiHealthScoreFail = {
+  ok: false;
+  timedOut?: boolean;
+  unchanged?: boolean;
+  locked?: boolean;
+  lockedUntil?: string | null;
+  error: string;
+};
 
 export async function fetchAiHealthScore({
   profile,
   categorySummaries,
+  memberId = null,
+  force = false,
 }: {
   profile: Record<string, unknown>;
   categorySummaries: Record<string, string>;
-}): Promise<
-  | (HealthScoreAnalysis & { ok: true })
-  | { ok: false; timedOut?: boolean; error: string }
-> {
+  memberId?: string | null;
+  force?: boolean;
+}): Promise<AiHealthScoreOk | AiHealthScoreFail> {
   if (isUiOnly()) {
     return { ok: false, error: 'Demo modda AI skor kapalı.' };
   }
   try {
-    const { res, data } = await fetchJsonWithTimeout(apiUrl('/api/ai-nutrition-tips'), {
-      method: 'POST',
-      headers: await getApiAuthHeaders(),
-      body: JSON.stringify({
-        task: 'health-score',
-        profile: {
-          age: profile?.age,
-          gender: profile?.gender,
-          height: profile?.height,
-          weight: profile?.weight,
-          goals: profile?.goals || [],
-          fitnessLevel: profile?.fitnessLevel,
-        },
-        categorySummaries,
-      }),
-    });
+    const body: Record<string, unknown> = {
+      profile: {
+        age: profile?.age,
+        gender: profile?.gender,
+        height: profile?.height,
+        weight: profile?.weight,
+        goals: profile?.goals || [],
+        fitnessLevel: profile?.fitnessLevel,
+      },
+      categorySummaries,
+      force: Boolean(force),
+    };
+    if (memberId) body.memberId = memberId;
+
+    const { res, data } = await fetchJsonWithTimeout(
+      apiUrl('/api/ai-health-analysis'),
+      {
+        method: 'POST',
+        headers: await getApiAuthHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
     if (!res.ok || !data.ok) {
-      return { ok: false, error: formatAiError(data.error || res.statusText) };
+      return {
+        ok: false,
+        unchanged: data.unchanged === true || res.status === 409,
+        locked: data.locked === true || res.status === 423,
+        lockedUntil: (data.lockedUntil as string) || null,
+        error: formatAiError(
+          data.error ||
+            (res.status === 423
+              ? 'Sağlık testi 14 gün boyunca kilitli; süre dolunca yeniden çözebilirsiniz'
+              : res.statusText),
+        ),
+      };
     }
     const scores = (data.scores || {}) as Partial<HealthScores>;
     const overallScore = clamp(data.overallScore);
     const staffBrief =
       normalizeStaffBrief(data.staffBrief) ||
       buildFallbackStaffBrief(scores, overallScore);
+    const memberBrief =
+      normalizeMemberBrief(data.memberBrief) ||
+      buildFallbackMemberBrief(scores, overallScore);
+    const sourceFingerprint =
+      (data.sourceFingerprint as string) ||
+      buildHealthAnalysisFingerprint(profile);
     return {
       ok: true,
       version: HEALTH_ANALYSIS_VERSION,
@@ -601,7 +893,9 @@ export async function fetchAiHealthScore({
       overallScore,
       summary: String(data.summary || ''),
       staffBrief,
-      aiGenerated: true,
+      memberBrief,
+      sourceFingerprint,
+      aiGenerated: data.aiGenerated !== false,
       aiAttemptedAt: new Date().toISOString(),
     };
   } catch (e) {
@@ -615,9 +909,14 @@ export async function fetchAiHealthScore({
   }
 }
 
-/** AI dene; başarısızsa yedek skor döndür. */
+/** AI dene; başarısızsa yedek skor döndür. Fingerprint/kilit hatalarını fırlatır. */
 export async function resolveHealthScoreAnalysis(
   profile: Record<string, unknown>,
+  opts: {
+    force?: boolean;
+    analysisStage?: AnalysisStage | null;
+    memberId?: string | null;
+  } = {},
 ): Promise<HealthScoreAnalysis> {
   const prev = (profile.healthAnalysis || {}) as HealthScoreAnalysis;
   const categorySummaries = buildCategorySummaries(
@@ -625,10 +924,20 @@ export async function resolveHealthScoreAnalysis(
     profile?.gender as string,
     (profile?.packageConfig as Record<string, unknown>) || null,
   );
-  const ai = await fetchAiHealthScore({ profile, categorySummaries });
+  const fingerprint = buildHealthAnalysisFingerprint(profile);
+  const analysisStage: AnalysisStage =
+    opts.analysisStage === 'detailed' ? 'detailed' : 'core';
+  const ai = await fetchAiHealthScore({
+    profile,
+    categorySummaries,
+    memberId: opts.memberId || null,
+    force: opts.force === true,
+  });
   if (ai.ok) {
     return {
       ...ai,
+      analysisStage,
+      sourceFingerprint: ai.sourceFingerprint || fingerprint,
       bmi: prev.bmi ?? null,
       bmiCategory: prev.bmiCategory ?? null,
       dailyCalories: prev.dailyCalories ?? null,
@@ -637,9 +946,27 @@ export async function resolveHealthScoreAnalysis(
       dietitianRecommendations: prev.dietitianRecommendations,
     };
   }
+  if (ai.locked) {
+    throw new HealthAnalysisError(
+      ai.error ||
+        'Sağlık testi 14 gün boyunca kilitli; süre dolunca yeniden çözebilirsiniz',
+      'health_analysis_locked',
+      ai.lockedUntil,
+    );
+  }
+  if (ai.unchanged) {
+    throw new HealthAnalysisError(
+      ai.error ||
+        'Sağlık testi veya profil bilgileri değişmedi; yeniden analiz yapılamaz',
+      'health_analysis_unchanged',
+    );
+  }
   const fallback = computeFallbackHealthScores(profile);
   return {
     ...fallback,
+    analysisStage,
+    version: HEALTH_ANALYSIS_VERSION,
+    sourceFingerprint: fingerprint,
     bmi: prev.bmi ?? null,
     bmiCategory: prev.bmiCategory ?? null,
     dailyCalories: prev.dailyCalories ?? null,

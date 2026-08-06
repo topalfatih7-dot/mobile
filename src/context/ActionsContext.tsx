@@ -14,6 +14,10 @@ import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { bookSessionApi } from '@/services/bookSession';
 import { fetchMemberById, patchMemberFields } from '@/services/memberDb';
+import {
+  beginMemberWrite,
+  endMemberWrite,
+} from '@/services/memberWriteGate';
 import type { MemberRecord } from '@/services/mappers';
 import { submitSuccessStory as submitSuccessStoryDb } from '@/services/successStory';
 import { createTicket } from '@/services/supportTickets';
@@ -35,7 +39,7 @@ export type ActionsContextValue = {
   ) => Promise<void>;
   updateProfile: (
     patch: Record<string, unknown>,
-    opts?: { toastMsg?: string },
+    opts?: { toastMsg?: string; skipAuthRefresh?: boolean },
   ) => Promise<void>;
   updateSettings: (settings: Record<string, unknown>) => Promise<void>;
   /** Flat healthTest patch — web `saveHealthTestProgress` parity */
@@ -101,7 +105,10 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   }, [refreshData]);
 
   const persistPatch = useCallback(
-    async (patch: Record<string, unknown>, opts?: { toastMsg?: string }) => {
+    async (
+      patch: Record<string, unknown>,
+      opts?: { toastMsg?: string; skipAuthRefresh?: boolean },
+    ) => {
       const current = memberRef.current;
       if (!current?.id) return;
       const revision = ++memberWriteRevisionRef.current;
@@ -115,22 +122,31 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      beginMemberWrite();
       const queuedWrite = memberWriteQueueRef.current
         .catch(() => {})
         .then(async () => {
-          const localLatest = memberRef.current;
-          if (!localLatest?.id) return;
-          // Her yazıdan önce sunucudaki son kaydı al; yalnız bu aksiyonun
-          // patch'ini uygula. Böylece webhook/realtime gibi eşzamanlı
-          // güncellemeler eski bir tam üye snapshot'ıyla ezilmez.
-          const remoteLatest = await fetchMemberById(String(localLatest.id));
-          const next = await patchMemberFields(remoteLatest || localLatest, patch);
-          if (memberWriteRevisionRef.current === revision) {
-            memberRef.current = next;
-            setLocalMemberOverlay(next);
+          try {
+            const localLatest = memberRef.current;
+            if (!localLatest?.id) return;
+            // Her yazıdan önce sunucudaki son kaydı al; yalnız bu aksiyonun
+            // patch'ini uygula. Böylece webhook/realtime gibi eşzamanlı
+            // güncellemeler eski bir tam üye snapshot'ıyla ezilmez.
+            const remoteLatest = await fetchMemberById(String(localLatest.id));
+            const next = await patchMemberFields(remoteLatest || localLatest, patch);
+            if (memberWriteRevisionRef.current === revision) {
+              memberRef.current = next;
+              setLocalMemberOverlay(next);
+            }
+            // Sessiz sağlık analizi yazılarında full hydrate atlanır —
+            // overlay zaten güncel; realtime refresh yarışını azaltır.
+            if (!opts?.skipAuthRefresh) {
+              await refreshAuth();
+            }
+            if (opts?.toastMsg) toast(opts.toastMsg, 'success');
+          } finally {
+            endMemberWrite();
           }
-          await refreshAuth();
-          if (opts?.toastMsg) toast(opts.toastMsg, 'success');
         });
       memberWriteQueueRef.current = queuedWrite;
       await queuedWrite;
@@ -185,8 +201,14 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   );
 
   const updateProfile = useCallback(
-    async (patch: Record<string, unknown>, opts?: { toastMsg?: string }) => {
-      await persistPatch(patch, { toastMsg: opts?.toastMsg ?? 'Profil güncellendi' });
+    async (
+      patch: Record<string, unknown>,
+      opts?: { toastMsg?: string; skipAuthRefresh?: boolean },
+    ) => {
+      await persistPatch(patch, {
+        toastMsg: opts?.toastMsg ?? 'Profil güncellendi',
+        skipAuthRefresh: opts?.skipAuthRefresh,
+      });
     },
     [persistPatch],
   );

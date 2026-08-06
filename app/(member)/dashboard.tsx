@@ -34,6 +34,7 @@ import { useToast } from '@/context/ToastContext';
 import { getPlanLabel, isPaidMembership } from '@/data/membershipPlans';
 import { useDailyTip } from '@/hooks/useDailyTip';
 import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
+import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
 import { getRemainingDays } from '@/services/premiumMembership';
 import { blogPostHref, resolveBlogCover } from '@/utils/blog';
 import { resolveFirstName } from '@/utils/displayName';
@@ -56,9 +57,24 @@ export default function MemberDashboard() {
     analysis: healthAnalysis,
     history: healthScoreHistory,
     loading: healthScoreLoading,
-    complete: healthAnalysisComplete,
+    detailedComplete,
     error: healthScoreError,
   } = useHealthAnalysisSync();
+  const healthAnalysisReady = Boolean(
+    healthAnalysis &&
+      healthAnalysis.overallScore != null &&
+      healthAnalysis.scores,
+  );
+  const healthLockState = useMemo(() => {
+    const ht = (member?.healthTest as Record<string, unknown>) || {};
+    return getHealthTestLockState({
+      healthAnalysis: healthAnalysis,
+      detailedComplete,
+      optionalCompletedAt: ht.optionalCompletedAt
+        ? String(ht.optionalCompletedAt)
+        : null,
+    });
+  }, [member?.healthTest, healthAnalysis, detailedComplete]);
   const { submitSuccessStory } = useActions();
   const { toast } = useToast();
   const [storyOpen, setStoryOpen] = useState(false);
@@ -222,10 +238,11 @@ export default function MemberDashboard() {
         <FadeIn delay={40}>
           <HealthScoreCard
             analysis={healthAnalysis}
-            complete={healthAnalysisComplete}
+            complete={healthAnalysisReady}
             error={healthScoreError}
             history={healthScoreHistory}
             loading={healthScoreLoading}
+            lockState={healthLockState}
           />
         </FadeIn>
 

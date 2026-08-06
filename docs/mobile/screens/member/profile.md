@@ -10,7 +10,8 @@
 
 1. Cover photo (`PANEL_IMAGES.profileCover` — mobile cover on phone)
 2. Avatar / name / MembershipBadge / plan pill + camera shortcut
-3. Expert cards (always 3; name or `Atanmadı`):
+3. Expert cards (package-gated, web parity; name or `Atanmadı`):
+   - Show only roles in package: `packageIncludesCoach` / `Dietitian` / doctor entitlement
    - Koç → `/(member)/schedule?tab=coach`
    - Diyetisyen → `/(member)/schedule?tab=dietitian`
    - Doktor → `/(member)/schedule?tab=doctor`

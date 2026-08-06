@@ -28,6 +28,28 @@ import {
 
 export { hydratePlatform };
 
+/** Paginated member list for admin screen. Returns `items` and `hasMore`. */
+export async function getMembers(
+  page = 0,
+  pageSize = 20,
+): Promise<{ items: MemberRecord[]; hasMore: boolean }> {
+  if (isUiOnly() || !supabase) return { items: [], hasMore: false };
+  const client = requireSupabase();
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error } = await client
+    .from('members')
+    .select('*')
+    .range(from, to + 1)
+    .order('created_at', { ascending: false });
+  if (error || !data) return { items: [], hasMore: false };
+  const hasMore = data.length > pageSize;
+  const items = data
+    .slice(0, pageSize)
+    .map((r) => rowToMember(r as Record<string, unknown>));
+  return { items, hasMore };
+}
+
 const today = () => new Date().toISOString().split('T')[0];
 const nowISO = () => new Date().toISOString();
 const AI_EKO_SOURCE = 'ai_eko';

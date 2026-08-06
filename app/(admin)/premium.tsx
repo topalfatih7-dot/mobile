@@ -114,9 +114,16 @@ export default function AdminPremium() {
       toast(res.error || 'Kaydedilemedi', 'error');
       return;
     }
-    setEdits((prev) => ({ ...prev, [openId]: draft }));
+    // Immediately reflect returned member data in local edits for instant UI feedback
+    const returnedMembership = res.member?.membership as string | undefined;
+    const immediateEdit: MemberEdit = {
+      ...draft,
+      plan: returnedMembership || draft.plan,
+    };
+    setEdits((prev) => ({ ...prev, [openId]: immediateEdit }));
     const name = String(openMember.name);
     closeSheet();
+    // Refresh full platform data so membership field propagates to all screens
     await refreshData();
     toast(`${name} için paket güncellendi.`, 'success');
   };

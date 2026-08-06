@@ -67,7 +67,7 @@ function FloatingOrb({
 /** Login / auth atmosfer — 02-design-system brand/sage/warm mesh + soft motion */
 export function AuthSceneBackground() {
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
       <LinearGradient
         colors={[colors.brand[700], colors.brand[500], colors.sage[500]]}
         end={{ x: 1, y: 1 }}

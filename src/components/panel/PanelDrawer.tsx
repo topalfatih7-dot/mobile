@@ -263,10 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRightWidth: 1,
     borderRightColor: colors.cream[200],
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 4, height: 0 },
+    boxShadow: '4px 0px 16px rgba(0,0,0,0.18)',
     elevation: 12,
   },
   asideHeader: {

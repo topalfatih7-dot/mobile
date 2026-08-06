@@ -185,10 +185,7 @@ const styles = StyleSheet.create({
     padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#06202e',
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
+    boxShadow: '0px 8px 18px rgba(6,32,46,0.22)',
     elevation: 10,
   },
   logoPlate: {
@@ -224,10 +221,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     borderWidth: 1,
     borderColor: colors.cream[200],
-    shadowColor: colors.brand[900],
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
+    boxShadow: '0px 12px 24px rgba(26,69,92,0.12)',
     elevation: 8,
   },
   title: {

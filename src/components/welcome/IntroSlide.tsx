@@ -203,10 +203,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.white,
-    shadowColor: '#06202e',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.22,
-    shadowRadius: 28,
+    boxShadow: '0px 16px 28px rgba(6,32,46,0.22)',
     elevation: 14,
   },
   bubble: {
@@ -217,10 +214,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.white,
-    shadowColor: '#06202e',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
+    boxShadow: '0px 8px 14px rgba(6,32,46,0.18)',
     elevation: 8,
   },
   textZone: {

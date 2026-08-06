@@ -65,11 +65,11 @@ export const spacing = appSpacing;
 export const radius = appRadius;
 
 export function glow(color: string, opacity = 0.35) {
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
   return {
-    shadowColor: color,
-    shadowOpacity: opacity,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    boxShadow: `0px 6px 16px rgba(${r},${g},${b},${opacity})`,
     elevation: 6,
   };
 }

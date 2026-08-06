@@ -9,13 +9,28 @@ description: >-
 
 # Yeni Form Health, Programs & Calendar
 
-## Health test
+## Health test (iki aşamalı)
 
-- Hub `/health-test` → section `/health-test/:sectionId` → back to hub (finish route removed; radar on hub)
-- Sections: `general`, `medical`, `nutrition`, `physical`, `lifestyle` for every member; only `women` / `men` gated by gender
-- Stored in `members.data.healthTest` JSONB; analysis via `healthScoreAnalysis` + `useHealthAnalysisSync` (full HT → 8-dim scores + AI summary + history)
-- Panel: `HealthScoreCard` on dashboard (not hub radar)
-- Full question catalog must live in `docs/mobile/domains/health-test-catalog.md`
+- Hub `/(member)/health-test` → çekirdek `/(member)/health-test/core` → opsiyonel kategori `/(member)/health-test/:sectionId`
+- Label: **Kişisel Sağlık Analizi**
+- **Gate:** boy/kilo/doğum tarihi (+ cinsiyet) zorunlu — `HealthProfileGateForm` (inline); `hasCompleteAnalysisProfile`
+- **Onay:** `healthAck` + `disclaimer` (mevcut consent)
+- **1. Aşama — Genel Sağlık Testi** (`src/data/coreHealthTest.ts`): kategori göstermeden 25 (erkek) / 26 (kadın) sabit soru
+  - Bitince hub’da **Analizi Başlat** → `useHealthAnalysisSync` → `POST /api/ai-health-analysis` → `healthAnalysis.analysisStage = 'core'`
+- **2. Aşama — Opsiyonel kategoriler:** `general`, `medical`, `nutrition`, `physical`, `lifestyle` + `women`/`men`
+  - Çekirdek sorular kategoride tekrar sorulmaz (`getRemainingSectionQuestions`); hub ile aynı sayım (serbest metin muaf)
+  - Core analiz sonrası tüm opsiyonel kategoriler açık (yarıda bırakılanlar dahil “Devam et”)
+  - Katı tamamlanma (`isDetailedHealthTestComplete`) → `healthTest.optionalCompletedAt` + 2. AI analizi (`analysisStage = 'detailed'`)
+  - Serbest metin "İsteğe bağlı" alanları (`DETAILED_OPTIONAL_TEXT_KEYS`) detaylı tetikleyiciden ve akış sayımından muaf
+- Stored in `members.data.healthTest` JSONB; analiz `members.data.healthAnalysis`
+- AI erişim: çekirdek + detaylı analiz **herkese açık**; `force` yeniden analiz yalnızca ücretli (staff takip)
+- **14 günlük kilit (plan fark etmez):** kilit **tüm opsiyonel sorular bitince** başlar (`optionalCompletedAt`; detaylı AI henüz yoksa da). Core analiz tek başına soru kilidi başlatmaz. `fullLock` süresince tüm sorular kapalı; skorlar görünür. Süre dolunca “Testi Yeniden Çöz” → `healthTest: { retakeAt }` (cevaplar + `optionalCompletedAt` sıfırlanır) → baştan çöz → yeni analiz. Personel `force` muaf. API: `423` yalnızca `fullLock` + `stage=detailed` (`/api/ai-health-analysis`).
+- Çıktı: 8 skor + `staffBrief` / `memberBrief` (şema web ile aynı)
+- Üye hub + dashboard: `HealthScoreCard` (skorlar; lock badge)
+- Personel: skor meta + cevaplar + `staffBrief` (ücretli üyelikte)
+- Free/eko program AI yalnızca **detailed complete** sonrası (`memberHealthSync`)
+- Fingerprint stale → personel yeniden analiz (ücretli; takip işi)
+- Eski `isHealthTestComplete` (zorunlu sorular) checklist/rozet/istatistik için korunur
 
 ## Calendar / programs
 

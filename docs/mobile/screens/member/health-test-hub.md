@@ -16,10 +16,11 @@
 ## Header
 
 - title: **Kişisel Sağlık Analizi**
-- subtitle if needs consent (`!healthAck || !disclaimer`):  
-  **Analize başlamadan önce onayları işaretleyin**  
-- else:  
-  **Her kategoriyi ayrı ayrı tamamlayın — istediğiniz sırayla ilerleyebilirsiniz**
+- subtitle:
+  - needs consent: **Analize başlamadan önce onayları işaretleyin**
+  - needs profile: **Boy, kilo ve yaş bilgilerinizi tamamlayın**
+  - core incomplete: **1. aşama: Genel Sağlık Testini tamamlayın**
+  - else: **İsterseniz opsiyonel kategorilerle analizi derinleştirin**
 
 ## Consent
 
@@ -27,38 +28,39 @@ Props to hub: `healthAck`, `disclaimer`.
 On save: `updateProfile({ healthAck, disclaimer })`  
 Toast: **Onaylar kaydedildi. Analize başlayabilirsiniz.**
 
-Consent gate blocks section cards until saved (web shows consent form only until both checked).
+Consent gate blocks core/optional until saved.
 
-## Hub layout (web parity)
+## Profile gate
 
-1. `HealthTestProfilePrepBanner` — missing birthDate/weight/height/gender → profile
-2. Overall progress card: `{completed} / {total} kategori` + `{percent}%` bar (`getOverallHealthTestProgress`)
-3. When fully complete (+ consent): done banner only  
-   - Title: **Kişisel sağlık analizi kaydedildi**  
-   - Sub: **Cevaplarınız profilinizde saklanır; panelde YeniForm Sağlık Skoru güncellenir. İstediğiniz kategoriyi tekrar açıp güncelleyebilirsiniz.**  
-   - Skor gösterimi hub’da **yok** — panel `HealthScoreCard` (`useHealthAnalysisSync`)
-4. Section cards from `getHealthTestHubSections(gender, packageConfig, healthTest)`:
-   - audience chip (Genel / Hareket / Beslenme)
-   - status: Başla / Devam et / Tamamlandı
-   - `{requiredAnswered} / {requiredTotal} soru` + percent bar
-5. **No separate finish screen** — finish route redirects to hub
+`HealthProfileGateForm` — birthDate / weight / height (+ gender if missing).  
+Hard block until `hasCompleteAnalysisProfile`.
 
-## Scoring (web parity)
+## Hub layout (2 aşama — web parity)
 
-- 8 boyut: `general, nutrition, movement, sleep, stress, lifestyle, motivation, readiness` + `overallScore`
+1. **Core incomplete:** “1. Aşama — Genel Sağlık Testi” progress + CTA → `/(member)/health-test/core`
+2. **Core complete, no analysis:** “Genel Sağlık Testi tamamlandı” + **Analizi Başlat** → `runSync({ stage: 'core' })`
+3. **Analysis ready:** hub’da `HealthScoreCard` + kısa üye özeti (`memberBrief`)
+4. **2. Aşama grid:** `getRemainingHubSections` — Başla / Devam et / Tamamlandı / Kilitli
+5. **Lock:** 14 gün `fullLock` after `optionalCompletedAt` / detailed stage — sorular kapalı, skorlar görünür
+6. **Retake:** `canRetake` → “Testi Yeniden Çöz” → `healthTest: { retakeAt }`
+7. **No separate finish screen**
+
+## Scoring
+
+- 8 boyut + `overallScore` + `analysisStage: 'core' | 'detailed'`
 - Persist: `member.healthAnalysis` + `member.healthScoreHistory` (max 24)
-- Engine: `healthScoreAnalysis.ts` / `useHealthAnalysisSync` — AI `task: health-score`, fallback deterministic
-- Eski `radarScores` / `HealthRadarScores` **kullanılmaz**
+- Engine: `healthScoreAnalysis.ts` / `useHealthAnalysisSync`
+- AI: `POST /api/ai-health-analysis` (+ stage); fallback deterministic
 
 ## Data shape (CRITICAL)
 
-`members.data.healthTest` is **flat** — all question keys at top level (`wellbeing`, `injuries`, …).  
-Do **not** nest under section id.
+`members.data.healthTest` is **flat**. Meta: `optionalCompletedAt`, `retakeAt`.
 
 ## Acceptance
 
-- [ ] Consent gate before tests  
-- [ ] Subtitles exact  
-- [ ] Sections respect gender only (not package)  
-- [ ] Flat healthTest readable from web-written records  
-- [ ] Done banner when fully complete; scores on dashboard card  
+- [ ] Consent + profile gate before core  
+- [ ] Core-only UI until stage 1 done  
+- [ ] Manual **Analizi Başlat** for core scores  
+- [ ] Optional grid excludes core keys  
+- [ ] Detailed auto-analysis + 14-day lock  
+- [ ] Retake resets answers  

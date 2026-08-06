@@ -62,7 +62,10 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2d8fc4",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "sounds": ["./assets/sounds/notification.wav"],
+          "androidMode": "default",
+          "androidCollapsedTitle": "Yeni Form",
+          "iosDisplayInForeground": true
         }
       ],
       "expo-av",

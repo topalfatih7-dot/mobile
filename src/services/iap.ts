@@ -3,14 +3,21 @@
  * UI_ONLY_MODE: satın alma yok.
  * react-native-purchases lazy — Expo Go’da native yoksa crash etmez.
  */
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 import { env } from '@/config/env';
 import { isUiOnly } from '@/config/runtime';
 
+type CustomerInfo = import('react-native-purchases').CustomerInfo;
+
 let configured = false;
 let configuredUserId: string | null = null;
 let purchasesUnavailable = false;
+
+/** JS API yüklü olsa bile native bridge yoksa (Expo Go / eski binary) false. */
+function hasPurchasesNativeModule(): boolean {
+  return Boolean(NativeModules.RNPurchases);
+}
 
 type PurchasesMod = typeof import('react-native-purchases');
 type PurchasesPackage = import('react-native-purchases').PurchasesPackage;
@@ -21,7 +28,12 @@ export type SellablePlanId =
   | 'diyet'
   | 'spor'
   | 'doktor'
-  | 'vip';
+  | 'vip'
+  | 'lifetime'
+  | 'yearly'
+  | 'monthly';
+
+export const ENTITLEMENT_PRO = 'Yeniform Pro';
 
 export type IapPackage = {
   identifier: string;
@@ -98,13 +110,28 @@ function errorMessage(error: unknown, fallback: string): string {
   return String(err?.message || fallback);
 }
 
+function markPurchasesUnavailable(): null {
+  purchasesUnavailable = true;
+  configured = false;
+  configuredUserId = null;
+  return null;
+}
+
+/** JS bundle yüklenebilir; native yoksa `RNPurchases` null — setLogLevel unhandled reject verir. */
 async function loadPurchases(): Promise<PurchasesMod | null> {
   if (purchasesUnavailable) return null;
+  if (!hasPurchasesNativeModule()) {
+    return markPurchasesUnavailable();
+  }
   try {
-    return await import('react-native-purchases');
+    const mod = await import('react-native-purchases');
+    const Purchases = mod?.default;
+    if (!Purchases || typeof Purchases.configure !== 'function') {
+      return markPurchasesUnavailable();
+    }
+    return mod;
   } catch {
-    purchasesUnavailable = true;
-    return null;
+    return markPurchasesUnavailable();
   }
 }
 
@@ -117,9 +144,22 @@ export async function configureIap(appUserId?: string | null): Promise<boolean> 
   if (!PurchasesMod) return false;
 
   try {
-    const { default: Purchases, LOG_LEVEL } = PurchasesMod;
+    const Purchases = PurchasesMod.default;
+    // Native bridge bazen RNPurchases gösterirken JS default null kalır (Expo Go / bozuk binary)
+    if (!Purchases || typeof Purchases.configure !== 'function') {
+      markPurchasesUnavailable();
+      return false;
+    }
     if (!configured) {
-      Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
+      const { LOG_LEVEL } = PurchasesMod;
+      // Kökte optional chain zorunlu: `Purchases.setLogLevel?.` Purchases=null iken yine throw eder
+      if (LOG_LEVEL && typeof Purchases?.setLogLevel === 'function') {
+        try {
+          await Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
+        } catch {
+          // log seviyesi opsiyonel — native hata satın almayı engellemesin
+        }
+      }
       Purchases.configure({
         apiKey,
         appUserID: appUserId || undefined,
@@ -128,11 +168,14 @@ export async function configureIap(appUserId?: string | null): Promise<boolean> 
       configured = true;
       configuredUserId = appUserId || null;
     } else if (appUserId && configuredUserId !== appUserId) {
-      await Purchases.logIn(appUserId);
-      configuredUserId = appUserId;
+      if (typeof Purchases?.logIn === 'function') {
+        await Purchases.logIn(appUserId);
+        configuredUserId = appUserId;
+      }
     }
     return true;
   } catch {
+    markPurchasesUnavailable();
     return false;
   }
 }
@@ -150,10 +193,11 @@ export async function getAvailablePackages(
     };
   }
   if (!(await configureIap(appUserId))) {
+    const after = getIapConfigStatus();
     return {
       ok: false,
       error:
-        status.reason === 'native_unavailable'
+        after.reason === 'native_unavailable' || status.reason === 'native_unavailable'
           ? 'Satın alma bu ortamda kullanılamıyor. Development build / TestFlight gerekir.'
           : 'RevenueCat yapılandırılmadı.',
     };
@@ -256,5 +300,93 @@ export async function openCustomerCenter(appUserId: string): Promise<IapResult> 
     return { ok: true };
   } catch (error: unknown) {
     return { ok: false, error: errorMessage(error, 'Abonelik yönetimi açılamadı.') };
+  }
+}
+
+export async function checkEntitlement(userId: string): Promise<{
+  active: boolean;
+  productId?: string;
+  expiresAt?: string;
+}> {
+  if (!(await configureIap(userId))) return { active: false };
+  try {
+    const PurchasesMod = await loadPurchases();
+    if (!PurchasesMod) return { active: false };
+    const customerInfo = await PurchasesMod.default.getCustomerInfo();
+    const entitlement = customerInfo.entitlements.active[ENTITLEMENT_PRO];
+    if (!entitlement) return { active: false };
+    return {
+      active: true,
+      productId: entitlement.productIdentifier,
+      expiresAt: entitlement.expirationDate ?? undefined,
+    };
+  } catch {
+    return { active: false };
+  }
+}
+
+export async function getCustomerInfo(
+  userId: string,
+): Promise<{ ok: true; info: CustomerInfo } | { ok: false; error: string }> {
+  if (isUiOnly()) return { ok: false, error: 'Demo modda kullanılamaz.' };
+  if (!(await configureIap(userId))) {
+    return {
+      ok: false,
+      error: getIapConfigStatus().reason === 'no_key'
+        ? 'RevenueCat anahtarı yapılandırılmadı.'
+        : 'RevenueCat yapılandırılmadı.',
+    };
+  }
+  try {
+    const PurchasesMod = await loadPurchases();
+    if (!PurchasesMod) return { ok: false, error: 'IAP native modülü yok.' };
+    const info = await PurchasesMod.default.getCustomerInfo();
+    return { ok: true, info };
+  } catch (error: unknown) {
+    return { ok: false, error: errorMessage(error, 'Müşteri bilgisi alınamadı.') };
+  }
+}
+
+export async function presentPaywall(
+  userId: string,
+  offeringIdentifier?: string,
+): Promise<{ ok: true; purchased: boolean } | { ok: false; error: string }> {
+  if (isUiOnly()) return { ok: false, error: 'Satın alma demo modda kapalı.' };
+  if (!(await configureIap(userId))) {
+    return {
+      ok: false,
+      error: getIapConfigStatus().reason === 'no_key'
+        ? 'Mağaza ödemesi henüz yapılandırılmadı.'
+        : 'RevenueCat yapılandırılmadı.',
+    };
+  }
+  try {
+    const { default: RevenueCatUI } = await import('react-native-purchases-ui');
+    let offering: import('react-native-purchases').PurchasesOffering | undefined;
+    if (offeringIdentifier) {
+      const PurchasesMod = await loadPurchases();
+      if (PurchasesMod) {
+        const offerings = await PurchasesMod.default.getOfferings();
+        offering = offerings.all[offeringIdentifier] ?? undefined;
+      }
+    }
+    const result = await RevenueCatUI.presentPaywall(offering ? { offering } : undefined);
+    const purchased =
+      result === 'PURCHASED' ||
+      result === 'RESTORED' ||
+      (typeof result === 'object' && result !== null && 'customerInfo' in result);
+    return { ok: true, purchased };
+  } catch (error: unknown) {
+    return { ok: false, error: errorMessage(error, 'Ödeme ekranı açılamadı.') };
+  }
+}
+
+export async function syncSubscription(userId: string): Promise<void> {
+  if (!(await configureIap(userId))) return;
+  try {
+    const PurchasesMod = await loadPurchases();
+    if (PurchasesMod) await PurchasesMod.default.syncPurchases();
+  } catch {
+    // silent — arka planda senkron
   }
 }

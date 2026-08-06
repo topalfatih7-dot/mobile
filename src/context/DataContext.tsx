@@ -26,6 +26,7 @@ import {
   hydratePlatform,
   type PlatformBundle,
 } from '@/services/platformDb';
+import { isMemberWriteInFlight } from '@/services/memberWriteGate';
 import { fetchStaffDirectory } from '@/services/staffDirectory';
 import { requireSupabase, supabase } from '@/services/supabase';
 import { getStaffClients } from '@/utils/staffClients';
@@ -190,7 +191,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setStaffById(staffBundle.staffById);
         setPlatform(EMPTY_PLATFORM);
         await refreshAuth();
-        setMemberOverride(null);
+        // Yazma sırasında override'ı silme — Analizi Başlat sonrası skor kaybı / flicker
+        if (!isMemberWriteInFlight()) {
+          setMemberOverride(null);
+        }
       } else if (role === 'staff' || role === 'admin') {
         const bundle = await hydratePlatform({ role, userId, staff });
         setPlatform(bundle);

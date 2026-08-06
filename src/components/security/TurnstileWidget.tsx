@@ -169,7 +169,7 @@ export function TurnstileWidget({ onToken, remountKey = 0 }: Props) {
     <View style={styles.wrap}>
       <View style={styles.frame}>
         {!ready && !loadError ? (
-          <View pointerEvents="none" style={styles.loading}>
+          <View style={[styles.loading, { pointerEvents: 'none' }]}>
             <ActivityIndicator color={colors.brand[600]} />
             <Text style={styles.loadingText}>Doğrulama hazırlanıyor…</Text>
           </View>

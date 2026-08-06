@@ -67,10 +67,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipSelected: {
-    shadowColor: colors.brand[900],
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    boxShadow: '0px 4px 10px rgba(26,69,92,0.15)',
     elevation: 3,
   },
   chipLocked: { opacity: 0.75 },

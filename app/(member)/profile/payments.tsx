@@ -11,12 +11,15 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { MembershipBadge } from '@/components/home/MembershipBadge';
+import { CustomerCenterButton } from '@/components/membership/CustomerCenterButton';
+import { PaywallModal } from '@/components/membership/PaywallModal';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { getPlanLabel } from '@/data/membershipPlans';
 import { fetchMemberById } from '@/services/memberDb';
 import {
+  checkEntitlement,
   getAvailablePackages,
   getIapConfigStatus,
   openCustomerCenter,
@@ -63,6 +66,12 @@ export default function PaymentsScreen() {
   const [storePackages, setStorePackages] = useState<IapPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [proEntitlement, setProEntitlement] = useState<{
+    checked: boolean;
+    active: boolean;
+    productId?: string;
+  }>({ checked: false, active: false });
 
   const membership = String(member?.membership || 'free');
   const status = String(member?.membershipStatus || 'active');
@@ -100,6 +109,18 @@ export default function PaymentsScreen() {
       setPackagesLoading(false);
     });
 
+    return () => {
+      alive = false;
+    };
+  }, [userId, storeReady]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!userId || !storeReady) return;
+    void checkEntitlement(userId).then((result) => {
+      if (!alive) return;
+      setProEntitlement({ checked: true, active: result.active, productId: result.productId });
+    });
     return () => {
       alive = false;
     };
@@ -207,6 +228,41 @@ export default function PaymentsScreen() {
             </LinearGradient>
           )}
         </FadeIn>
+
+        {proEntitlement.checked ? (
+          <FadeIn delay={80}>
+            <View style={styles.entitlementRow}>
+              <View
+                style={[
+                  styles.entitlementBadge,
+                  proEntitlement.active ? styles.entitlementBadgeActive : styles.entitlementBadgeFree,
+                ]}>
+                <Ionicons
+                  color={proEntitlement.active ? colors.sage[600] : colors.cream[800]}
+                  name={proEntitlement.active ? 'checkmark-circle' : 'person-circle-outline'}
+                  size={16}
+                />
+                <Text
+                  style={[
+                    styles.entitlementLabel,
+                    proEntitlement.active
+                      ? styles.entitlementLabelActive
+                      : styles.entitlementLabelFree,
+                  ]}>
+                  {proEntitlement.active ? 'Yeniform Pro' : 'Ücretsiz'}
+                </Text>
+              </View>
+              {!proEntitlement.active && (
+                <Button
+                  label="Aboneliği Yükselt"
+                  onPress={() => setPaywallVisible(true)}
+                  size="md"
+                  style={styles.upgradeBtn}
+                />
+              )}
+            </View>
+          </FadeIn>
+        ) : null}
 
         {packages.length > 0 ? (
           <FadeIn delay={100}>
@@ -335,8 +391,21 @@ export default function PaymentsScreen() {
             }}
             variant="secondary"
           />
+          {userId ? <CustomerCenterButton userId={userId} /> : null}
         </FadeIn>
       </ScrollView>
+
+      <PaywallModal
+        visible={paywallVisible}
+        onDismiss={() => {
+          setPaywallVisible(false);
+          if (userId) {
+            void checkEntitlement(userId).then((result) => {
+              setProEntitlement({ checked: true, active: result.active, productId: result.productId });
+            });
+          }
+        }}
+      />
     </MeshBackground>
   );
 }
@@ -464,5 +533,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.cream[800],
     lineHeight: 19,
+  },
+  entitlementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  entitlementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.full,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+  },
+  entitlementBadgeActive: {
+    backgroundColor: colors.sage[50],
+    borderColor: colors.sage[200],
+  },
+  entitlementBadgeFree: {
+    backgroundColor: colors.cream[100],
+    borderColor: colors.cream[300],
+  },
+  entitlementLabel: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 13,
+  },
+  entitlementLabelActive: {
+    color: colors.sage[700],
+  },
+  entitlementLabelFree: {
+    color: colors.cream[800],
+  },
+  upgradeBtn: {
+    flex: 1,
   },
 });

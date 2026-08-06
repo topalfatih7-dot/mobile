@@ -89,10 +89,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     borderColor: 'rgba(26,35,50,0.2)',
-    shadowColor: colors.cream[900],
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    boxShadow: '0px 2px 6px rgba(26,35,50,0.06)',
     elevation: 1,
   },
   iconBox: {

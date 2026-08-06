@@ -46,6 +46,9 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   advanced: 'İleri',
 };
 
+const ITEM_HEIGHT = 98; // padding 16*2 + thumbnail 64 + border 2
+const ITEM_MARGIN = 8; // marginBottom spacing.sm
+
 /** LOCK: docs/mobile/screens/member/library.md — web: program-scoped exercise ids */
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
@@ -138,6 +141,30 @@ export default function LibraryScreen() {
     }
   };
 
+  const renderItem = useCallback(
+    ({ item }: { item: Record<string, unknown> }) => (
+      <Pressable onPress={() => void openExercise(item)} style={styles.row}>
+        <ExerciseVideoThumbnail
+          pending={Boolean(item.videoPending)}
+          size={64}
+          videoUrl={item.videoUrl as string}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>{String(item.name)}</Text>
+          <Text style={styles.rowMeta}>
+            {String(item.bodyPart || item.category || '')}
+            {item.difficulty
+              ? ` · ${DIFFICULTY_LABELS[String(item.difficulty)] || String(item.difficulty)}`
+              : ''}
+          </Text>
+        </View>
+        <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
+      </Pressable>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fullAccess],
+  );
+
   return (
     <MeshBackground style={styles.root}>
       <FlatList
@@ -146,7 +173,16 @@ export default function LibraryScreen() {
           { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
         ]}
         data={items}
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT + ITEM_MARGIN,
+          offset: (ITEM_HEIGHT + ITEM_MARGIN) * index,
+          index,
+        })}
+        initialNumToRender={15}
         keyExtractor={(item) => String(item.id)}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        windowSize={5}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
             <FadeIn>
@@ -298,25 +334,7 @@ export default function LibraryScreen() {
           if (!loading && page < totalPages) void load(page + 1, true);
         }}
         onEndReachedThreshold={0.4}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => void openExercise(item)} style={styles.row}>
-            <ExerciseVideoThumbnail
-              pending={Boolean(item.videoPending)}
-              size={64}
-              videoUrl={item.videoUrl as string}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>{String(item.name)}</Text>
-              <Text style={styles.rowMeta}>
-                {String(item.bodyPart || item.category || '')}
-                {item.difficulty
-                  ? ` · ${DIFFICULTY_LABELS[String(item.difficulty)] || String(item.difficulty)}`
-                  : ''}
-              </Text>
-            </View>
-            <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
-          </Pressable>
-        )}
+        renderItem={renderItem}
         showsVerticalScrollIndicator={false}
       />
 

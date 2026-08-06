@@ -330,6 +330,18 @@ export function normalizeHealthTestForAnalysis(
 
   if (n.energy === 'very_high') n.energy = 'high';
 
+  // preferredExercisePlace → trainingLocation (web parity)
+  if (!n.trainingLocation && n.preferredExercisePlace) {
+    const place = String(n.preferredExercisePlace);
+    if (place === 'home' || place === 'gym' || place === 'office') {
+      n.trainingLocation = place;
+    } else if (place === 'outdoor' || place === 'any') {
+      n.trainingLocation = 'home';
+    } else if (place === 'not_planning') {
+      n.trainingLocation = 'not_planning';
+    }
+  }
+
   for (const key of ['primaryGoalReason', 'biggestBarrier']) {
     if (typeof n[key] === 'string' && n[key]) n[key] = [n[key]];
   }
@@ -588,6 +600,168 @@ export function isHealthTestComplete(
   return getApplicableSections(gender, packageConfig).every((s) =>
     isSectionComplete(s, healthTest),
   );
+}
+
+/** Serbest metin "İsteğe bağlı" — detaylı analiz katı tamamlanmasından muaf. */
+export const DETAILED_OPTIONAL_TEXT_KEYS = new Set([
+  'nutritionExtraNotes',
+  'movementExtraNotes',
+  'lifestyleExtraNotes',
+  'womenExtraNotes',
+  'menExtraNotes',
+  'currentComplaints',
+]);
+
+/**
+ * Bölüm sorularından çekirdek anahtarları çıkarır (2. faz kategori akışı).
+ */
+export function getRemainingSectionQuestions(
+  sectionId: string,
+  gender?: string | null,
+  coreKeys: Set<string> | string[] = [],
+): HealthQuestion[] {
+  const coreSet = coreKeys instanceof Set ? coreKeys : new Set(coreKeys);
+  const section = getApplicableSections(gender).find((s) => s.id === sectionId);
+  if (!section) return [];
+  return section.questions
+    .filter((q) => !coreSet.has(q.key) && !DETAILED_OPTIONAL_TEXT_KEYS.has(q.key))
+    .map((q) => ({
+      ...q,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      sectionIcon: section.icon,
+      audience: section.audience || 'shared',
+      required: false,
+    }));
+}
+
+/**
+ * Katı tamamlanma: çekirdek dışı her soru dolu mu?
+ */
+export function isSectionStrictlyComplete(
+  section: HealthSectionDef | null | undefined,
+  healthTest: Record<string, unknown> | null | undefined,
+  opts: {
+    exemptOptionalText?: boolean;
+    coreKeys?: Set<string> | string[];
+  } = {},
+): boolean {
+  if (!section?.questions?.length) return false;
+  const ht = { ...EMPTY_HEALTH_TEST, ...healthTest };
+  const coreSet =
+    opts.coreKeys instanceof Set ? opts.coreKeys : new Set(opts.coreKeys || []);
+  const exemptText = opts.exemptOptionalText !== false;
+
+  const remaining = section.questions.filter((q) => {
+    if (coreSet.has(q.key)) return false;
+    if (exemptText && DETAILED_OPTIONAL_TEXT_KEYS.has(q.key)) return false;
+    return true;
+  });
+  if (!remaining.length) return true;
+
+  return remaining.every((q) => {
+    if (!hasStoredAnswer(q, ht)) return false;
+    return isQuestionFullyAnswered({ ...q, required: true }, ht);
+  });
+}
+
+/** Tüm bölümler katı tamamlandı mı? (2. AI analizi tetikleyici) */
+export function isDetailedHealthTestComplete(
+  healthTest: Record<string, unknown> | null | undefined,
+  gender?: string | null,
+  packageConfig: Record<string, unknown> | null = null,
+  coreKeys: Set<string> | string[] = [],
+): boolean {
+  const coreSet = coreKeys instanceof Set ? coreKeys : new Set(coreKeys);
+  return getApplicableSections(gender, packageConfig).every((s) =>
+    isSectionStrictlyComplete(s, healthTest, {
+      coreKeys: coreSet,
+      exemptOptionalText: true,
+    }),
+  );
+}
+
+/** Hub 2. faz — kalan sorulara göre ilerleme. */
+export function getRemainingHubSections(
+  gender?: string | null,
+  packageConfig: Record<string, unknown> | null = null,
+  healthTest: Record<string, unknown> | null | undefined = {},
+  coreKeys: Set<string> | string[] = [],
+) {
+  const coreSet = coreKeys instanceof Set ? coreKeys : new Set(coreKeys);
+  const ht = { ...EMPTY_HEALTH_TEST, ...healthTest };
+
+  return getApplicableSections(gender, packageConfig).map((section) => {
+    const remaining = section.questions.filter((q) => {
+      if (coreSet.has(q.key)) return false;
+      if (DETAILED_OPTIONAL_TEXT_KEYS.has(q.key)) return false;
+      return true;
+    });
+    const answered = remaining.filter(
+      (q) =>
+        hasStoredAnswer(q, ht) &&
+        isQuestionFullyAnswered({ ...q, required: true }, ht),
+    ).length;
+    const total = remaining.length;
+    const complete = isSectionStrictlyComplete(section, ht, {
+      coreKeys: coreSet,
+      exemptOptionalText: true,
+    });
+    const started = remaining.some(
+      (q) =>
+        hasStoredAnswer(q, ht) ||
+        (q.detail && isDetailFilled(q.detail, ht)) ||
+        (q.followUps || []).some((fu) => hasStoredAnswer(fu, ht)),
+    );
+
+    return {
+      section,
+      progress: {
+        requiredTotal: total,
+        requiredAnswered: answered,
+        complete,
+        started,
+        percent: total ? Math.round((answered / total) * 100) : 100,
+      },
+    };
+  });
+}
+
+/** Kalan sorularda bölüm resume indeksi (required: false; boş bırakılabilir). */
+export function getRemainingSectionResumeState(
+  section: HealthSectionDef,
+  healthTest: Record<string, unknown> | null | undefined,
+  coreKeys: Set<string> | string[] = [],
+) {
+  const coreSet = coreKeys instanceof Set ? coreKeys : new Set(coreKeys);
+  const mapped = (section.questions || [])
+    .filter((q) => !coreSet.has(q.key) && !DETAILED_OPTIONAL_TEXT_KEYS.has(q.key))
+    .map((q) => ({
+      ...q,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      sectionIcon: section.icon,
+      audience: section.audience || 'shared',
+      required: false,
+    }));
+
+  if (!mapped.length) return { questionIndex: 0, phase: 'questions' as const };
+
+  const ht = { ...EMPTY_HEALTH_TEST, ...healthTest };
+  const gap = mapped.findIndex(
+    (q) => hasStoredAnswer(q, ht) && !isQuestionFullyAnswered(q, ht),
+  );
+  if (gap >= 0) return { questionIndex: gap, phase: 'questions' as const };
+
+  let lastAnsweredIndex = -1;
+  for (let i = 0; i < mapped.length; i++) {
+    if (hasStoredAnswer(mapped[i], ht)) lastAnsweredIndex = i;
+  }
+  if (lastAnsweredIndex < 0) return { questionIndex: 0, phase: 'questions' as const };
+  return {
+    questionIndex: Math.min(lastAnsweredIndex + 1, mapped.length - 1),
+    phase: 'questions' as const,
+  };
 }
 
 /** Compat alias used by screens / layout */

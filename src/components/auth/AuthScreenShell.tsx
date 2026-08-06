@@ -89,10 +89,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cream[200],
     backgroundColor: colors.white,
-    shadowColor: colors.brand[900],
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
+    boxShadow: '0px 12px 24px rgba(26,69,92,0.12)',
     elevation: 8,
   },
 });

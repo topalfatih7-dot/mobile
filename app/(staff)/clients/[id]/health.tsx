@@ -14,7 +14,14 @@ import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
-import { describeHealthTest } from '@/data/healthTest';
+import {
+  getCoreHealthTestKeySet,
+  isCoreHealthTestComplete,
+} from '@/data/coreHealthTest';
+import {
+  describeHealthTest,
+  isDetailedHealthTestComplete,
+} from '@/data/healthTest';
 import {
   appendHealthStaffNote,
   normalizeHealthStaffNotes,
@@ -22,6 +29,11 @@ import {
   HEALTH_NOTE_ROLE_META,
 } from '@/data/healthStaffNotes';
 import { getDefaultPackageForPlan, getPlanLabel } from '@/data/membershipPlans';
+import {
+  getHealthTestLockState,
+  needsInitialHealthAnalysis,
+  type HealthScoreAnalysis,
+} from '@/services/healthScoreAnalysis';
 import { staffPatchMember } from '@/services/staffDb';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
 import { formatRelativeTimeTr } from '@/utils/relativeTime';
@@ -91,6 +103,38 @@ export default function ClientHealth() {
     [client?.healthStaffNotes],
   );
 
+  const lockMeta = useMemo(() => {
+    if (!client) return null;
+    const gender = client.gender ? String(client.gender) : null;
+    const ht = (client.healthTest as Record<string, unknown>) || {};
+    const analysis = (client.healthAnalysis as HealthScoreAnalysis) || null;
+    const coreComplete = Boolean(
+      gender && isCoreHealthTestComplete(ht, gender),
+    );
+    const coreKeys = getCoreHealthTestKeySet(gender);
+    const detailedComplete = Boolean(
+      coreComplete &&
+        isDetailedHealthTestComplete(
+          ht,
+          gender,
+          packageConfig as Record<string, unknown>,
+          coreKeys,
+        ),
+    );
+    const lockState = getHealthTestLockState({
+      healthAnalysis: analysis,
+      detailedComplete,
+      optionalCompletedAt: ht.optionalCompletedAt
+        ? String(ht.optionalCompletedAt)
+        : null,
+    });
+    const stage = analysis?.analysisStage || null;
+    const analysisReady = Boolean(
+      analysis && !needsInitialHealthAnalysis(analysis),
+    );
+    return { lockState, stage, coreComplete, detailedComplete, analysisReady };
+  }, [client, packageConfig]);
+
   const saveNote = async () => {
     if (!client?.id || !note.trim()) return;
     setSaving(true);
@@ -148,6 +192,41 @@ export default function ClientHealth() {
               </View>
             </View>
           </FadeIn>
+
+          {lockMeta ? (
+            <FadeIn delay={60}>
+              <View style={styles.metaCard}>
+                <Text style={styles.metaLine}>
+                  Aşama:{' '}
+                  {!lockMeta.coreComplete
+                    ? '1. aşama (çekirdek) bekleniyor'
+                    : lockMeta.detailedComplete
+                      ? '2. aşama tamamlandı'
+                      : '1. aşama tamam — opsiyonel devam ediyor'}
+                </Text>
+                {lockMeta.stage ? (
+                  <Text style={styles.metaLine}>
+                    Analiz: {lockMeta.stage === 'detailed' ? 'Detaylı' : 'Temel'}
+                    {lockMeta.analysisReady
+                      ? ` · skor ${String((client?.healthAnalysis as HealthScoreAnalysis)?.overallScore ?? '—')}/100`
+                      : ''}
+                  </Text>
+                ) : null}
+                {lockMeta.lockState.fullLock ? (
+                  <Text style={styles.metaLock}>
+                    Cevaplar kilitli
+                    {lockMeta.lockState.daysLeft
+                      ? ` · ${lockMeta.lockState.daysLeft} gün sonra yeniden çözülebilir`
+                      : ''}
+                  </Text>
+                ) : lockMeta.lockState.canRetake ? (
+                  <Text style={styles.metaLine}>
+                    Yeniden çözme hakkı açık
+                  </Text>
+                ) : null}
+              </View>
+            </FadeIn>
+          ) : null}
 
           <FadeIn delay={80}>
             <Text style={styles.sectionTitle}>Sağlık Analizi Cevapları</Text>
@@ -219,6 +298,25 @@ export default function ClientHealth() {
 }
 
 const styles = StyleSheet.create({
+  metaCard: {
+    backgroundColor: colors.brand[50],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.brand[200],
+    padding: spacing.md,
+    gap: 4,
+  },
+  metaLine: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.cream[900],
+  },
+  metaLock: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 13,
+    color: colors.warm[500],
+    marginTop: 2,
+  },
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',

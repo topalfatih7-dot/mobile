@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -43,10 +45,24 @@ export default function AdminBlog() {
                   {p.published ? 'Yayında' : 'Taslak'}
                 </Text>
               </View>
+              <Pressable
+                hitSlop={8}
+                onPress={() =>
+                  router.push(`/(admin)/blog/${String(p.id)}` as Href)
+                }>
+                <Ionicons color={colors.brand[600]} name="pencil" size={18} />
+              </Pressable>
             </View>
           </FadeIn>
         ))
       )}
+
+      {/* Floating + button */}
+      <Pressable
+        onPress={() => router.push('/(admin)/blog/new' as Href)}
+        style={styles.fab}>
+        <Ionicons color={colors.white} name="add" size={26} />
+      </Pressable>
     </PanelScaffold>
   );
 }
@@ -55,7 +71,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     backgroundColor: colors.white,
     borderRadius: radius.xl,
     padding: spacing.md,
@@ -83,4 +99,17 @@ const styles = StyleSheet.create({
   badgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
   badgeTextLive: { color: colors.sage[700] },
   badgeTextDraft: { color: colors.cream[800] },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0px 4px 8px rgba(26,69,92,0.3)',
+    elevation: 6,
+  },
 });

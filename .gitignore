@@ -15,6 +15,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Native credentials — do not commit
+google-services.json
+GoogleService-Info.plist
+
 /ios
 /android
 
@@ -23,3 +27,9 @@ yarn-debug.*
 yarn-error.*
 .metro-health-check*
 *.tsbuildinfo
+
+# RevenueCat AI toolkit skills (local)
+.agents/
+
+# Local Metro/QA capture logs
+.cursor/test-logs/

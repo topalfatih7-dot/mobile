@@ -1,16 +1,18 @@
-# F04 — Health Test Complete
+# F04 — Health Test Complete (2 aşama)
 
-1. `/health-test` hub — progress per section; consent if required  
-2. Open section `/health-test/:sectionId` — answer required questions  
-   - Types: `single`, `emoji`, `multi`, `text`, `time`, `scale` (0–10), `file`  
-   - Support `followUps`, `detail`, `softWarning`, exclusive multi  
-3. Applicable sections: **general, medical, nutrition, physical, lifestyle** for everyone; gender-only `women` / `men` via `getApplicableSections`  
-4. Save answers into `members.data.healthTest` (flat keys)  
-5. On full completion + consent:  
-   - Hub done banner (“Kişisel sağlık analizi kaydedildi”)  
-   - `useHealthAnalysisSync` → `resolveHealthScoreAnalysis` → save `healthAnalysis` + `healthScoreHistory`  
-   - Dashboard `HealthScoreCard` shows 8-dim YeniForm Sağlık Skoru (+ trend)  
-   - Optional: `memberHealthSync` auto program for free/eko  
-6. Staff can read answers; admin/staff brief via `staffBrief` (not member-facing)  
+1. `/health-test` hub — consent if required  
+2. Profile gate (`HealthProfileGateForm`) — birthDate / weight / height (+ gender)  
+3. **1. Aşama:** `/health-test/core` — 25 (E) / 26 (K) core questions (`coreHealthTest`)  
+4. Hub → **Analizi Başlat** → `runSync({ stage: 'core' })` → `healthAnalysis.analysisStage = 'core'`  
+   - Hub + dashboard `HealthScoreCard` shows 8-dim scores  
+5. **2. Aşama (opsiyonel):** `/health-test/:sectionId` — remaining questions only (`getRemainingSectionQuestions`)  
+   - Types: `single`, `emoji`, `multi`, `text`, `time`, `scale`, `file` + followUps/detail  
+6. When `isDetailedHealthTestComplete`:  
+   - write `healthTest.optionalCompletedAt`  
+   - auto `runSync({ stage: 'detailed' })`  
+   - 14-day `fullLock` (questions closed; scores visible)  
+7. After lock expires: **Testi Yeniden Çöz** → `healthTest: { retakeAt }` → restart core  
+8. Free/eko: `memberHealthSync` only after detailed complete  
 
-Empty: incomplete badge on nav. Offline: block submit with message.
+Save answers into `members.data.healthTest` (flat keys + meta).  
+AI: `POST /api/ai-health-analysis`. Staff reads answers + stage/lock meta.
