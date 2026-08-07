@@ -5,8 +5,6 @@ import { addDays, format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,14 +14,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { SafeWebView } from '@/components/ui/SafeWebView';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useData } from '@/context/DataContext';
-import { resolveExerciseVideoUrl } from '@/services/exerciseMedia';
+import { prefetchExerciseVideo } from '@/services/exerciseMedia';
 import { amountText, groupBySchedule } from '@/utils/programGroups';
 import { CYCLE_PLAN_LENGTH } from '@/utils/programSchedule';
 import { colors, fonts, radius, spacing } from '@/theme';
@@ -40,8 +38,6 @@ export default function ProgramsScreen() {
   const { myPrograms, refreshData } = useData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [active, setActive] = useState<Record<string, unknown> | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [loadingVideo, setLoadingVideo] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Ekran odaklanınca yeniden çek (realtime kaçarsa / arka plandan dönüş)
@@ -66,17 +62,11 @@ export default function ProgramsScreen() {
     [filter, myPrograms],
   );
 
-  const openEntry = async (entry: Record<string, unknown>) => {
-    setActive(entry);
-    setVideoUrl(null);
-    if (entry.videoPending || !entry.videoUrl) return;
-    setLoadingVideo(true);
-    try {
-      const url = await resolveExerciseVideoUrl(entry.videoUrl);
-      setVideoUrl(url);
-    } finally {
-      setLoadingVideo(false);
+  const openEntry = (entry: Record<string, unknown>) => {
+    if (entry.videoUrl && !entry.videoPending) {
+      prefetchExerciseVideo(entry.videoUrl);
     }
+    setActive(entry);
   };
 
   return (
@@ -222,7 +212,12 @@ export default function ProgramsScreen() {
                           return (
                             <Pressable
                               key={String(e.id || `${g.key}-${title}`)}
-                              onPress={() => void openEntry(e)}
+                              onPress={() => openEntry(e)}
+                              onPressIn={() => {
+                                if (e.videoUrl && !e.videoPending) {
+                                  prefetchExerciseVideo(e.videoUrl);
+                                }
+                              }}
                               style={styles.entry}>
                               <ExerciseVideoThumbnail
                                 pending={Boolean(e.videoPending)}
@@ -265,43 +260,11 @@ export default function ProgramsScreen() {
         )}
       </ScrollView>
 
-      <Modal animationType="slide" transparent visible={Boolean(active)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {String(active?.name || active?.exerciseName || 'Egzersiz')}
-            </Text>
-            {active?.amount ? (
-              <Text style={styles.modalMeta}>{amountText(active as never)}</Text>
-            ) : null}
-            <View style={styles.player}>
-              {loadingVideo ? (
-                <ActivityIndicator color={colors.brand[600]} />
-              ) : videoUrl ? (
-                <SafeWebView
-                  allowsFullscreenVideo
-                  mediaPlaybackRequiresUserAction={false}
-                  source={{ uri: videoUrl }}
-                  style={styles.webview}
-                />
-              ) : (
-                <Text style={styles.noVideo}>
-                  {active?.videoPending
-                    ? 'Video hazırlanıyor…'
-                    : 'Bu madde için video yok.'}
-                </Text>
-              )}
-            </View>
-            <Pressable
-              accessibilityLabel="Kapat"
-              accessibilityRole="button"
-              onPress={() => setActive(null)}
-              style={styles.closeBtn}>
-              <Text style={styles.closeText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <ExerciseDetailModal
+        exercise={active}
+        onClose={() => setActive(null)}
+        visible={Boolean(active)}
+      />
     </MeshBackground>
   );
 }
@@ -403,31 +366,4 @@ const styles = StyleSheet.create({
   },
   entryTitle: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
   entryNote: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,35,50,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    maxHeight: '80%',
-  },
-  modalTitle: { fontFamily: fonts.displayBold, fontSize: 20, color: colors.cream[900] },
-  modalMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  player: {
-    height: 220,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    backgroundColor: colors.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  webview: { width: '100%', height: '100%' },
-  noVideo: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  closeBtn: { alignItems: 'center', paddingVertical: 12 },
-  closeText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
 });

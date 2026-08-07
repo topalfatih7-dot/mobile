@@ -17,8 +17,6 @@ import {
 import { tr } from 'date-fns/locale';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,18 +34,18 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { SafeWebView } from '@/components/ui/SafeWebView';
 import { SelectSheet } from '@/components/ui/SelectSheet';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useActions } from '@/context/ActionsContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { fetchExerciseById } from '@/services/exerciseLibrary';
-import { resolveExerciseVideoUrl } from '@/services/exerciseMedia';
+import { prefetchExerciseVideo } from '@/services/exerciseMedia';
 import { AVAILABILITY_WEEKDAYS } from '@/utils/memberAvailability';
 import { amountText } from '@/utils/programGroups';
 import {
@@ -138,12 +136,9 @@ export default function CalendarScreen() {
     field: 'start' | 'end';
   } | null>(null);
   const [activeEntry, setActiveEntry] = useState<Record<string, unknown> | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [loadingVideo, setLoadingVideo] = useState(false);
 
   const openCalendarEntry = useCallback(async (entry: Record<string, unknown>) => {
     setActiveEntry(entry);
-    setVideoUrl(null);
     let resolvedEntry = entry;
     if (entry.exerciseId) {
       const exercise = await fetchExerciseById(entry.exerciseId);
@@ -159,13 +154,8 @@ export default function CalendarScreen() {
         setActiveEntry(resolvedEntry);
       }
     }
-    if (resolvedEntry.videoPending || !resolvedEntry.videoUrl) return;
-    setLoadingVideo(true);
-    try {
-      const url = await resolveExerciseVideoUrl(String(resolvedEntry.videoUrl));
-      setVideoUrl(url);
-    } finally {
-      setLoadingVideo(false);
+    if (resolvedEntry.videoUrl && !resolvedEntry.videoPending) {
+      prefetchExerciseVideo(resolvedEntry.videoUrl);
     }
   }, []);
 
@@ -842,6 +832,11 @@ export default function CalendarScreen() {
                         <Pressable
                           hitSlop={6}
                           onPress={() => void openCalendarEntry(entry)}
+                          onPressIn={() => {
+                            if (entry.videoUrl && !entry.videoPending) {
+                              prefetchExerciseVideo(entry.videoUrl);
+                            }
+                          }}
                           style={styles.watchBtn}>
                           <Ionicons
                             color={colors.brand[700]}
@@ -860,50 +855,11 @@ export default function CalendarScreen() {
         ) : null}
       </ScrollView>
 
-      <Modal animationType="slide" transparent visible={Boolean(activeEntry)}>
-        <View style={styles.videoModalBackdrop}>
-          <View style={styles.videoModalCard}>
-            <Text style={styles.videoModalTitle}>
-              {String(activeEntry?.name || activeEntry?.exerciseName || 'Egzersiz')}
-            </Text>
-            {activeEntry?.amount ? (
-              <Text style={styles.videoModalMeta}>{amountText(activeEntry as never)}</Text>
-            ) : null}
-            {activeEntry?.sets != null && activeEntry?.sets !== '' ? (
-              <Text style={styles.videoModalMeta}>
-                {String(activeEntry.sets)} set
-                {activeEntry.amount ? ` × ${amountText(activeEntry as never)}` : ''}
-              </Text>
-            ) : null}
-            {activeEntry?.note ? (
-              <Text style={styles.videoModalNote}>{String(activeEntry.note)}</Text>
-            ) : null}
-            <View style={styles.videoPlayer}>
-              {loadingVideo ? (
-                <ActivityIndicator color={colors.brand[600]} />
-              ) : videoUrl ? (
-                <SafeWebView
-                  allowsFullscreenVideo
-                  mediaPlaybackRequiresUserAction={false}
-                  source={{ uri: videoUrl }}
-                  style={styles.videoWebview}
-                />
-              ) : (
-                <Text style={styles.videoEmpty}>
-                  {activeEntry?.videoPending
-                    ? 'Video hazırlanıyor…'
-                    : 'Bu madde için video yok.'}
-                </Text>
-              )}
-            </View>
-            <Pressable
-              onPress={() => setActiveEntry(null)}
-              style={styles.videoCloseBtn}>
-              <Text style={styles.videoCloseText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <ExerciseDetailModal
+        exercise={activeEntry}
+        onClose={() => setActiveEntry(null)}
+        visible={Boolean(activeEntry)}
+      />
 
       <SelectSheet
         onClose={() => setAvailabilityPicker(null)}
@@ -1376,47 +1332,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   watchBtnText: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.brand[700] },
-  videoModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,35,50,0.5)',
-    justifyContent: 'flex-end',
-  },
-  videoModalCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    maxHeight: '80%',
-  },
-  videoModalTitle: { fontFamily: fonts.displayBold, fontSize: 20, color: colors.cream[900] },
-  videoModalMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  videoModalNote: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: colors.cream[800],
-    opacity: 0.75,
-  },
-  videoPlayer: {
-    height: 220,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    backgroundColor: colors.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoWebview: { width: '100%', height: '100%' },
-  videoEmpty: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: colors.cream[800],
-    opacity: 0.6,
-    textAlign: 'center',
-    padding: spacing.md,
-  },
-  videoCloseBtn: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  videoCloseText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
 });

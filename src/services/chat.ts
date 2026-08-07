@@ -230,10 +230,10 @@ export async function recordChatConsent(threadId: string): Promise<boolean> {
   }
 }
 
-export async function markChatThreadRead(threadId: string): Promise<void> {
+export async function markChatThreadRead(threadId: string): Promise<boolean> {
   if (isUiOnly()) {
     uiMarkRead(threadId);
-    return;
+    return true;
   }
   const sb = requireSupabase();
   const { data: row, error: readErr } = await sb
@@ -242,12 +242,18 @@ export async function markChatThreadRead(threadId: string): Promise<void> {
     .eq('id', threadId)
     .maybeSingle();
   if (readErr || !row) throw readErr || new Error('Sohbet bulunamadı.');
-  const data = { ...((row?.data as object) || {}), memberUnread: 0 };
+  const prev =
+    row.data && typeof row.data === 'object'
+      ? (row.data as Record<string, unknown>)
+      : {};
+  if (Number(prev.memberUnread || 0) === 0) return true;
+  const data = { ...prev, memberUnread: 0 };
   const { error: updateErr } = await sb
     .from('chat_threads')
     .update({ data })
     .eq('id', threadId);
   if (updateErr) throw updateErr;
+  return true;
 }
 
 export async function sendChatMessage(

@@ -1,8 +1,20 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-06 — Sağlık testi 2 aşama + kayıt telefon PhoneField  
+> **Son güncelleme:** 2026-08-07 — Üye egzersiz videosu: expo-video + ortalanmış detay modal  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-07 üye egzersiz videosu (library / programs / calendar)
+
+| Madde | Durum |
+|-------|--------|
+| `expo-video` kurulumu + `app.json` plugin | ✅ |
+| `VideoPlayer` (muted/loop/auto, 16:9, poster webp, retry) | ✅ |
+| `ExerciseDetailModal` ortalanmış kart + açıklama/set-rep | ✅ |
+| Signed URL cache + press-in prefetch (`exerciseMedia`) | ✅ |
+| Member library / programs / calendar bağlandı | ✅ |
+| Staff/admin player | ⏸ ayrı sprint |
+| Native rebuild (dev client) gerekir | 🔄 cihaz |
 
 ## 2026-08-06 sağlık testi 2 aşama + telefon
 
@@ -75,7 +87,7 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 | **UI-only** | Demo kısa devre | ⬜ kapalı (`false`) |
 | **P1 Member** | Schedule, health-test, messages, calorie, notifications, support, payments | ✅ |
 | **P1 Call** | Daily token + native SDK / WebView fallback | ✅ |
-| **Native SDK** | RevenueCat, Daily RN, expo-notifications, expo-av, camera | ✅ |
+| **Native SDK** | RevenueCat, Daily RN, expo-notifications, expo-audio, camera | ✅ |
 | **Nav chrome** | PanelTopBar + PanelDrawer (3 rol) | ✅ |
 | **Staff/Admin DB** | platformDb + gerçek sohbet / premium / plans | ✅ |
 | **Public** | Landing/membership/blog native; about/team/legal WebView; SKIP stubs | ✅ |

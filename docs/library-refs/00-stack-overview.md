@@ -61,7 +61,7 @@ Kaynak özeti (reopt handbook + Expo SDK 56 notes, May–Jun 2026):
 @supabase/supabase-js ^2.110.7
 date-fns ^4.4.0
 expo ~56.0.12
-expo-av ^16.0.8
+expo-audio ~56.0.13
 expo-camera ~56.0.8
 expo-constants ~56.0.18
 expo-dev-client ~56.0.24
@@ -92,9 +92,9 @@ react-native-webview 13.16.1
 react-native-worklets 0.8.3
 ```
 
-## Not: expo-av vs expo-video
+## Not: expo-audio vs expo-video
 
-SDK 56 index’te birincil video paketi **`expo-video`**. Bu proje hâlâ **`expo-av` ^16** kullanıyor (kütüphane playback). Yeni video özelliği eklerken Expo’nun `expo-video` dokümanını değerlendir; mevcut kod `expo-av` ile devam eder.
+SDK 56’da `expo-av` kaldırıldı. Bildirim sesi **`expo-audio`**; egzersiz videosu şu an WebView + signed URL. İleride native player gerekirse `expo-video` değerlendir.
 
 ## Setup blockers (native)
 

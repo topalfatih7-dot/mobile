@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -14,20 +13,21 @@ import {
 import Animated, { FadeIn as ReFadeIn, FadeOut as ReFadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { SafeWebView } from '@/components/ui/SafeWebView';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useData, useMember } from '@/context/DataContext';
+import { DIFFICULTY_LABELS } from '@/data/exerciseLabels';
 import { hasFullVideoAccess as planHasFullVideo } from '@/data/membershipPlans';
 import {
   EXERCISE_PAGE_SIZE,
   fetchDistinctExerciseCategories,
   fetchExercisesPage,
 } from '@/services/exerciseLibrary';
-import { resolveExerciseVideoUrl } from '@/services/exerciseMedia';
+import { prefetchExerciseVideo } from '@/services/exerciseMedia';
 import { collectProgramExerciseIds } from '@/utils/coachProgram';
 import { memberHasFullVideoAccess } from '@/utils/memberPackages';
 import { colors, fonts, radius, spacing } from '@/theme';
@@ -38,13 +38,6 @@ const LOCATIONS = [
   { id: 'gym', label: 'Salon' },
   { id: 'office', label: 'Ofis' },
 ];
-
-/** Görünen etiket TR — filtre/veri değerleri İngilizce kalır. */
-const DIFFICULTY_LABELS: Record<string, string> = {
-  beginner: 'Başlangıç',
-  intermediate: 'Orta',
-  advanced: 'İleri',
-};
 
 const ITEM_HEIGHT = 98; // padding 16*2 + thumbnail 64 + border 2
 const ITEM_MARGIN = 8; // marginBottom spacing.sm
@@ -67,8 +60,6 @@ export default function LibraryScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Record<string, unknown> | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [loadingVideo, setLoadingVideo] = useState(false);
 
   const fullAccess =
     memberHasFullVideoAccess(member) || planHasFullVideo(String(member?.membership || 'free'));
@@ -127,23 +118,23 @@ export default function LibraryScreen() {
     void fetchDistinctExerciseCategories().then(setCategories);
   }, []);
 
-  const openExercise = async (ex: Record<string, unknown>) => {
-    setActive(ex);
-    setVideoUrl(null);
-    if (ex.videoPending || !ex.videoUrl) return;
-    if (!fullAccess) return;
-    setLoadingVideo(true);
-    try {
-      const url = await resolveExerciseVideoUrl(ex.videoUrl);
-      setVideoUrl(url);
-    } finally {
-      setLoadingVideo(false);
+  const openExercise = (ex: Record<string, unknown>) => {
+    if (ex.videoUrl && !ex.videoPending && fullAccess) {
+      prefetchExerciseVideo(ex.videoUrl);
     }
+    setActive(ex);
   };
 
   const renderItem = useCallback(
     ({ item }: { item: Record<string, unknown> }) => (
-      <Pressable onPress={() => void openExercise(item)} style={styles.row}>
+      <Pressable
+        onPress={() => openExercise(item)}
+        onPressIn={() => {
+          if (item.videoUrl && !item.videoPending && fullAccess) {
+            prefetchExerciseVideo(item.videoUrl);
+          }
+        }}
+        style={styles.row}>
         <ExerciseVideoThumbnail
           pending={Boolean(item.videoPending)}
           size={64}
@@ -338,43 +329,12 @@ export default function LibraryScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <Modal animationType="slide" transparent visible={Boolean(active)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{String(active?.name || '')}</Text>
-            <Text style={styles.modalMeta}>
-              {String(active?.bodyPart || '')}
-              {active?.equipment ? ` · ${String(active.equipment)}` : ''}
-            </Text>
-            <View style={styles.player}>
-              {loadingVideo ? (
-                <ActivityIndicator color={colors.brand[600]} />
-              ) : videoUrl && fullAccess ? (
-                <SafeWebView
-                  allowsFullscreenVideo
-                  source={{ uri: videoUrl }}
-                  style={styles.webview}
-                />
-              ) : (
-                <Text style={styles.noVideo}>
-                  {active?.videoPending
-                    ? 'Video hazırlanıyor…'
-                    : fullAccess
-                      ? 'Video yok'
-                      : 'Oynatma için Spor veya Vip paket gerekli'}
-                </Text>
-              )}
-            </View>
-            <Pressable
-              accessibilityLabel="Kapat"
-              accessibilityRole="button"
-              onPress={() => setActive(null)}
-              style={styles.closeBtn}>
-              <Text style={styles.closeText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <ExerciseDetailModal
+        canPlay={fullAccess}
+        exercise={active}
+        onClose={() => setActive(null)}
+        visible={Boolean(active)}
+      />
     </MeshBackground>
   );
 }
@@ -454,31 +414,5 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
   rowMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,35,50,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  modalTitle: { fontFamily: fonts.displayBold, fontSize: 20, color: colors.cream[900] },
-  modalMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  player: {
-    height: 220,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    backgroundColor: colors.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  webview: { width: '100%', height: '100%' },
-  noVideo: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800], textAlign: 'center' },
   footerSpinner: { marginVertical: spacing.md },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  closeText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
 });

@@ -18,9 +18,11 @@
 ## Playback UX
 
 - List: static webp thumb
-- Tap: detail modal / inline player
+- Tap: centered `ExerciseDetailModal` (16:9 `VideoPlayer` + metadata)
 - Prefetch signed URL on press-in
-- iOS fullscreen: follow `docs/VIDEO_PLAYER_IOS_FULLSCREEN.md` patterns in RN player
+- Player: `expo-video` (muted + loop + autoplay); native controls + fullscreen
+- URL: in-memory cache (~13 min) + in-flight dedupe
+- iOS fullscreen: `VideoView` `fullscreenOptions.enable`
 
 ## Daily calls
 

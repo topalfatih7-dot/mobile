@@ -10,7 +10,13 @@ import { getActiveChatThreadId } from '@/services/activeChatThread';
 import { playNotificationSoundThrottled } from '@/services/notificationSound';
 import { requireSupabase, supabase } from '@/services/supabase';
 
-const CHANNEL_ID = 'yeniform-alerts';
+/**
+ * v2: Android kanalı bir kez oluşunca ses ayarı kilitlenir.
+ * Eski `yeniform-alerts` sessiz kalmış olabilir → yeni id + bundled wav.
+ */
+const CHANNEL_ID = 'yeniform-alerts-v2';
+/** app.json expo-notifications.sounds → native resource adı */
+const CHANNEL_SOUND = 'notification.wav';
 
 type NotificationsMod = typeof import('expo-notifications');
 
@@ -30,13 +36,12 @@ async function loadNotifications(): Promise<NotificationsMod | null> {
       handlerWired = true;
       notificationsMod.setNotificationHandler({
         handleNotification: async () => ({
-          // Foreground’da OS banner’ı local presentSystemNotification verir.
-          // Remote push arka planda/killed’da OS tarafından zaten gösterilir.
-          shouldShowAlert: false,
+          // Uygulama açıkken de banner + ses (WhatsApp/Telegram benzeri).
+          shouldShowAlert: true,
           shouldPlaySound: true,
           shouldSetBadge: true,
-          shouldShowBanner: false,
-          shouldShowList: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
         }),
       });
     }
@@ -57,6 +62,8 @@ export async function ensureNotificationChannel(): Promise<void> {
         await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
           name: 'Yeni Form Bildirimler',
           importance: Notifications.AndroidImportance.HIGH,
+          // Android 8+: ses kanalda tanımlanmalı; content.sound tek başına yetmez.
+          sound: CHANNEL_SOUND,
           vibrationPattern: [0, 250, 120, 250],
           enableVibrate: true,
           lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -245,7 +252,7 @@ export async function presentSystemNotification(opts: {
         title: opts.title,
         body: opts.message || '',
         data,
-        sound: true,
+        sound: Platform.OS === 'android' ? CHANNEL_SOUND : 'default',
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: null,

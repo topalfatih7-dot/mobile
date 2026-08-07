@@ -8,7 +8,7 @@
 | IAP | `react-native-purchases` (RevenueCat) |
 | Push | `expo-notifications` |
 | Video call | `@daily-co/react-native-daily-js` (+ peer deps) |
-| Exercise video | `expo-av` / `expo-video` + signed URLs |
+| Exercise video | WebView + signed URLs (`expo-video` opsiyonel) |
 | Images | `expo-image-picker` (calorie vision) |
 | Apple Sign-In | `expo-apple-authentication` (iOS store requirement) |
 

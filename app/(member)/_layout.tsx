@@ -1,4 +1,4 @@
-import { Stack, router, type Href } from 'expo-router';
+import { Stack, router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,7 +28,13 @@ import {
   routeFromPushData,
   watchAppStateForPushReregister,
 } from '@/services/push';
-import { unlockNotificationAudio } from '@/services/notificationSound';
+import {
+  isNotificationSoundEnabled,
+  isReminderNotificationsEnabled,
+  playNotificationSoundThrottled,
+  setNotificationSoundEnabledGetter,
+  unlockNotificationAudio,
+} from '@/services/notificationSound';
 import { getMemberChatContacts } from '@/utils/chatContacts';
 
 const PUSH_ASKED_KEY = 'push_permission_asked';
@@ -49,6 +55,26 @@ function MemberPushBootstrap() {
   const { role, userId } = useAuth();
   const member = useMember();
   const seenIdsRef = useRef<Set<string> | null>(null);
+  const bootstrappedRef = useRef(false);
+
+  const settings = (member?.settings || {}) as Record<string, unknown>;
+
+  // Yeni üye oturumu — bootstrap sıfırla
+  useEffect(() => {
+    bootstrappedRef.current = false;
+    seenIdsRef.current = null;
+  }, [userId]);
+
+  // soundNotifs → playNotificationSoundThrottled (web parity)
+  useEffect(() => {
+    if (role !== 'member') {
+      setNotificationSoundEnabledGetter(null);
+      return;
+    }
+    const enabled = settings.soundNotifs !== false;
+    setNotificationSoundEnabledGetter(() => enabled);
+    return () => setNotificationSoundEnabledGetter(null);
+  }, [role, settings.soundNotifs]);
 
   // Delayed push permission request shown once after login (6A)
   useEffect(() => {
@@ -123,42 +149,56 @@ function MemberPushBootstrap() {
   }, [role, userId]);
 
   /**
-   * In-app bildirim listesine yeni kayıt düşünce telefon üst banner’ı göster.
-   * (Expo remote push token yoksa / gecikse bile OS bildirimi gelsin.)
+   * Web `useNotificationAlerts` parity:
+   * Yeni in-app bildirim → OS banner + ses (chat sesi realtime’da; burada program/assignment vb.).
    */
   useEffect(() => {
-    if (role !== 'member') return;
-    const list = ((member?.notifications as NotifRow[]) || []).filter((n) => n?.id);
-    if (!list.length) {
-      seenIdsRef.current = seenIdsRef.current || new Set();
-      return;
-    }
+    if (role !== 'member' || !userId) return;
+    // Hydrate bitmeden bootstrap etme (web: profileReady)
+    if (!Array.isArray(member?.notifications)) return;
 
-    if (seenIdsRef.current == null) {
-      // İlk hydrate: mevcutları “görüldü” say — eski bildirimler için banner spam yok
+    const list = (member.notifications as NotifRow[]).filter((n) => n?.id);
+    const soundOn = isNotificationSoundEnabled(settings);
+    const remindersOn = isReminderNotificationsEnabled(settings);
+
+    if (!bootstrappedRef.current) {
+      bootstrappedRef.current = true;
       seenIdsRef.current = new Set(list.map((n) => String(n.id)));
       return;
     }
 
-    const seen = seenIdsRef.current;
-    const fresh = list.filter((n) => !seen.has(String(n.id)));
-    // Foreground: yerel OS banner. Arka plan/killed: Expo remote push (token şart).
+    const seen = seenIdsRef.current || new Set<string>();
+    seenIdsRef.current = seen;
     const showLocalBanner = AppState.currentState === 'active';
-    for (const n of fresh) {
-      seen.add(String(n.id));
-      if (n.read || !showLocalBanner) continue;
-      void presentSystemNotification({
-        id: String(n.id),
-        title: String(n.title || 'Yeni Form'),
-        message: String(n.message || ''),
-        type: n.type,
-        staffRole: n.staffRole,
-        ticketId: n.ticketId,
-        action: n.action,
-        threadId: n.threadId,
-      });
+
+    for (const n of list) {
+      const id = String(n.id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (n.read) continue;
+
+      const type = String(n.type || '');
+      if ((type === 'reminder' || type === 'availability') && !remindersOn) continue;
+
+      if (showLocalBanner) {
+        void presentSystemNotification({
+          id,
+          title: String(n.title || 'Yeni Form'),
+          message: String(n.message || ''),
+          type: n.type,
+          staffRole: n.staffRole,
+          ticketId: n.ticketId,
+          action: n.action,
+          threadId: n.threadId,
+        });
+      }
+
+      // Chat sesi usePlatformRealtime / useIncomingChatSound parity — çift ses yok
+      if (soundOn && type !== 'chat') {
+        void playNotificationSoundThrottled();
+      }
     }
-  }, [role, member?.notifications]);
+  }, [role, userId, member?.notifications, settings.soundNotifs, settings.reminderNotifs]);
 
   return null;
 }
@@ -204,6 +244,20 @@ export default function MemberLayout() {
       member?.id ? String(member.id) : undefined,
     );
   }, [member?.id, reloadChatUnread]);
+
+  // Drawer rozeti: sohbetten dönüşte / app öne gelince tazele
+  useFocusEffect(
+    useCallback(() => {
+      void reloadChatUnread();
+    }, [reloadChatUnread]),
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void reloadChatUnread();
+    });
+    return () => sub.remove();
+  }, [reloadChatUnread]);
 
   const reloadSupportBadge = useCallback(async () => {
     if (!member?.id) {

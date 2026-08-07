@@ -65,8 +65,15 @@ export function useChatPresence(
 
     void load();
 
+    // Unique topic per effect instance — Expo Router keeps list+thread mounted;
+    // shared `chat-presence-${ids}` would reuse a subscribed channel and throw
+    // "cannot add postgres_changes callbacks … after subscribe()".
+    const topic = `chat-presence-${idsKey || 'admins'}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
+
     const channel = supabase
-      .channel(`chat-presence-${idsKey || 'admins'}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_presence' },

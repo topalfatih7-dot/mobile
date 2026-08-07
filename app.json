@@ -16,7 +16,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.yeniform.app",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "NSCameraUsageDescription": "Görüntülü görüşme ve kalori foto analizi için kamera erişimi gerekir.",
         "NSMicrophoneUsageDescription": "Görüntülü görüşme için mikrofon erişimi gerekir.",
         "NSPhotoLibraryUsageDescription": "Profil fotoğrafı ve sağlık belgesi yüklemek için galeri erişimi gerekir.",
@@ -62,13 +64,15 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2d8fc4",
-          "sounds": ["./assets/sounds/notification.wav"],
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ],
           "androidMode": "default",
           "androidCollapsedTitle": "Yeni Form",
           "iosDisplayInForeground": true
         }
       ],
-      "expo-av",
+      "expo-audio",
       [
         "expo-image-picker",
         {
@@ -84,7 +88,8 @@
           "recordAudioAndroid": true
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

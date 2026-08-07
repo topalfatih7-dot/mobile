@@ -1,55 +1,83 @@
 /**
  * Ana proje browserNotifications.js — notification.wav + 1400ms throttle.
- * expo-av yalnızca native binary’de; Expo Go’da no-op.
+ * Öncelik: expo-audio (dev client). Yoksa OS bildirimi sesi (push.presentSystemNotification).
+ * Expo Go’da expo-audio no-op — OS local notification sesi kullanılır.
  */
 import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
 
 const THROTTLE_MS = 1400;
 let lastPlayedAt = 0;
-let sound: { setPositionAsync: (n: number) => Promise<unknown>; playAsync: () => Promise<unknown> } | null =
-  null;
+let player: {
+  seekTo: (seconds: number) => Promise<unknown>;
+  play: () => void;
+} | null = null;
 let unlocked = false;
 let audioUnavailable = false;
 
-type ExpoAv = typeof import('expo-av');
+/** DataContext / layout — settings.soundNotifs === false iken sessiz. */
+let soundEnabledGetter: (() => boolean) | null = null;
 
-function canUseAv(): boolean {
+type ExpoAudio = typeof import('expo-audio');
+
+export function setNotificationSoundEnabledGetter(getter: (() => boolean) | null) {
+  soundEnabledGetter = getter;
+}
+
+/** Web `isNotificationSoundEnabled` parity. */
+export function isNotificationSoundEnabled(
+  settings?: Record<string, unknown> | null,
+): boolean {
+  // settings verildiyse getter’a girme (sonsuz döngü yok)
+  if (settings != null) return settings.soundNotifs !== false;
+  if (soundEnabledGetter) return soundEnabledGetter();
+  return true;
+}
+
+/** Web `isReminderNotificationsEnabled` parity. */
+export function isReminderNotificationsEnabled(
+  settings?: Record<string, unknown> | null,
+): boolean {
+  return settings?.reminderNotifs !== false;
+}
+
+function canUseAudio(): boolean {
   if (Platform.OS === 'web') return false;
   if (Constants.appOwnership === 'expo') return false;
   const mods = NativeModules as Record<string, unknown>;
-  return Boolean(mods.ExponentAV || mods.ExpoAV);
+  return Boolean(mods.ExpoAudio);
 }
 
-async function loadAv(): Promise<ExpoAv | null> {
-  if (audioUnavailable || !canUseAv()) {
+/** true = in-app wav çalınabilir (dev client). */
+export function isInAppNotificationAudioAvailable(): boolean {
+  return !audioUnavailable && canUseAudio();
+}
+
+async function loadAudio(): Promise<ExpoAudio | null> {
+  if (audioUnavailable || !canUseAudio()) {
     audioUnavailable = true;
     return null;
   }
   try {
-    return await import('expo-av');
+    return await import('expo-audio');
   } catch {
     audioUnavailable = true;
     return null;
   }
 }
 
-async function ensureSound() {
-  if (sound) return sound;
-  const av = await loadAv();
-  if (!av?.Audio) return null;
+async function ensurePlayer() {
+  if (player) return player;
+  const audio = await loadAudio();
+  if (!audio?.createAudioPlayer) return null;
   try {
-    await av.Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
+    await audio.setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: 'duckOthers',
     });
-    const { sound: s } = await av.Audio.Sound.createAsync(
-      require('../../assets/sounds/notification.wav'),
-      { shouldPlay: false, volume: 1 },
-    );
-    sound = s;
-    return sound;
+    player = audio.createAudioPlayer(require('../../assets/sounds/notification.wav'));
+    return player;
   } catch {
     audioUnavailable = true;
     return null;
@@ -60,21 +88,23 @@ async function ensureSound() {
 export async function unlockNotificationAudio(): Promise<void> {
   if (unlocked || audioUnavailable) return;
   unlocked = true;
-  await ensureSound();
+  await ensurePlayer();
 }
 
 export async function playNotificationSound(): Promise<void> {
+  if (!isNotificationSoundEnabled()) return;
   try {
-    const s = await ensureSound();
-    if (!s) return;
-    await s.setPositionAsync(0);
-    await s.playAsync();
+    const p = await ensurePlayer();
+    if (!p) return;
+    await p.seekTo(0);
+    p.play();
   } catch {
     /* ignore */
   }
 }
 
 export async function playNotificationSoundThrottled(): Promise<void> {
+  if (!isNotificationSoundEnabled()) return;
   const now = Date.now();
   if (now - lastPlayedAt < THROTTLE_MS) return;
   lastPlayedAt = now;

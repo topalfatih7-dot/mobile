@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -76,7 +77,10 @@ export default function MessageThreadScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [localConsent, setLocalConsent] = useState(false);
   const [accepting, setAccepting] = useState(false);
-  const markedReadRef = useRef<string | null>(null);
+  /** Expo Router stack: thread ekranı unmount olmayabilir — focus ile okundu (web: activeThread.id effect). */
+  const focusedRef = useRef(false);
+  const threadSnapRef = useRef<ChatThread | null>(null);
+  threadSnapRef.current = thread;
 
   const contacts = useMemo(
     () => getMemberChatContacts(member, staffById),
@@ -95,6 +99,18 @@ export default function MessageThreadScreen() {
     void AsyncStorage.getItem(CHAT_CONSENT_KEY).then((v) => {
       if (v === '1') setLocalConsent(true);
     });
+  }, []);
+
+  /** Web AppContext: mark sonrası chatThreads patch — RN’de lokal state + DB. */
+  const clearMemberUnread = useCallback(async (id: string) => {
+    setThread((prev) =>
+      prev?.id === id ? { ...prev, memberUnread: 0 } : prev,
+    );
+    try {
+      await markChatThreadRead(id);
+    } catch (e) {
+      if (__DEV__) console.warn('[chat] markChatThreadRead', e);
+    }
   }, []);
 
   const reload = useCallback(async () => {
@@ -116,6 +132,12 @@ export default function MessageThreadScreen() {
       setMessages(t ? snap.messages[t.id] || [] : []);
       if (!t) {
         setLoadError('Bu sohbet bulunamadı. Uzman atamanızı kontrol edin.');
+      } else if (focusedRef.current) {
+        // Staff mobile parity: reload sırasında açık sohbette okundu (gelen mesaj + yeniden açılış)
+        setActiveChatThreadId(t.id);
+        if (Number(t.memberUnread || 0) > 0) {
+          void clearMemberUnread(t.id);
+        }
       }
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Sohbet yüklenemedi');
@@ -124,7 +146,7 @@ export default function MessageThreadScreen() {
     } finally {
       setLoaded(true);
     }
-  }, [contacts, member?.id, member?.name, threadRef]);
+  }, [clearMemberUnread, contacts, member?.id, member?.name, threadRef]);
 
   useEffect(() => {
     setLoaded(false);
@@ -143,15 +165,36 @@ export default function MessageThreadScreen() {
     return () => clearInterval(id);
   }, [reload, member?.id, thread?.id]);
 
+  // Web MessagesPage: sohbet açılınca markChatThreadRead — RN’de useFocusEffect
+  // (stack’te ekran mount kalır; yeniden focus = yeniden okundu).
+  useFocusEffect(
+    useCallback(() => {
+      focusedRef.current = true;
+      const t = threadSnapRef.current;
+      if (t?.id) {
+        setActiveChatThreadId(t.id);
+        void clearMemberUnread(t.id);
+      }
+      return () => {
+        focusedRef.current = false;
+        setActiveChatThreadId(null);
+      };
+    }, [clearMemberUnread]),
+  );
+
+  // Arka plandan dönüşte focus event gelmeyebilir — AppState ile tamamla
   useEffect(() => {
-    if (!thread?.id) return;
-    setActiveChatThreadId(thread.id);
-    if (markedReadRef.current !== thread.id) {
-      markedReadRef.current = thread.id;
-      void markChatThreadRead(thread.id).catch(() => {});
-    }
-    return () => setActiveChatThreadId(null);
-  }, [thread?.id]);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !focusedRef.current) return;
+      const t = threadSnapRef.current;
+      if (!t?.id) return;
+      setActiveChatThreadId(t.id);
+      if (Number(t.memberUnread || 0) > 0) {
+        void clearMemberUnread(t.id);
+      }
+    });
+    return () => sub.remove();
+  }, [clearMemberUnread]);
 
   const needsConsent = Boolean(thread && !thread.memberConsentAt && !localConsent);
 

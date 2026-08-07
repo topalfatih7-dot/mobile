@@ -4,7 +4,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,13 +88,19 @@ export default function MessagesIndex() {
   }, [contacts, member?.id, member?.name, toast]);
 
   useEffect(() => {
-    setBusy(true);
-    void reload();
     if (!member?.id) return;
     return subscribeMemberChat(() => {
       void reload();
     }, String(member.id));
   }, [reload, member?.id]);
+
+  // Thread’den dönüşte rozet tazele (Expo Router stack — web navigate('/messages') eşleniği)
+  useFocusEffect(
+    useCallback(() => {
+      setBusy(true);
+      void reload();
+    }, [reload]),
+  );
 
   const inbox = useMemo(() => {
     return contacts

@@ -32,10 +32,10 @@ Hepsi **SDK 56** pin: https://docs.expo.dev/versions/v56.0.0/
 - Büyük payload (~2KB iOS historical) native reject → hata handle
 - `requireAuthentication` Expo Go’da FaceID key eksik olabilir → **dev client**
 
-## expo-av (^16.0.8)
+## expo-audio (~56.0.13)
 
-Library video playback. SDK 56 index birincil olarak `expo-video` gösterir; mevcut kod `expo-av`.  
-Signed URL + `video_pending` → skill `yeniform-media-exercises`.
+Bildirim sesi (`notificationSound.ts`). SDK 56’da `expo-av` kaldırıldı; audio için `expo-audio`.  
+Egzersiz videosu: `expo-video` + signed URL (`yeniform-media-exercises`). Native AVPlayer/ExoPlayer; WebView MP4 yolu kaldırıldı.
 
 ## expo-linking / expo-web-browser
 
