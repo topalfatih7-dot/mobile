@@ -22,7 +22,7 @@ description: >-
 |-------------------|-----------|
 | spesifikasyon, handoff, docs/mobile yaz/güncelle | `yeniform-mobile-spec` |
 | Expo kod, ekran implement, Router, RN UI | `yeniform-expo-app` |
-| paket, üyelik, entitlement, IAP, RevenueCat, Stripe | `yeniform-membership-payments` |
+| paket, üyelik, entitlement, Stripe, ödeme, paywall | `yeniform-membership-payments` |
 | login, kayıt, onboarding, OAuth, şifre, gate | `yeniform-auth-onboarding` |
 | mesaj, chat, realtime, Daily, video call, push | `yeniform-chat-realtime-video` |
 | sağlık testi, takvim, program, öğün, kalori | `yeniform-health-programs` |
@@ -36,7 +36,7 @@ Multiple signals → read router targets **in parallel**, then execute in depend
 - First read `docs/mobile/IMPLEMENTATION-LOCK.md` on any mobile task.
 - Do not invent product rules; use `docs/mobile/` + web code at `/Users/mac/Desktop/Serenova-F-t/Adsız`.
 - Before coding a screen: open the matching web `src/pages/**` (and its components/services) and mirror layout + data/actions — no invented fields.
-- Payments in-app: IAP via RevenueCat; web Stripe remains; entitlement in Supabase `members`.
+- Payments: web Stripe only; mobile CTA → `/membership`; entitlement in Supabase `members`. No RevenueCat/IAP.
 - Panels: member + staff + admin all in scope unless user narrows.
 - Turkish UI copy parity with web — locked strings win over “better” copy.
 - If conflict between imagination and LOCK file → LOCK wins; if conflict between LOCK and live web → ask user / GAP protocol.

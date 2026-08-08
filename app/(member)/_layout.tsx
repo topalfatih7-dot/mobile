@@ -14,7 +14,6 @@ import {
 import { isDetailedHealthTestComplete } from '@/data/healthTest';
 import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
 import { loadMemberChat, subscribeMemberChat } from '@/services/chat';
-import { configureIap } from '@/services/iap';
 import {
   fetchMemberTickets,
   subscribeMemberTickets,
@@ -122,7 +121,6 @@ function MemberPushBootstrap() {
 
     (async () => {
       await unlockNotificationAudio();
-      await configureIap(userId);
       if (alive) await registerForPushNotifications(userId);
     })();
 

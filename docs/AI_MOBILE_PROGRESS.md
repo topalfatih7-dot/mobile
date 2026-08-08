@@ -1,8 +1,20 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-07 — Üye egzersiz videosu: expo-video + ortalanmış detay modal  
+> **Son güncelleme:** 2026-08-08 — RevenueCat / telefon IAP tam iptal; web Stripe CTA  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-08 RevenueCat / IAP iptal
+
+| Madde | Durum |
+|-------|--------|
+| Web `api/revenuecat-webhook.js` silindi → Vercel Hobby **12/12** | ✅ |
+| Stripe `ACTIVE_MOBILE_SUBSCRIPTION` guard kaldırıldı | ✅ |
+| Mobil SDK/deps (`react-native-purchases*`, `iap.ts`, Paywall, CustomerCenter) | ✅ |
+| `profile/payments` → Supabase status + web `/membership` CTA | ✅ |
+| RC MCP: webhook silindi, offering/entitlement/51 ürün arşiv | ✅ |
+| LOCK / skills / contracts MOBILE DIFF | ✅ |
+| Mevcut `provider:revenuecat` üyelikler | dokunulmadı (süre bitene kadar) |
 
 ## 2026-08-07 üye egzersiz videosu (library / programs / calendar)
 
@@ -39,7 +51,7 @@
 | Kütüphane docs arşivi (`docs/library-refs/`) — Expo 56 / RN 0.85 / RC / Daily / Supabase / Reanimated / Expo modules | ✅ |
 | Elle test planı (`docs/qa/MANUAL_TEST_PLAN.md`) — T0–T10, bug formatı, flow eşlemesi | ✅ |
 | Agent smoke (`docs/qa/RESULTS-2026-08-06.md`) — tsc/import/API/DB/web export + Metro | ✅ |
-| IAP `setLogLevel` null crash fix (`src/services/iap.ts`) | ✅ kod; cihaz reload doğrulama bekliyor |
+| IAP `setLogLevel` null crash fix | ⛔ IAP kaldırıldı (2026-08-08) |
 | Kullanıcı elle UI T1+; FCM credential USER | 🔄 devam |
 
 ## 2026-08-06 full audit
@@ -50,7 +62,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 |-------|--------|
 | Docs cleanup (`docs/` kök kopyaları silindi; otorite `docs/mobile/`) | ✅ |
 | FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ config; `google-services.json` / `GoogleService-Info.plist` kullanıcı sağlar |
-| RevenueCat test key + `PaywallModal` / `CustomerCenterButton` / entitlement | ✅ |
+| RevenueCat test key + Paywall / CustomerCenter | ⛔ IAP kaldırıldı (2026-08-08) |
 | `shadow*` → `boxShadow` + `pointerEvents` style migrasyonu | ✅ |
 | Library virtualization + admin members pagination | ✅ |
 | Admin messages audit sekmeleri, applications staff create, content/blog/library CRUD | ✅ |
@@ -62,7 +74,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 
 **Kalan USER blockers:**
 1. Proje köküne `google-services.json` + `GoogleService-Info.plist` koy (`SETUP_REQUIRED.md`)
-2. App Store / Play Console ürün ID’leri + RevenueCat dashboard ürün eşlemesi
+2. ~~App Store / Play + RevenueCat ürün eşlemesi~~ — IAP iptal; web Stripe
 3. Cihazda EAS preview: `npm run build:preview:ios` / `npm run build:preview:android`
 
 ## Store yolu (üye)
@@ -71,7 +83,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 |-----|-------|----------|
 | P0 Hesaplar | 🔑 test key eklendi | `store/P0-handoff-checklist.md` |
 | P1 Auth | ✅ kod | — |
-| P2 IAP | ✅ kod + test keys; store ürünleri bekliyor | `store/P2-live-gate.md` |
+| P2 IAP | ⛔ iptal — web membership CTA | `store/P2-live-gate.md` |
 | P3 Push | ✅ + yerel banner; FCM files USER | `store/P3-push-test-gate.md` |
 | P4 Splash/EAS | ✅ projectId; preview build USER | `store/P4-splash-eas-gate.md` |
 | P5 Parity | ✅ messages presence/programs | `store/P5-parity-gate.md` |
@@ -87,14 +99,13 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 | **UI-only** | Demo kısa devre | ⬜ kapalı (`false`) |
 | **P1 Member** | Schedule, health-test, messages, calorie, notifications, support, payments | ✅ |
 | **P1 Call** | Daily token + native SDK / WebView fallback | ✅ |
-| **Native SDK** | RevenueCat, Daily RN, expo-notifications, expo-audio, camera | ✅ |
+| **Native SDK** | Daily RN, expo-notifications, expo-audio, camera (RC kaldırıldı) | ✅ |
 | **Nav chrome** | PanelTopBar + PanelDrawer (3 rol) | ✅ |
 | **Staff/Admin DB** | platformDb + gerçek sohbet / premium / plans | ✅ |
 | **Public** | Landing/membership/blog native; about/team/legal WebView; SKIP stubs | ✅ |
 | **Web parity taraması** | Faz A–D checklist | ✅ 2026-07-26 |
 | **Smoke re-scan** | tsc + 77 app import resolve + `expo export --platform web` + Supabase tablo/count | ✅ 2026-07-26 |
-| RevenueCat keys | iOS/Android public SDK | ✅ test key bağlandı — 2026-08-06 |
-| RevenueCat paywall | `PaywallModal` + `CustomerCenterButton` + `checkEntitlement` | ✅ 2026-08-06 |
+| RevenueCat keys / paywall | ⛔ kaldırıldı — 2026-08-08 |
 | Push tokens | `device_push_tokens` + Expo Push | ✅ kod; cihaz smoke bekliyor |
 | Messages presence | `user_presence` + program panel | ✅ 2026-08-06 |
 

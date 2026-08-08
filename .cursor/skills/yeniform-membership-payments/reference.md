@@ -27,6 +27,6 @@
 - `src/services/premiumMembership.js`
 - `src/services/supabaseDb.js` → `changeMemberPlan`, `adminUpdatePremiumMembership`, `registerWithPlan`
 
-## IAP SKU naming (convention for docs)
+## IAP SKU naming — KALDIRILDI
 
-`yf_{plan}_{months}m` e.g. `yf_vip_6m`, `yf_doktor_once`
+Eski `yf_{plan}_{months}m` şeması artık kullanılmaz (mobil IAP iptal 2026-08-08).

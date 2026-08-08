@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -11,73 +11,29 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { MembershipBadge } from '@/components/home/MembershipBadge';
-import { CustomerCenterButton } from '@/components/membership/CustomerCenterButton';
-import { PaywallModal } from '@/components/membership/PaywallModal';
 import { useToast } from '@/context/ToastContext';
-import { useAuth } from '@/context/AuthContext';
-import { useData, useMember } from '@/context/DataContext';
+import { useMember } from '@/context/DataContext';
+import { env } from '@/config/env';
 import { getPlanLabel } from '@/data/membershipPlans';
-import { fetchMemberById } from '@/services/memberDb';
-import {
-  checkEntitlement,
-  getAvailablePackages,
-  getIapConfigStatus,
-  openCustomerCenter,
-  purchasePackage,
-  restorePurchases,
-  type IapPackage,
-} from '@/services/iap';
 import {
   isPackageEntryActive,
   migrateLegacyToPackages,
 } from '@/utils/memberPackages';
 import { colors, fonts, radius, spacing } from '@/theme';
 
-const ENTITLEMENT_POLL_ATTEMPTS = 8;
-const ENTITLEMENT_POLL_DELAY_MS = 1500;
-
-function wait(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-function entitlementSignature(value: Record<string, unknown> | null) {
-  if (!value) return '';
-  return JSON.stringify({
-    membership: value.membership || 'free',
-    membershipStatus: value.membershipStatus || 'active',
-    premiumExpiresAt: value.premiumExpiresAt || null,
-    packages: value.packages || [],
-  });
-}
-
 /**
  * LOCK: docs/mobile/screens/member/payments.md
- * MOBILE DIFF: RevenueCat tam abonelik işlem geçmişi sağlamadığı için sahte geçmiş yok.
+ * MOBILE DIFF: Uygulama içi IAP/RevenueCat kaldırıldı — satın alma/yönetim web Stripe.
  */
 export default function PaymentsScreen() {
   const insets = useSafeAreaInsets();
   const member = useMember();
-  const { refreshAuth, userId } = useAuth();
-  const { refreshData } = useData();
   const { toast } = useToast();
-  const [restoring, setRestoring] = useState(false);
-  const [managing, setManaging] = useState(false);
-  const [purchasing, setPurchasing] = useState<string | null>(null);
-  const [storePackages, setStorePackages] = useState<IapPackage[]>([]);
-  const [packagesLoading, setPackagesLoading] = useState(true);
-  const [packagesError, setPackagesError] = useState<string | null>(null);
-  const [paywallVisible, setPaywallVisible] = useState(false);
-  const [proEntitlement, setProEntitlement] = useState<{
-    checked: boolean;
-    active: boolean;
-    productId?: string;
-  }>({ checked: false, active: false });
+  const [openingWeb, setOpeningWeb] = useState(false);
 
   const membership = String(member?.membership || 'free');
   const status = String(member?.membershipStatus || 'active');
   const expires = member?.premiumExpiresAt ? String(member.premiumExpiresAt) : null;
-  const iapStatus = getIapConfigStatus();
-  const storeReady = iapStatus.ready;
 
   const packages = useMemo(
     () =>
@@ -87,90 +43,20 @@ export default function PaymentsScreen() {
     [member],
   );
 
-  useEffect(() => {
-    let alive = true;
-    if (!userId || !storeReady) {
-      setPackagesLoading(false);
-      setStorePackages([]);
-      setPackagesError(null);
-      return;
-    }
-
-    setPackagesLoading(true);
-    setPackagesError(null);
-    void getAvailablePackages(userId).then((result) => {
-      if (!alive) return;
-      if (result.ok) {
-        setStorePackages(result.packages);
-        setPackagesError(result.packages.length ? null : 'Mağazada aktif paket bulunamadı.');
-      } else {
-        setPackagesError(result.error);
-      }
-      setPackagesLoading(false);
-    });
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, storeReady]);
-
-  useEffect(() => {
-    let alive = true;
-    if (!userId || !storeReady) return;
-    void checkEntitlement(userId).then((result) => {
-      if (!alive) return;
-      setProEntitlement({ checked: true, active: result.active, productId: result.productId });
-    });
-    return () => {
-      alive = false;
-    };
-  }, [userId, storeReady]);
-
-  const pollAuthoritativeEntitlement = async (
-    baseline: string,
-    expectedPlanId?: IapPackage['planId'],
-  ) => {
-    if (!userId) return false;
-    for (let attempt = 0; attempt < ENTITLEMENT_POLL_ATTEMPTS; attempt += 1) {
-      await refreshAuth();
-      await refreshData();
-      const latest = await fetchMemberById(userId);
-      const changed = entitlementSignature(latest) !== baseline;
-      const expectedActive =
-        !expectedPlanId ||
-        latest?.membership === expectedPlanId ||
-        migrateLegacyToPackages(latest).some(
-          (entry: { planId?: string; status?: string }) =>
-            entry.planId === expectedPlanId && isPackageEntryActive(entry),
-        );
-      if (changed && expectedActive) {
-        await refreshAuth();
-        await refreshData();
-        return true;
-      }
-      if (attempt < ENTITLEMENT_POLL_ATTEMPTS - 1) {
-        await wait(ENTITLEMENT_POLL_DELAY_MS);
-      }
-    }
-    await refreshAuth();
-    await refreshData();
-    return false;
-  };
-
-  const buy = async (pkg: IapPackage) => {
-    if (!userId) return;
-    const baseline = entitlementSignature(member);
-    setPurchasing(pkg.identifier);
+  const openWebMembership = async () => {
+    const url = `${env.apiBaseUrl}/membership`;
+    setOpeningWeb(true);
     try {
-      const result = await purchasePackage(pkg.identifier, userId);
-      if (!result.ok) {
-        if (!result.cancelled) toast(result.error, 'error');
+      const can = await Linking.canOpenURL(url);
+      if (!can) {
+        toast('Web sayfası açılamadı.', 'error');
         return;
       }
-      await pollAuthoritativeEntitlement(baseline, pkg.planId);
-      toast('Ödeme alındı! Planınız birkaç saniye içinde güncellenecek.', 'success');
+      await Linking.openURL(url);
+    } catch {
+      toast('Web sayfası açılamadı.', 'error');
     } finally {
-      setPurchasing(null);
+      setOpeningWeb(false);
     }
   };
 
@@ -192,7 +78,7 @@ export default function PaymentsScreen() {
             <Text style={styles.backText}>Geri</Text>
           </Pressable>
           <Text style={styles.title}>Ödemeler & Üyelik</Text>
-          <Text style={styles.sub}>Mevcut planınız ve abonelik yönetimi</Text>
+          <Text style={styles.sub}>Mevcut planınız ve web üzerinden yönetim</Text>
         </FadeIn>
 
         <FadeIn delay={60}>
@@ -229,41 +115,6 @@ export default function PaymentsScreen() {
           )}
         </FadeIn>
 
-        {proEntitlement.checked ? (
-          <FadeIn delay={80}>
-            <View style={styles.entitlementRow}>
-              <View
-                style={[
-                  styles.entitlementBadge,
-                  proEntitlement.active ? styles.entitlementBadgeActive : styles.entitlementBadgeFree,
-                ]}>
-                <Ionicons
-                  color={proEntitlement.active ? colors.sage[600] : colors.cream[800]}
-                  name={proEntitlement.active ? 'checkmark-circle' : 'person-circle-outline'}
-                  size={16}
-                />
-                <Text
-                  style={[
-                    styles.entitlementLabel,
-                    proEntitlement.active
-                      ? styles.entitlementLabelActive
-                      : styles.entitlementLabelFree,
-                  ]}>
-                  {proEntitlement.active ? 'Yeniform Pro' : 'Ücretsiz'}
-                </Text>
-              </View>
-              {!proEntitlement.active && (
-                <Button
-                  label="Aboneliği Yükselt"
-                  onPress={() => setPaywallVisible(true)}
-                  size="md"
-                  style={styles.upgradeBtn}
-                />
-              )}
-            </View>
-          </FadeIn>
-        ) : null}
-
         {packages.length > 0 ? (
           <FadeIn delay={100}>
             <Text style={styles.section}>Aktif paketler</Text>
@@ -283,129 +134,22 @@ export default function PaymentsScreen() {
           </FadeIn>
         ) : null}
 
-        <FadeIn delay={130}>
-          <Text style={styles.section}>Mağaza paketleri</Text>
-          {!storeReady && iapStatus.reason === 'no_key' ? (
-            <View style={styles.setupCard}>
-              <Ionicons color={colors.brand[600]} name="storefront-outline" size={22} />
-              <Text style={styles.setupTitle}>Mobil satın alma yakında</Text>
-              <Text style={styles.setupBody}>
-                App Store / Play ürünleri ve RevenueCat anahtarları bağlanınca burada paket
-                yükseltebilirsin. Web’den aldığın üyelik giriş yaptığında zaten geçerlidir.
-              </Text>
-            </View>
-          ) : packagesLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.brand[600]} />
-              <Text style={styles.loadingText}>Paketler yükleniyor…</Text>
-            </View>
-          ) : packagesError ? (
-            <View style={styles.note}>
-              <Ionicons color={colors.gold[500]} name="information-circle" size={20} />
-              <Text style={styles.noteText}>{packagesError}</Text>
-            </View>
-          ) : (
-            <View style={styles.storeList}>
-              {storePackages.map((pkg) => (
-                <View key={pkg.productId} style={styles.storeCard}>
-                  <View style={styles.storeInfo}>
-                    <Text style={styles.storePlan}>{getPlanLabel(pkg.planId)}</Text>
-                    <Text style={styles.storeDuration}>
-                      {pkg.durationMonths === 0
-                        ? 'Tek seferlik'
-                        : pkg.durationMonths === 1
-                          ? '1 ay'
-                          : `${pkg.durationMonths} ay`}
-                    </Text>
-                  </View>
-                  <Text style={styles.storePrice}>{pkg.priceString}</Text>
-                  <Button
-                    disabled={Boolean(purchasing)}
-                    label={
-                      purchasing === pkg.identifier
-                        ? 'Üyelik güncelleniyor…'
-                        : 'Satın al'
-                    }
-                    loading={purchasing === pkg.identifier}
-                    onPress={() => void buy(pkg)}
-                    size="md"
-                  />
-                </View>
-              ))}
-            </View>
-          )}
-        </FadeIn>
-
-        <FadeIn delay={140} style={styles.actions}>
+        <FadeIn delay={130} style={styles.actions}>
           <View style={styles.note}>
             <Ionicons color={colors.gold[500]} name="information-circle" size={20} />
             <Text style={styles.noteText}>
-              {storeReady
-                ? 'Abonelik ve ödemeleriniz App Store veya Google Play hesabınız üzerinden yönetilir.'
-                : 'Üyelik bilgin Supabase’ten gelir. Mağaza yönetimi RevenueCat bağlanınca açılır.'}
+              Satın alma ve abonelik yönetimi web üzerinden yapılır. Web’den aldığınız üyelik
+              giriş yaptığınızda uygulamada geçerlidir.
             </Text>
           </View>
           <Button
-            disabled={!storeReady}
-            label="Aboneliği yönet"
-            loading={managing}
-            onPress={async () => {
-              if (!userId || !storeReady) return;
-              setManaging(true);
-              try {
-                const result = await openCustomerCenter(userId);
-                if (!result.ok) {
-                  toast(result.error, 'error');
-                  return;
-                }
-                await refreshAuth();
-              } finally {
-                setManaging(false);
-              }
-            }}
-            style={{ marginBottom: spacing.sm }}
+            label="Web’den satın al / yönet"
+            loading={openingWeb}
+            onPress={() => void openWebMembership()}
+            size="lg"
           />
-          <Button
-            disabled={!storeReady}
-            label={
-              restoring
-                ? 'Üyelik güncelleniyor…'
-                : 'Satın almaları geri yükle'
-            }
-            loading={restoring}
-            onPress={async () => {
-              if (!userId || !storeReady) return;
-              const baseline = entitlementSignature(member);
-              setRestoring(true);
-              try {
-                const res = await restorePurchases(userId);
-                if (!res.ok) {
-                  toast(res.error, 'error');
-                  return;
-                }
-                await pollAuthoritativeEntitlement(baseline);
-                toast('Satın almalar geri yüklendi.', 'success');
-              } finally {
-                setRestoring(false);
-              }
-            }}
-            variant="secondary"
-          />
-          {userId ? <CustomerCenterButton userId={userId} /> : null}
         </FadeIn>
       </ScrollView>
-
-      <PaywallModal
-        visible={paywallVisible}
-        onDismiss={() => {
-          setPaywallVisible(false);
-          if (userId) {
-            void checkEntitlement(userId).then((result) => {
-              setProEntitlement({ checked: true, active: result.active, productId: result.productId });
-            });
-          }
-        }}
-      />
     </MeshBackground>
   );
 }
@@ -473,51 +217,7 @@ const styles = StyleSheet.create({
   },
   pkgName: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
   pkgMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
-  loadingRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.cream[200],
-  },
-  loadingText: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  storeList: { gap: spacing.sm },
-  storeCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.cream[200],
-    gap: spacing.sm,
-  },
-  storeInfo: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  storePlan: { fontFamily: fonts.displayBold, fontSize: 17, color: colors.cream[900] },
-  storeDuration: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.brand[700] },
-  storePrice: { fontFamily: fonts.displayExtra, fontSize: 21, color: colors.brand[700] },
   actions: { gap: spacing.sm },
-  setupCard: {
-    backgroundColor: colors.brand[50],
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.brand[100],
-    gap: spacing.sm,
-  },
-  setupTitle: {
-    fontFamily: fonts.sansSemi,
-    fontSize: 16,
-    color: colors.cream[900],
-  },
-  setupBody: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.cream[800],
-  },
   note: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -533,41 +233,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.cream[800],
     lineHeight: 19,
-  },
-  entitlementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  entitlementBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radius.full,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-  },
-  entitlementBadgeActive: {
-    backgroundColor: colors.sage[50],
-    borderColor: colors.sage[200],
-  },
-  entitlementBadgeFree: {
-    backgroundColor: colors.cream[100],
-    borderColor: colors.cream[300],
-  },
-  entitlementLabel: {
-    fontFamily: fonts.sansSemi,
-    fontSize: 13,
-  },
-  entitlementLabelActive: {
-    color: colors.sage[700],
-  },
-  entitlementLabelFree: {
-    color: colors.cream[800],
-  },
-  upgradeBtn: {
-    flex: 1,
   },
 });

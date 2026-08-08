@@ -18,9 +18,11 @@ RLS: member own threads; `staff_manages_member`; admin. Realtime via `useRealtim
 
 ## Daily video
 
-- Route: `/call/:sessionType/:sessionId` (member) or `/staff/call/...`
-- API: `POST /api/daily-room` — auth required; private room; token ~1h; room exp ~2h; max 4
-- Mobile: Daily React Native SDK; camera/mic permissions
+- Route: `/(member)/call/:sessionType/:sessionId` or `/(staff)/call/...`
+- API: `POST /api/daily-room` body `{ sessionType, sessionId, userName }` (web parity — **not** `roomName`/`isOwner`)
+- Server: auth + join window + `scheduled` only; private room; token ~1h; room exp ~2h; max 4
+- Mobile: `getDailyRoomToken` → Daily React Native SDK; camera/mic permissions
+- Contract: `docs/mobile/contracts/api-daily-room.md`
 
 ## Push (mobile addition)
 

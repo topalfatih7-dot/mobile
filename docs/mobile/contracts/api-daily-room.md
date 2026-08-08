@@ -1,5 +1,8 @@
 # Contract — POST /api/daily-room (LOCK)
 
+Web parity: `Adsız/src/config/videoCall.js` → `getDailyToken(sessionType, sessionId, userName)`  
+Server: `Adsız/api/daily-room.js`
+
 ## Request
 
 ```http
@@ -8,14 +11,20 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "roomName": "donusum-coach-sessionid",
-  "userName": "Ayşe",
-  "isOwner": false
+  "sessionType": "coach" | "dietitian" | "doctor",
+  "sessionId": "bk-… veya s-…",
+  "userName": "Ayşe"
 }
 ```
 
-Required: `roomName`.  
+Required: **`sessionId`** (trimmed).  
+`sessionType` normalize: unknown → `coach`.  
 `userName` default server-side: `Katılımcı`.
+
+`sessionId` = `members.data.coachSessions|dietitianSessions|doctorSessions[].id`  
+(Daily room adı **değil** — server `buildRoomName` üretir.)
+
+Do **not** send `roomName` / `isOwner` — server decides ownership and room name.
 
 ## Success 200
 
@@ -23,34 +32,35 @@ Required: `roomName`.
 {
   "ok": true,
   "token": "<daily meeting token>",
-  "roomUrl": "https://YOURDOMAIN.daily.co/donusum-coach-sessionid"
+  "roomUrl": "https://YOURDOMAIN.daily.co/donusum-coach-…",
+  "roomName": "donusum-coach-…",
+  "isOwner": false
 }
 ```
 
-`roomUrl` may be `null` if `VITE_DAILY_DOMAIN` / domain env empty.
+## Errors (exact Turkish)
 
-## Errors
-
-```json
-{ "ok": false, "error": "POST bekleniyor" }
-```
-
-```json
-{ "ok": false, "error": "roomName gerekli" }
-```
-
-```json
-{ "ok": false, "error": "DAILY_API_KEY tanımlı değil (opsiyonel)" }
-```
+| HTTP | code | error |
+|------|------|-------|
+| 400 | bad_request | `sessionId gerekli` |
+| 401 | — | `Oturum bulunamadı.` |
+| 403 | forbidden | `Bu görüşme türüne erişiminiz yok.` / `Bu görüşmeye erişiminiz yok.` / `Randevu bulunamadı.` |
+| 403 | inactive | `Bu randevu aktif değil veya iptal edilmiş.` |
+| 403 | too_early | `Görüşme katılma penceresi henüz açılmadı.` |
+| 403 | expired | `Görüşme süresi doldu.` |
+| 405 | — | `POST bekleniyor` |
+| 429 | rate_limit | `Çok fazla istek. Lütfen sonra tekrar deneyin.` |
+| 503 | config | `DAILY_API_KEY tanımlı değil` / `Veritabanı yapılandırması eksik.` |
 
 ## Server room properties (do not change in mobile)
 
 - privacy: private  
 - exp: now+7200s  
 - max_participants: 4  
-- enable_screenshare/chat: true  
 - token exp: now+3600s  
+- Join window: coach 10/20 · dietitian 15/30 · doctor 15/30 (`api/_videoJoinWindows.js`)  
+- Status: only `scheduled`
 
 ## Client helper
 
-Web: `getDailyToken(roomName, userName, isOwner)` returns token string or null (swallows errors). Mobile may surface 503 to user.
+Mobile: `getDailyRoomToken({ sessionType, sessionId, userName })` in `src/services/dailyRoom.ts`.

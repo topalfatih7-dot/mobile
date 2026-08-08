@@ -10,18 +10,18 @@
 
 ## Path params
 
-- `sessionType`: `coach` | `dietitian` | `doctor` (SESSION_TYPE_META keys)
-- `sessionId`: session identifier (sanitized for room)
+- `sessionType`: `coach` | `dietitian` | `doctor`
+- `sessionId`: `members.data.*Sessions[].id` (ör. `bk-…`, `s-…`)
 
-## Room name (birebir)
+## Room name (server üretir; client fallback)
 
 ```js
-roomPrefix = EXPO_PUBLIC_DAILY_ROOM_PREFIX || 'donusum'  // web VITE_DAILY_ROOM_PREFIX
+roomPrefix = EXPO_PUBLIC_DAILY_ROOM_PREFIX || 'donusum'
 safeId = sessionId.replace(/[^a-zA-Z0-9-_]/g, '')
 roomName = `${roomPrefix}-${sessionType}-${safeId}`.toLowerCase()
 ```
 
-## Token request
+## Token request (web parity — 2026-08-08)
 
 ```http
 POST /api/daily-room
@@ -29,52 +29,44 @@ Authorization: Bearer …
 Content-Type: application/json
 
 {
-  "roomName": "donusum-coach-abc123",
-  "userName": "<displayName>",
-  "isOwner": false
+  "sessionType": "coach",
+  "sessionId": "<session.id>",
+  "userName": "<displayName>"
 }
 ```
 
-- Member: `isOwner: false`
-- Staff audience: `isOwner: true` (web: `audience === 'staff'`)
+- `isOwner` / `roomName` **gönderme** — server karar verir
+- Member join: `isOwner: false` response
+- Staff: `isOwner: true` response
 
 ### Success
 
 ```json
-{ "ok": true, "token": "<jwt>", "roomUrl": "https://{domain}/{roomName}" }
+{ "ok": true, "token": "<jwt>", "roomUrl": "https://{domain}/{roomName}", "roomName": "…", "isOwner": false }
 ```
-
-`roomUrl` null if domain env missing — still may have token.
 
 ### Errors
 
-| Status | error |
-|--------|-------|
-| 405 | POST bekleniyor |
-| 401 | auth error |
-| 503 | DAILY_API_KEY tanımlı değil (opsiyonel) |
-| 400 | roomName gerekli |
-| 500 | message string |
+Exact strings: `contracts/api-daily-room.md` — notably **`sessionId gerekli`** if body missing `sessionId`.
 
-## Join window
+## Join window (web / `_videoJoinWindows.js`)
 
-Only allow join within `[sessionStart - 15min, sessionEnd + 30min]` defaults unless env overrides — mirror VideoCallPage / VideoJoinLink.
+| Type | Before start | After session end |
+|------|--------------|-------------------|
+| coach | 10 dk | 20 dk |
+| dietitian | 15 dk | 30 dk |
+| doctor | 15 dk | 30 dk |
 
-## Native
+Status for token: **`scheduled` only** (not `rescheduled` / `pending`).
 
-- Daily React Native SDK
-- Camera + microphone permissions
-- No custom SFU
+## UI / SDK
 
-## SESSION_TYPE_META labels
-
-- coach: Koç Görüşmesi  
-- dietitian: Diyetisyen Görüşmesi  
-- doctor: (read rest from `videoCall.js` — copy labels, don’t invent)
+- Daily RN (`@daily-co/react-native-daily-js`) or WebView fallback
+- Camera/mic permission before join
+- Empty `sessionId` → client: `Randevu bulunamadı.` (no API call)
 
 ## Acceptance
 
-- [ ] roomName formula exact  
-- [ ] isOwner staff vs member  
-- [ ] API body field names exact (`roomName`, `userName`, `isOwner`)  
-- [ ] Prefix default `donusum`  
+- [ ] Schedule Katıl → call screen → token 200 (no `sessionId gerekli`)
+- [ ] Body contains `sessionType` + `sessionId`
+- [ ] Outside window: Turkish too_early / client countdown

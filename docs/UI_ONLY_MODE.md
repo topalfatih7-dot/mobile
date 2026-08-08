@@ -44,8 +44,8 @@ Tek anahtar: `src/config/runtime.ts` → `UI_ONLY_MODE`
 ```text
 1. .env / .env.local: EXPO_PUBLIC_SUPABASE_* + API_BASE + DAILY_DOMAIN
 2. UI_ONLY_MODE = false
-3. IAP: EXPO_PUBLIC_REVENUECAT_API_KEY_IOS / _ANDROID (opsiyonel GAP)
-4. Dev-client rebuild (Daily / RevenueCat / notifications)
+3. Ödeme: web `/membership` CTA (IAP yok)
+4. Dev-client rebuild (Daily / notifications)
 ```
 
 ## 4. İlgili

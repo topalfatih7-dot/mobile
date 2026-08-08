@@ -1,18 +1,19 @@
 ---
 name: yeniform-membership-payments
 description: >-
-  Handles Yeni Form membership plans, entitlements, Stripe web checkout, and
-  mobile IAP via RevenueCat. Use when working on paket, üyelik, plan kilidi,
-  entitlement, Stripe, IAP, RevenueCat, premium expiry, or payment webhooks.
+  Handles Yeni Form membership plans, entitlements, and Stripe web checkout.
+  Mobile has no in-app IAP — purchase/manage via web CTA. Use when working on
+  paket, üyelik, plan kilidi, entitlement, Stripe, premium expiry, or payment webhooks.
 ---
 
 # Yeni Form Membership & Payments
 
 ## Locked model
 
-- **Mobile digital subs:** App Store / Play via **RevenueCat** (IAP required).
-- **Web:** existing Stripe Checkout + `api/stripe-webhook.js`.
-- **Source of truth:** Supabase `members.membership`, `membership_status`, package/expiry in `members.data` (and related fields).
+- **Mobile:** No App Store / Play IAP. Payments screen shows Supabase plan/status + CTA to `${apiBase}/membership` (web Stripe).
+- **Web:** Stripe Checkout + `api/stripe-webhook.js` (web repo).
+- **Source of truth:** Supabase `members.membership`, `membership_status`, package/expiry in `members.data`.
+- **Removed:** RevenueCat SDK, `api/revenuecat-webhook.js`, mobil satın alma / restore / Customer Center.
 
 ## Plan IDs
 
@@ -30,10 +31,11 @@ From `src/data/membershipPlans.js` — copy into mobile:
 
 ## When coding or documenting
 
-1. Read `docs/mobile/04-payments-iap.md` and `domains/membership-entitlements.md`.
+1. Read `docs/mobile/screens/member/payments.md` and `domains/membership-entitlements.md`.
 2. Never unlock paid features client-only; server/RLS + membership row must agree.
-3. New webhook: RevenueCat → update same fields as Stripe webhook.
+3. Do not re-add RevenueCat / `react-native-purchases` without an explicit new MOBILE DIFF.
 4. Expiry → downgrade to `free` (parity `syncMembershipExpiryStatus`).
+5. Historical `provider: revenuecat` package rows may still exist — leave until natural expiry.
 
 ## Related
 

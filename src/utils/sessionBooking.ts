@@ -112,6 +112,10 @@ export function countSessionsThisMonth(sessions: MemberSession[] = [], now = new
   }).length;
 }
 
+/**
+ * @deprecated Prefer canJoinSession from videoCallSession (sektör penceresi + duration).
+ * Sabit 15/30 — yalnızca geriye dönük uyumluluk.
+ */
 export function isJoinWindowOpen(sessionDateIso: string, now = new Date()) {
   const start = new Date(sessionDateIso).getTime();
   if (!start || Number.isNaN(start)) return false;

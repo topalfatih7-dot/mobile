@@ -182,7 +182,6 @@ export function VideoCallShell({
   }, []);
 
   const label = TYPE_LABEL[sessionType] || 'Görüntülü görüşme';
-  const roomName = buildDailyRoomName(sessionType, sessionId);
   const userName =
     String(displayName || member?.name || staff?.name || 'Katılımcı').trim() ||
     'Katılımcı';
@@ -263,6 +262,14 @@ export function VideoCallShell({
 
   const joinCall = async () => {
     setTokenError('');
+    const sid = String(sessionId || '').trim();
+    if (!sid) {
+      const message = 'Randevu bulunamadı.';
+      setTokenError(message);
+      toast(message, 'error');
+      return;
+    }
+
     if (!canJoin) {
       const message = joinAccess?.reason || 'Bu görüşmeye şu anda katılamazsınız.';
       setTokenError(message);
@@ -286,16 +293,23 @@ export function VideoCallShell({
         return;
       }
 
-      const tokenRes = await getDailyRoomToken({ roomName, userName, isOwner });
+      // Web parity: sessionType + sessionId (server builds room / isOwner)
+      const tokenRes = await getDailyRoomToken({
+        sessionType,
+        sessionId: sid,
+        userName,
+      });
       if (!tokenRes.ok) {
         setTokenError(tokenRes.error);
         toast(tokenRes.error, 'error');
         return;
       }
 
+      const fallbackRoom =
+        tokenRes.roomName || buildDailyRoomName(sessionType, sid);
       const url =
         tokenRes.roomUrl ||
-        (env.dailyDomain ? `https://${env.dailyDomain}/${roomName}` : null);
+        (env.dailyDomain ? `https://${env.dailyDomain}/${fallbackRoom}` : null);
 
       if (!url) {
         const message = 'Görüşme odası URL bulunamadı.';

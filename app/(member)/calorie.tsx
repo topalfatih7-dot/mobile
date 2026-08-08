@@ -230,9 +230,11 @@ export default function CalorieScreen() {
 
   const runVision = async (useCamera: boolean) => {
     if (!canPhoto || busy) return;
+    // base64 picker’da değil uri sonrası — kamera OOM/crash azaltır
+    const pickOpts = { base64: false, quality: 0.55 };
     const result = useCamera
-      ? await pickImageFromCameraDetailed()
-      : await pickImageFromLibraryDetailed();
+      ? await pickImageFromCameraDetailed(pickOpts)
+      : await pickImageFromLibraryDetailed(pickOpts);
     if (!result.ok) {
       if (result.code !== 'canceled') {
         toast(result.message, result.code === 'native_missing' ? 'error' : 'warning');
@@ -240,7 +242,9 @@ export default function CalorieScreen() {
       return;
     }
     const picked = result.image;
-    if (!picked?.base64) {
+    const { readImageUriAsBase64 } = await import('@/services/memberMedia');
+    const base64 = picked.base64 || (await readImageUriAsBase64(picked.uri));
+    if (!base64) {
       toast('Görsel seçilemedi veya izin verilmedi.', 'warning');
       return;
     }
@@ -251,7 +255,7 @@ export default function CalorieScreen() {
     ]);
     setBusy(true);
     const analysis = await analyzeFoodVision(
-      picked.base64,
+      base64,
       picked.mimeType || 'image/jpeg',
     );
     if (!analysis.ok) {

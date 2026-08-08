@@ -1,6 +1,6 @@
 /**
  * Free register path — contracts/api-auth signup + members upsert.
- * Paid → pending_registration + IAP (P2).
+ * Paid → web Stripe (mobil IAP yok); free register on-device.
  * MOBILE DIFF: client=yeniform-mobile; Turnstile yok.
  */
 import { isUiOnly } from '@/config/runtime';

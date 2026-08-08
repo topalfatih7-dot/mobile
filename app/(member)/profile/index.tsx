@@ -248,26 +248,29 @@ export default function ProfileScreen() {
   const onPickPhoto = async () => {
     if (!member?.id) return;
     const wasOpen = editOpen;
-    const picked = await pickProfilePhoto({
-      // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
-      beforePick: wasOpen ? () => setEditOpen(false) : undefined,
-      afterPick: wasOpen ? () => setEditOpen(true) : undefined,
-    });
-    // null = vazgeç / izin yok — sessiz dön
-    if (!picked) return;
-    setUploadingPhoto(true);
     try {
+      const picked = await pickProfilePhoto({
+        // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
+        beforePick: wasOpen ? () => setEditOpen(false) : undefined,
+        afterPick: wasOpen ? () => setEditOpen(true) : undefined,
+      });
+      // null = vazgeç / izin yok — sessiz dön
+      if (!picked) return;
+      setUploadingPhoto(true);
+      // Web parity: members.data.photo = data URL (avatars bucket yok → Bucket not found)
       const uploaded = await uploadMemberFile({
         memberId: String(member.id),
         uri: picked.uri,
         folder: 'profile',
-        contentType: picked.mimeType || 'image/jpeg',
+        contentType: 'image/jpeg',
       });
       if (!uploaded.ok) {
         toast(uploaded.error, 'error');
         return;
       }
-      await updateProfile({ photo: uploaded.url }, { toastMsg: 'Profil güncellendi' });
+      await updateProfile({ photo: uploaded.url }, { toastMsg: 'Profil fotoğrafı güncellendi' });
+    } catch (e) {
+      toast(String((e as Error)?.message || 'Fotoğraf seçilemedi'), 'error');
     } finally {
       setUploadingPhoto(false);
     }

@@ -14,7 +14,7 @@
 | [02-react-native-core.md](./02-react-native-core.md) | RN 0.85 / React 19.2 çekirdek |
 | [03-reanimated-gesture.md](./03-reanimated-gesture.md) | Reanimated 4.3 + Worklets + Gesture Handler |
 | [04-supabase.md](./04-supabase.md) | `@supabase/supabase-js` auth/data/realtime/storage |
-| [05-revenuecat.md](./05-revenuecat.md) | Purchases + Purchases UI (paywall / customer center) |
+| [05-revenuecat.md](./05-revenuecat.md) | KALDIRILDI — mobil IAP iptal (2026-08-08) |
 | [06-daily-video.md](./06-daily-video.md) | `@daily-co/react-native-daily-js` + WebRTC |
 | [07-expo-native-modules.md](./07-expo-native-modules.md) | Camera, Notifications, ImagePicker, SecureStore, AV, Linking… |
 | [08-ui-media-web.md](./08-ui-media-web.md) | Image, SVG, WebView, fonts, gradient, splash |

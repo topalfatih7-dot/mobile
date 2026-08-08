@@ -29,7 +29,6 @@ import {
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
 import {
   countSessionsThisMonth,
-  isJoinWindowOpen,
   memberCallPath,
   parseTabParam,
   SESSION_TABS,
@@ -37,6 +36,10 @@ import {
   type MemberSession,
   type SessionType,
 } from '@/utils/sessionBooking';
+import {
+  canJoinSession,
+  getJoinWindowMinutes,
+} from '@/services/videoCallSession';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /**
@@ -247,8 +250,10 @@ export default function ScheduleScreen() {
                   s.status || 'scheduled',
                 );
                 const canModify = isActive && !isPast;
-                const joinable =
-                  isActive && s.date ? isJoinWindowOpen(s.date) : false;
+                // API daily-room: yalnız scheduled + sektör join window (web parity)
+                const joinCheck = canJoinSession(s, tab);
+                const joinable = Boolean(s.id && joinCheck.ok);
+                const win = getJoinWindowMinutes(tab);
                 const when = s.date
                   ? format(new Date(s.date), "d MMMM yyyy · HH:mm", { locale: tr })
                   : '—';
@@ -278,9 +283,10 @@ export default function ScheduleScreen() {
                       </View>
                       {isActive ? (
                         <View style={styles.cardActions}>
-                        {!joinable && !isPast ? (
+                        {!joinable && !isPast && (s.status || 'scheduled') === 'scheduled' ? (
                           <Text style={styles.joinHint}>
-                            Katılım penceresi: seans öncesi 15 dk / sonrası 30 dk
+                            {joinCheck.reason ||
+                              `Katılım penceresi: seans öncesi ${win.before} dk / sonrası ${win.after} dk`}
                           </Text>
                         ) : null}
                         <View style={styles.actionRow}>

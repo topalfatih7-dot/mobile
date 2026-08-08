@@ -11,7 +11,7 @@
 | TypeScript | ~6.0.3 | — |
 | Hermes | V1 (SDK 56 default) | Expo changelog |
 | Min iOS | **16.4** | SDK 56 breaking |
-| Android | API 24+ (RC paywall); billing API 23+ | RC + Expo |
+| Android | API 24+ | Expo |
 
 ## Expo SDK 56 — bu proje için kritik kırılımlar
 
@@ -37,7 +37,6 @@ Kaynak özeti (reopt handbook + Expo SDK 56 notes, May–Jun 2026):
 
 | Paket | Neden |
 |-------|--------|
-| `react-native-purchases` / `-ui` | StoreKit / Play Billing |
 | `@daily-co/react-native-daily-js` + webrtc | Native WebRTC |
 | `expo-notifications` (production push) | FCM/APNs credential + native build |
 | `expo-secure-store` biometric opsiyonları | Dev client / release; Expo Go FaceID key eksik olabilir |
@@ -46,7 +45,7 @@ Kaynak özeti (reopt handbook + Expo SDK 56 notes, May–Jun 2026):
 
 - `UI_ONLY_MODE` = **false** (`src/config/runtime.ts`) → gerçek Supabase/API.
 - Env isimleri: `docs/mobile/contracts/env-vars.md`.
-- Ödeme: mobilde **yalnızca RevenueCat IAP** (Stripe Checkout yönlendirme yok) — LOCK §3.
+- Ödeme: mobilde IAP yok; web Stripe `/membership` CTA — LOCK §3 (2026-08-08).
 
 ## Bağımlılık envanteri (runtime)
 
@@ -81,8 +80,6 @@ react / react-dom 19.2.3
 react-native 0.85.3
 react-native-gesture-handler ~2.31.1
 react-native-get-random-values ^1.11.0
-react-native-purchases ^10.4.4
-react-native-purchases-ui ^10.4.4
 react-native-reanimated 4.3.1
 react-native-safe-area-context ~5.7.0
 react-native-screens 4.25.2

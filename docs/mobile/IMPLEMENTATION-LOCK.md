@@ -28,8 +28,9 @@ Bu dosya, uygulayıcı yapay zeka / geliştirici için **zorunlu** kurallardır.
 
 ## 3. Ödeme
 
-- Mobil dijital abonelik: **yalnızca** RevenueCat/IAP yolu (`04-payments-iap.md`).
-- Stripe Checkout body: `contracts/api-stripe.md` — mobilde IAP yerine Stripe’a yönlendirme **yapma** (red riski), web parity ayrı.
+- **MOBILE DIFF (2026-08-08):** Uygulama içi IAP / RevenueCat **yok**. Satın alma ve abonelik yönetimi yalnız **web Stripe** (`/membership`, `contracts/api-stripe.md`).
+- Mobil UX: plan/status Supabase’ten; CTA → `Linking.openURL(\`${apiBase}/membership\`)` (`screens/member/payments.md`).
+- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok.
 
 ## 4. Auth
 

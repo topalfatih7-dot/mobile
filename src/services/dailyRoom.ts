@@ -1,5 +1,6 @@
 /**
  * LOCK: docs/mobile/contracts/api-daily-room.md + screens/member/video-call.md
+ * Web parity: Adsız `src/config/videoCall.js` → getDailyToken(sessionType, sessionId, userName)
  */
 import { env } from '@/config/env';
 import { isUiOnly } from '@/config/runtime';
@@ -12,27 +13,48 @@ export function buildDailyRoomName(sessionType: string, sessionId: string): stri
 }
 
 export type DailyRoomResult =
-  | { ok: true; token: string; roomUrl: string | null }
-  | { ok: false; error: string };
+  | {
+      ok: true;
+      token: string;
+      roomUrl: string | null;
+      roomName?: string | null;
+      isOwner?: boolean;
+    }
+  | { ok: false; error: string; code?: string };
 
+/**
+ * POST /api/daily-room — body must be sessionType + sessionId (not roomName).
+ * Server builds room name, validates auth/join window, sets is_owner.
+ */
 export async function getDailyRoomToken(opts: {
-  roomName: string;
-  userName: string;
-  isOwner: boolean;
+  sessionType: string;
+  sessionId: string;
+  userName?: string;
 }): Promise<DailyRoomResult> {
   if (isUiOnly()) {
     return { ok: false, error: 'Görüşme demo modda kullanılamaz.' };
   }
 
+  const sessionId = String(opts.sessionId || '').trim();
+  if (!sessionId) {
+    return { ok: false, error: 'Randevu bulunamadı.', code: 'bad_request' };
+  }
+
+  const sessionType = String(opts.sessionType || 'coach').trim() || 'coach';
+  const userName = String(opts.userName || '').trim() || 'Katılımcı';
+
   const { ok, json, status } = await postJson<{
     ok?: boolean;
     error?: string;
+    code?: string;
     token?: string;
     roomUrl?: string | null;
+    roomName?: string | null;
+    isOwner?: boolean;
   }>('/api/daily-room', {
-    roomName: opts.roomName,
-    userName: opts.userName || 'Katılımcı',
-    isOwner: opts.isOwner,
+    sessionType,
+    sessionId,
+    userName,
   });
 
   if (!ok || json?.ok !== true || !json?.token) {
@@ -42,14 +64,16 @@ export async function getDailyRoomToken(opts: {
     } else if (status === 401) {
       err = String(json?.error || 'Oturum doğrulanamadı. Lütfen tekrar giriş yapın.');
     } else if (status === 503) {
-      err = String(json?.error || 'DAILY_API_KEY tanımlı değil (opsiyonel)');
+      err = String(json?.error || 'DAILY_API_KEY tanımlı değil');
     }
-    return { ok: false, error: err };
+    return { ok: false, error: err, code: json?.code };
   }
 
   return {
     ok: true,
     token: String(json.token),
     roomUrl: json.roomUrl != null ? String(json.roomUrl) : null,
+    roomName: json.roomName != null ? String(json.roomName) : null,
+    isOwner: Boolean(json.isOwner),
   };
 }

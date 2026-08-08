@@ -85,7 +85,7 @@ function demoPlatform(role: string | null): PlatformBundle {
       months: i === 0 ? 6 : 1,
       amount: undefined,
       createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-      source: 'IAP',
+      source: 'stripe',
     })),
     staffApplications: DEMO_APPLICATIONS.filter((a) => a.kind === 'staff') as unknown as Record<
       string,

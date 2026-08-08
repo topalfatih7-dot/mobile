@@ -8,7 +8,7 @@ Expo App (iOS/Android)
   ├─ Auth/Role gates
   ├─ Supabase client (Auth, Postgres, Realtime, Storage signed URLs)
   ├─ Vercel API (auth, stripe, daily-room, ai-*, contact)
-  ├─ RevenueCat (IAP)
+  ├─ Web membership CTA (Stripe; no in-app IAP)
   ├─ Daily React Native (video)
   └─ Expo Notifications (push)
 ```
@@ -27,7 +27,6 @@ mobile/
     theme/                # tokens from 02-design-system
     services/supabase.ts
     services/api.ts
-    services/iap.ts
     features/{auth,membership,chat,health,programs,library,admin}/
   app.json / eas.json
 ```

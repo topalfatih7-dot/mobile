@@ -21,7 +21,7 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
 
 ## Stack
 
-Expo SDK **56** + Expo Router · Auth/Data/Actions Context · Ödeme: RevenueCat IAP (Stripe Checkout yok)
+Expo SDK **56** + Expo Router · Auth/Data/Actions Context · Ödeme: web Stripe (`/membership` CTA; uygulama içi IAP yok)
 
 ## Progress
 

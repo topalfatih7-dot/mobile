@@ -24,8 +24,6 @@ export const env = {
   apiBaseUrl: apiBase,
   adminEmail: (read('EXPO_PUBLIC_ADMIN_EMAIL') || 'admin@yeniform.com').toLowerCase(),
   turnstileSiteKey: read('EXPO_PUBLIC_TURNSTILE_SITE_KEY'),
-  revenueCatIosKey: read('EXPO_PUBLIC_REVENUECAT_API_KEY_IOS'),
-  revenueCatAndroidKey: read('EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID'),
   dailyDomain: read('EXPO_PUBLIC_DAILY_DOMAIN'),
   dailyRoomPrefix: read('EXPO_PUBLIC_DAILY_ROOM_PREFIX') || 'donusum',
   /** Web VITE_PHONE_VERIFY_ENABLED parity — varsayılan kapalı (Twilio yok). */

@@ -1,59 +1,7 @@
-# Contract — POST /api/revenuecat-webhook
+# Contract: RevenueCat webhook — KALDIRILDI
 
-Base: `{API_BASE}/api/revenuecat-webhook`  
-Method: POST  
-Header: `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>`  
-Content-Type: `application/json`
+**Durum:** 2026-08-08 — `POST /api/revenuecat-webhook` web’den silindi (Vercel Hobby slot).
 
-## Purpose
+Yeni mobil satın alma yok. Üyelik güncellemesi yalnız Stripe webhook / admin.
 
-Map RevenueCat subscription events → Supabase `members` (parity with Stripe webhook).
-
-## Security
-
-- Shared secret via `Authorization: Bearer …` (env `REVENUECAT_WEBHOOK_SECRET`)
-- Idempotent by `event.id` → `payments.data.revenueCatEventId`
-
-## Product mapping
-
-| Product id | planId | durationMonths |
-|------------|--------|----------------|
-| `yf_eko_diyet_{1\|3\|6}m` | eko_diyet | 1 / 3 / 6 |
-| `yf_eko_spor_{1\|3\|6}m` | eko_spor | 1 / 3 / 6 |
-| `yf_diyet_{1\|3\|6}m` | diyet | 1 / 3 / 6 |
-| `yf_spor_{1\|3\|6}m` | spor | 1 / 3 / 6 |
-| `yf_vip_{1\|3\|6}m` | vip | 1 / 3 / 6 |
-| `yf_doktor_once` | doktor | 0 (one-time) |
-
-App User ID = Supabase `auth.users.id` = `members.id`.
-
-## Events (minimum)
-
-| type | Action |
-|------|--------|
-| INITIAL_PURCHASE, NON_RENEWING_PURCHASE, PRODUCT_CHANGE | Activate / change plan |
-| RENEWAL | Extend expiry |
-| EXPIRATION, SUBSCRIPTION_PAUSED | Downgrade `free` (Stripe forceMemberToFree parity) |
-| CANCELLATION | No immediate downgrade (access until expiry); optional log |
-
-## Success
-
-```json
-{ "ok": true }
-```
-
-Duplicate event:
-
-```json
-{ "ok": true, "duplicate": true }
-```
-
-## Failure
-
-| status | meaning |
-|--------|---------|
-| 401 | secret missing/invalid |
-| 400 | unparseable product / missing app_user_id |
-| 500 | DB error |
-
-Unknown event types → `200 { "ok": true, "ignored": true }` (RC retry storm önleme).
+Ops notu (web): `docs/OPS_REVENUECAT_WEBHOOK.md` (deprecated).

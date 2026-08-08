@@ -29,6 +29,8 @@ Fields: photo, name, email (**read-only**), phone (**read-only / locked after re
 
 Save: `updateProfile({ name, city, district, photo? })` → toast **Profil güncellendi**
 
+Photo: web parity — `members.data.photo` as JPEG **data URL** (≤720px via `expo-image-manipulator`). No `avatars` storage bucket (does not exist → Bucket not found).
+
 ## PersonalInfoSection edit modal
 
 Fields: photo, name, email (read-only), phone (locked if set; else E.164 + country), birthDate, gender (locked if set), city/district, weight/height/waist, goals[], fitnessLevel, nutritionPrefs[].

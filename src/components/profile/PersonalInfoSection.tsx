@@ -213,26 +213,30 @@ export function PersonalInfoSection({ user }: Props) {
 
   const onPickPhoto = async () => {
     if (!user.id) return;
-    const picked = await pickProfilePhoto({
-      // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
-      beforePick: () => setOpen(false),
-      afterPick: () => setOpen(true),
-    });
-    // null = vazgeç / izin yok — sessiz dön
-    if (!picked) return;
-    setUploadingPhoto(true);
     try {
+      const picked = await pickProfilePhoto({
+        // ImagePicker, açık RN Modal üstünde iOS'ta açılmaz
+        beforePick: () => setOpen(false),
+        afterPick: () => setOpen(true),
+      });
+      // null = vazgeç / izin yok — sessiz dön
+      if (!picked) return;
+      setUploadingPhoto(true);
+      // Web parity: members.data.photo = data URL (avatars bucket yok)
       const uploaded = await uploadMemberFile({
         memberId: String(user.id),
         uri: picked.uri,
         folder: 'profile',
-        contentType: picked.mimeType || 'image/jpeg',
+        contentType: 'image/jpeg',
       });
       if (!uploaded.ok) {
         toast(uploaded.error, 'error');
         return;
       }
       setForm((f) => ({ ...f, photo: uploaded.url }));
+      toast('Fotoğraf seçildi — kaydetmeyi unutmayın', 'success');
+    } catch (e) {
+      toast(String((e as Error)?.message || 'Fotoğraf seçilemedi'), 'error');
     } finally {
       setUploadingPhoto(false);
     }

@@ -1,6 +1,15 @@
 import type { MemberSession, SessionType } from '@/utils/sessionBooking';
 
+/** Web / api/_videoJoinWindows.js parity */
+const JOIN_WINDOW_DEFAULTS: Record<SessionType, { before: number; after: number }> = {
+  coach: { before: 10, after: 20 },
+  dietitian: { before: 15, after: 30 },
+  doctor: { before: 15, after: 30 },
+};
+
+/** @deprecated Use getJoinWindowMinutes(sessionType) — kept for import compatibility */
 export const VIDEO_JOIN_MINUTES_BEFORE = 15;
+/** @deprecated Use getJoinWindowMinutes(sessionType) */
 export const VIDEO_JOIN_MINUTES_AFTER = 30;
 export const DEFAULT_VIDEO_SESSION_DURATION = 30;
 
@@ -9,6 +18,8 @@ export type VideoCallTiming = {
   sessionEnd: Date;
   windowStart: Date;
   windowEnd: Date;
+  before: number;
+  after: number;
   isExpired: boolean;
   isBeforeWindow: boolean;
   isInJoinWindow: boolean;
@@ -56,6 +67,12 @@ export function normalizeVideoSessionType(value: string): SessionType {
   return 'coach';
 }
 
+/** Sektöre göre katılma penceresi (dk önce / süre bitiminden sonra) — web parity */
+export function getJoinWindowMinutes(sessionType: string): { before: number; after: number } {
+  const type = normalizeVideoSessionType(sessionType);
+  return JOIN_WINDOW_DEFAULTS[type] || JOIN_WINDOW_DEFAULTS.coach;
+}
+
 function sessionsKey(type: SessionType) {
   if (type === 'dietitian') return 'dietitianSessions';
   if (type === 'doctor') return 'doctorSessions';
@@ -70,23 +87,23 @@ function remoteStaffLabel(type: SessionType) {
 
 export function getVideoCallTiming(
   session: MemberSession,
+  sessionType: string = 'coach',
   now = new Date(),
 ): VideoCallTiming {
   const start = new Date(String(session.date || ''));
   const durationMinutes = Number(session.duration) || DEFAULT_VIDEO_SESSION_DURATION;
-  const windowStart = new Date(
-    start.getTime() - VIDEO_JOIN_MINUTES_BEFORE * 60_000,
-  );
+  const { before, after } = getJoinWindowMinutes(sessionType);
+  const windowStart = new Date(start.getTime() - before * 60_000);
   const sessionEnd = new Date(start.getTime() + durationMinutes * 60_000);
-  const windowEnd = new Date(
-    start.getTime() + (durationMinutes + VIDEO_JOIN_MINUTES_AFTER) * 60_000,
-  );
+  const windowEnd = new Date(start.getTime() + (durationMinutes + after) * 60_000);
 
   return {
     start,
     sessionEnd,
     windowStart,
     windowEnd,
+    before,
+    after,
     isExpired: now > windowEnd,
     isBeforeWindow: now < windowStart,
     isInJoinWindow: now >= windowStart && now <= windowEnd,
@@ -98,14 +115,13 @@ export function getVideoCallTiming(
   };
 }
 
+/** API daily-room: yalnız status === 'scheduled' */
 export function canAccessVideoCall(
   session: MemberSession | null | undefined,
+  sessionType: string = 'coach',
   now = new Date(),
 ): VideoCallAccess {
-  if (
-    !session ||
-    !['scheduled', 'rescheduled'].includes(session.status || 'scheduled')
-  ) {
+  if (!session || (session.status || 'scheduled') !== 'scheduled') {
     return { ok: false, reason: 'Bu randevu aktif değil veya iptal edilmiş.' };
   }
 
@@ -114,7 +130,7 @@ export function canAccessVideoCall(
     return { ok: false, reason: 'Randevu tarihi geçersiz.' };
   }
 
-  const timing = getVideoCallTiming(session, now);
+  const timing = getVideoCallTiming(session, sessionType, now);
   if (timing.isExpired) {
     return { ok: false, reason: 'Görüşme süresi doldu.', timing };
   }
@@ -123,9 +139,10 @@ export function canAccessVideoCall(
 
 export function canJoinVideoCall(
   session: MemberSession | null | undefined,
+  sessionType: string = 'coach',
   now = new Date(),
 ): VideoCallAccess {
-  const access = canAccessVideoCall(session, now);
+  const access = canAccessVideoCall(session, sessionType, now);
   if (!access.ok || !access.timing) return access;
 
   const { timing } = access;
@@ -224,8 +241,8 @@ export function resolveMemberCallContext(opts: {
 
   if (!session) return { context: null, error: 'Randevu bulunamadı.' };
 
-  const roomAccess = canAccessVideoCall(session, opts.now);
-  const joinCheck = canJoinVideoCall(session, opts.now);
+  const roomAccess = canAccessVideoCall(session, sessionType, opts.now);
+  const joinCheck = canJoinVideoCall(session, sessionType, opts.now);
   return {
     context: {
       session,

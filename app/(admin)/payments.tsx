@@ -35,7 +35,7 @@ export default function AdminPayments() {
         name: String(member?.name || p.memberName || 'Üye'),
         at: String(p.createdAt || p.at || new Date().toISOString()),
         amount,
-        source: String(p.source || p.provider || 'IAP'),
+        source: String(p.source || p.provider || 'stripe'),
       };
     });
   }, [platform.payments, platform.members]);

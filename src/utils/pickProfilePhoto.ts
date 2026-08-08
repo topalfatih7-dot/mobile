@@ -79,11 +79,22 @@ export async function pickProfilePhoto(opts?: {
     return null;
   }
 
+  // Alert kapanmadan kamera açılırsa Android’de Activity geçişi crash/kill riski
+  await delay(Platform.OS === 'android' ? 200 : 80);
+
+  const pickOpts = {
+    // Profil upload uri kullanır — base64 kamera dönüşünde bellek çökmesi yapar
+    base64: false,
+    quality: 0.7,
+    allowsEditing: true,
+    aspect: [1, 1] as [number, number],
+  };
+
   try {
     const result =
       source === 'camera'
-        ? await pickImageFromCameraDetailed()
-        : await pickImageFromLibraryDetailed();
+        ? await pickImageFromCameraDetailed(pickOpts)
+        : await pickImageFromLibraryDetailed(pickOpts);
     console.log('[pickProfilePhoto] result=', result.ok ? 'ok' : result);
     if (!result.ok) {
       if (result.code !== 'canceled') {

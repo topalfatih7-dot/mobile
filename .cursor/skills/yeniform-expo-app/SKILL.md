@@ -2,8 +2,8 @@
 name: yeniform-expo-app
 description: >-
   Implements Yeni Form Expo React Native app from docs/mobile specs. Use when
-  scaffolding Expo, Expo Router screens, RN UI, native modules (RevenueCat,
-  Daily, push, camera), or coding mobil uygulama screens for member/staff/admin.
+  scaffolding Expo, Expo Router screens, RN UI, native modules (Daily,
+  push, camera), or coding mobil uygulama screens for member/staff/admin.
 ---
 
 # Yeni Form Expo Implementation
@@ -22,7 +22,7 @@ description: >-
 - Expo (current stable SDK) + Expo Router (file-based)
 - Supabase JS client with SecureStore session
 - UI: StyleSheet / theme from `docs/mobile/02-design-system.md`
-- IAP: RevenueCat (`yeniform-membership-payments`)
+- Payments: web Stripe CTA (`yeniform-membership-payments`) — no in-app IAP
 - Video call: Daily React Native (`yeniform-chat-realtime-video`)
 - Media: `yeniform-media-exercises`
 
@@ -32,7 +32,7 @@ description: >-
 mobile/   # or apps/mobile
   app/           # Expo Router
   src/theme/
-  src/services/  # supabase, api, iap
+  src/services/  # supabase, api
   src/features/
 ```
 

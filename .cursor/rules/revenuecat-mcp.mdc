@@ -1,14 +1,15 @@
 ---
-description: RevenueCat IAP/MCP — dashboard bağlantıları MCP üzerinden
-alwaysApply: true
+description: RevenueCat — KALDIRILDI (mobil IAP iptal)
+globs:
+alwaysApply: false
 ---
 
-# RevenueCat MCP
+# RevenueCat — KALDIRILDI (2026-08-08)
 
-Üyelik / IAP / paket / entitlement / offering / paywall / RC ürün veya public API key işlerinde:
+Mobil IAP / RevenueCat **iptal**. Yeni ürün, webhook, SDK veya MCP kurulum işi **yapma**.
 
-1. **Önce RevenueCat MCP** kullan — dashboard’a gitmesini veya manuel ürün oluşturmasını söyleme.
-2. MCP `needsAuth` ise `mcp_auth` ile OAuth tamamla; sonra projeyi listele ve Yeni Form projesine bağlan.
-3. Product id sözleşmesi (`docs/mobile/04-payments-iap.md`): `yf_{planId}_{1|3|6}m` / `yf_doktor_once`. Entitlement: `Yeniform Pro`.
-4. Public SDK key’leri MCP’den alıp `EXPO_PUBLIC_REVENUECAT_API_KEY_IOS` / `_ANDROID` (.env / EAS) senkronla; secret key’i chat’e yazma.
-5. Webhook / Supabase membership güncellemesi web parity’de kalır — MCP yalnızca RC tarafı.
+- Satın alma / yönetim: web Stripe (`yeniform.com/membership`)
+- Entitlement SoT: Supabase `members`
+- Eski doküman: `docs/mobile/04-payments-iap.md` (deprecated)
+
+Membership işleri için: `.cursor/skills/yeniform-membership-payments/SKILL.md`

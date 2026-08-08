@@ -1,4 +1,6 @@
-# Staff — Video Call (LOCK) (IMPLEMENTATION LOCK)
+# Staff — Video Call (IMPLEMENTATION LOCK)
 
-- Same as member video-call.md with isOwner true
-- Path /staff/call/:type/:id
+- Same route pattern as member: `/(staff)/call/[sessionType]/[sessionId]`
+- Token: `POST /api/daily-room` with `{ sessionType, sessionId, userName }` (web parity)
+- Server sets `isOwner: true` for staff/admin — client does not send `isOwner`
+- See [`member/video-call.md`](../member/video-call.md) + [`contracts/api-daily-room.md`](../../contracts/api-daily-room.md)
