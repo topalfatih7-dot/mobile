@@ -33,6 +33,7 @@ duration default = 30
 8. Confirm card:
    - **Randevuyu onaylayın**
    - Uzman / Tarih / Saat · `{duration} dk`
+   - Checkbox **Anladım** + 24s iptal/yeniden planla kural metni (`BOOKING_POLICY_ACK_COPY`) — onaysız submit yok
    - **Saati değiştir** / **Randevuyu Onayla** (loading: **Oluşturuluyor…**)
 
 ## Client toasts

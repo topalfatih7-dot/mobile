@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -30,24 +30,13 @@ import { env } from '@/config/env';
 import { isUiOnly } from '@/config/runtime';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { useDailyCall } from '@/hooks/useDailyCall';
+import { requestCallMediaPermissions } from '@/services/callPermissions';
 import { buildDailyRoomName, getDailyRoomToken } from '@/services/dailyRoom';
+import { reportSessionAttendance } from '@/services/sessionAttendance';
 import type { VideoCallAccess } from '@/services/videoCallSession';
 import { colors, fonts, radius, spacing } from '@/theme';
 import type { MemberSession } from '@/utils/sessionBooking';
-
-/** expo-camera native yoksa / Expo Go’da false — crash etmez. */
-async function requestCamMicPermissions(): Promise<boolean> {
-  try {
-    const Constants = (await import('expo-constants')).default;
-    if (Constants.appOwnership === 'expo') return false;
-    const Cam = await import('expo-camera');
-    const cam = await Cam.Camera.requestCameraPermissionsAsync();
-    const mic = await Cam.Camera.requestMicrophonePermissionsAsync();
-    return Boolean(cam.granted && mic.granted);
-  } catch {
-    return false;
-  }
-}
 
 const TYPE_LABEL: Record<string, string> = {
   coach: 'Koç Görüşmesi',
@@ -64,27 +53,6 @@ type Props = {
   remoteLabel?: string;
   session?: MemberSession;
   joinAccess?: VideoCallAccess;
-};
-
-type DailyParticipant = {
-  session_id: string;
-  user_name?: string;
-  local?: boolean;
-  tracks?: {
-    video?: { state?: string; track?: unknown; persistentTrack?: unknown };
-    audio?: { state?: string; track?: unknown; persistentTrack?: unknown };
-  };
-};
-
-type DailyCall = {
-  leave: () => Promise<void>;
-  destroy: () => void;
-  join: (opts: { url: string; token: string }) => Promise<void>;
-  setLocalAudio: (on: boolean) => Promise<void> | void;
-  setLocalVideo: (on: boolean) => Promise<void> | void;
-  participants: () => Record<string, DailyParticipant>;
-  on: (event: string, handler: (...args: unknown[]) => void) => void;
-  off: (event: string, handler: (...args: unknown[]) => void) => void;
 };
 
 function PulseRing() {
@@ -153,33 +121,12 @@ export function VideoCallShell({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [joining, setJoining] = useState(false);
   const [tokenError, setTokenError] = useState('');
-  const [inCall, setInCall] = useState(false);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
-  const [participants, setParticipants] = useState<DailyParticipant[]>([]);
-  const [DailyMediaView, setDailyMediaView] = useState<ComponentType<{
-    videoTrack: unknown;
-    audioTrack: unknown;
-    mirror?: boolean;
-    style?: object;
-  }> | null>(null);
-  const callRef = useRef<DailyCall | null>(null);
-
-  // Camera/mic permission state (6B)
   const [permsDenied, setPermsDenied] = useState(false);
+  const [permsUnavailable, setPermsUnavailable] = useState(false);
+  const attendanceJoined = useRef(false);
 
-  useEffect(() => {
-    if (isUiOnly()) return;
-    let alive = true;
-    void requestCamMicPermissions().then((granted) => {
-      if (!alive) return;
-      if (!granted) setPermsDenied(true);
-    });
-    return () => { alive = false; };
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const call = useDailyCall();
 
   const label = TYPE_LABEL[sessionType] || 'Görüntülü görüşme';
   const userName =
@@ -192,73 +139,30 @@ export function VideoCallShell({
       ? `${String(sessionId).slice(0, 10)}…`
       : String(sessionId || '');
 
-  const syncParticipants = useCallback(() => {
-    const call = callRef.current;
-    if (!call) return;
-    try {
-      const map = call.participants() || {};
-      setParticipants(Object.values(map));
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const destroyCall = async () => {
-    const call = callRef.current;
-    callRef.current = null;
-    if (call) {
-      try {
-        await call.leave();
-      } catch {
-        /* ignore */
-      }
-      try {
-        call.destroy();
-      } catch {
-        /* ignore */
-      }
-    }
-    setInCall(false);
-    setWebViewUrl(null);
-    setParticipants([]);
+  const reportLeaveAttendance = () => {
+    if (!attendanceJoined.current) return;
+    attendanceJoined.current = false;
+    void reportSessionAttendance({
+      sessionId: String(sessionId || ''),
+      sessionType,
+      event: 'leave',
+    });
   };
 
-  const leave = () => {
-    void destroyCall();
+  const leave = async () => {
+    reportLeaveAttendance();
+    setWebViewUrl(null);
+    await call.leaveMeeting();
     if (backHref) router.replace(backHref);
     else router.back();
   };
 
+  // Daily düşerse attendance leave
   useEffect(() => {
-    return () => {
-      void destroyCall();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount cleanup
-  }, []);
-
-  const toggleMic = async () => {
-    const call = callRef.current;
-    if (!call) return;
-    const next = !micOn;
-    try {
-      await call.setLocalAudio(next);
-      setMicOn(next);
-    } catch {
-      toast('Mikrofon değiştirilemedi.', 'warning');
-    }
-  };
-
-  const toggleCam = async () => {
-    const call = callRef.current;
-    if (!call) return;
-    const next = !camOn;
-    try {
-      await call.setLocalVideo(next);
-      setCamOn(next);
-    } catch {
-      toast('Kamera değiştirilemedi.', 'warning');
-    }
-  };
+    if (call.isJoined || !attendanceJoined.current) return;
+    reportLeaveAttendance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [call.isJoined]);
 
   const joinCall = async () => {
     setTokenError('');
@@ -284,16 +188,20 @@ export function VideoCallShell({
 
     setJoining(true);
     try {
-      const granted = await requestCamMicPermissions();
-      if (!granted) {
+      const perms = await requestCallMediaPermissions();
+      if (!perms.granted) {
+        setPermsDenied(true);
+        setPermsUnavailable(Boolean(perms.unavailable));
         toast(
-          'Kamera ve mikrofon izni gerekli (veya native kamera modülü yok — dev-client rebuild).',
+          perms.unavailable
+            ? 'Görüşme için development build gerekir (kamera / Daily native).'
+            : 'Kamera ve mikrofon izni gerekli. Ayarlardan izin verin.',
           'warning',
         );
         return;
       }
+      setPermsDenied(false);
 
-      // Web parity: sessionType + sessionId (server builds room / isOwner)
       const tokenRes = await getDailyRoomToken({
         sessionType,
         sessionId: sid,
@@ -318,43 +226,41 @@ export function VideoCallShell({
         return;
       }
 
-      try {
-        const DailyMod = await import('@daily-co/react-native-daily-js');
-        const Daily = DailyMod.default;
-        const MediaView = DailyMod.DailyMediaView as ComponentType<{
-          videoTrack: unknown;
-          audioTrack: unknown;
-          mirror?: boolean;
-          style?: object;
-        }>;
-        if (MediaView) setDailyMediaView(() => MediaView);
+      const joined = await call.join({
+        url,
+        token: tokenRes.token,
+        userName,
+        camOn: true,
+        micOn: true,
+      });
 
-        const call = Daily.createCallObject() as unknown as DailyCall;
-        const onPart = () => syncParticipants();
-        call.on('participant-joined', onPart);
-        call.on('participant-updated', onPart);
-        call.on('participant-left', onPart);
-        call.on('joined-meeting', onPart);
-
-        await call.join({ url, token: tokenRes.token });
-        callRef.current = call;
-        setMicOn(true);
-        setCamOn(true);
-        setInCall(true);
-        syncParticipants();
+      if (joined.ok) {
+        attendanceJoined.current = true;
+        void reportSessionAttendance({
+          sessionId: sid,
+          sessionType,
+          event: 'join',
+        });
         return;
-      } catch {
-        if (!isNativeWebViewAvailable()) {
-          const message =
-            'Görüşme için development build gerekir (Daily / WebView native).';
-          setTokenError(message);
-          toast(message, 'error');
-          return;
-        }
-        const wvUrl = `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(tokenRes.token)}`;
-        setWebViewUrl(wvUrl);
-        setInCall(true);
       }
+
+      // Native Daily başarısız → WebView fallback (dev-client / WebView varsa)
+      if (!isNativeWebViewAvailable()) {
+        const message =
+          joined.error ||
+          'Görüşme için development build gerekir (Daily / WebView native).';
+        setTokenError(message);
+        toast(message, 'error');
+        return;
+      }
+      const wvUrl = `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(tokenRes.token)}`;
+      setWebViewUrl(wvUrl);
+      attendanceJoined.current = true;
+      void reportSessionAttendance({
+        sessionId: sid,
+        sessionType,
+        event: 'join',
+      });
     } catch (e: unknown) {
       const err = e as { message?: string };
       const message = String(err?.message || 'Görüşmeye katılılamadı.');
@@ -365,17 +271,10 @@ export function VideoCallShell({
     }
   };
 
-  const local = participants.find((p) => p.local);
-  const remote = participants.find((p) => !p.local);
-  const remoteVideo =
-    remote?.tracks?.video?.persistentTrack || remote?.tracks?.video?.track || null;
-  const remoteAudio =
-    remote?.tracks?.audio?.persistentTrack || remote?.tracks?.audio?.track || null;
-  const localVideo =
-    local?.tracks?.video?.persistentTrack || local?.tracks?.video?.track || null;
+  const inCall = call.isJoined || Boolean(webViewUrl);
+  const displayError = tokenError || call.error || '';
 
-  // 6B: Camera/mic denied — show settings redirect UI (non-blocking for demo/Expo Go)
-  if (permsDenied && !isUiOnly()) {
+  if (permsDenied && !isUiOnly() && !inCall) {
     return (
       <MeshBackground style={styles.root}>
         <LinearGradient
@@ -405,14 +304,25 @@ export function VideoCallShell({
             </View>
             <Text style={styles.permTitle}>İzin Gerekli</Text>
             <Text style={styles.permBody}>
-              Video görüşme için kamera ve mikrofon izni gerekli. Lütfen ayarlardan
-              izin verin.
+              {permsUnavailable
+                ? 'Görüntülü görüşme için development build (kamera / Daily native) gerekir.'
+                : 'Video görüşme için kamera ve mikrofon izni gerekli. Lütfen ayarlardan izin verin.'}
             </Text>
+            {!permsUnavailable ? (
+              <Pressable
+                onPress={() => void Linking.openSettings()}
+                style={styles.settingsBtn}>
+                <Ionicons color={colors.white} name="settings" size={18} />
+                <Text style={styles.settingsBtnText}>Ayarları Aç</Text>
+              </Pressable>
+            ) : null}
             <Pressable
-              onPress={() => void Linking.openSettings()}
+              onPress={() => {
+                setPermsDenied(false);
+                void joinCall();
+              }}
               style={styles.settingsBtn}>
-              <Ionicons color={colors.white} name="settings" size={18} />
-              <Text style={styles.settingsBtnText}>Ayarları Aç</Text>
+              <Text style={styles.settingsBtnText}>Tekrar dene</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -428,7 +338,7 @@ export function VideoCallShell({
     );
   }
 
-  if (inCall && webViewUrl) {
+  if (webViewUrl) {
     return (
       <View style={styles.callRoot}>
         <SafeWebView
@@ -440,7 +350,7 @@ export function VideoCallShell({
         <Pressable
           accessibilityLabel="Görüşmeden ayrıl"
           hitSlop={12}
-          onPress={leave}
+          onPress={() => void leave()}
           style={[styles.callLeave, { top: insets.top + 12 }]}>
           <Ionicons color={colors.white} name="close" size={22} />
           <Text style={styles.backText}>Ayrıl</Text>
@@ -449,7 +359,8 @@ export function VideoCallShell({
     );
   }
 
-  if (inCall) {
+  if (call.isJoined) {
+    const DailyMediaView = call.DailyMediaView;
     return (
       <View style={[styles.callRoot, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <LinearGradient
@@ -466,33 +377,37 @@ export function VideoCallShell({
 
         <View style={styles.stageArea}>
           <View style={styles.remoteTile}>
-            {DailyMediaView && remoteVideo ? (
+            {DailyMediaView && call.remoteVideo ? (
               <DailyMediaView
-                audioTrack={remoteAudio}
+                audioTrack={call.remoteAudio}
                 mirror={false}
+                objectFit="cover"
                 style={StyleSheet.absoluteFill}
-                videoTrack={remoteVideo}
+                videoTrack={call.remoteVideo}
+                zOrder={0}
               />
             ) : (
               <View style={styles.waiting}>
                 <ActivityIndicator color={colors.white} />
                 <Text style={styles.waitingText}>
-                  {remote ? 'Kamera kapalı' : 'Karşı taraf bekleniyor…'}
+                  {call.remote ? 'Kamera kapalı' : 'Karşı taraf bekleniyor…'}
                 </Text>
               </View>
             )}
             <Text style={styles.tileLabel}>
-              {remote?.user_name || remoteLabel || (isOwner ? 'Üye' : 'Uzman')}
+              {call.remote?.user_name || remoteLabel || (isOwner ? 'Üye' : 'Uzman')}
             </Text>
           </View>
 
           <View style={styles.pip}>
-            {DailyMediaView && localVideo && camOn ? (
+            {DailyMediaView && call.localVideo && call.mediaState.camOn ? (
               <DailyMediaView
                 audioTrack={null}
                 mirror
+                objectFit="cover"
                 style={StyleSheet.absoluteFill}
-                videoTrack={localVideo}
+                videoTrack={call.localVideo}
+                zOrder={1}
               />
             ) : (
               <View style={styles.pipPlaceholder}>
@@ -505,18 +420,18 @@ export function VideoCallShell({
 
         <View style={styles.controls}>
           <ControlBtn
-            icon={micOn ? 'mic' : 'mic-off'}
-            label={micOn ? 'Sesi kapat' : 'Sesi aç'}
-            danger={!micOn}
-            onPress={() => void toggleMic()}
+            icon={call.mediaState.micOn ? 'mic' : 'mic-off'}
+            label={call.mediaState.micOn ? 'Sesi kapat' : 'Sesi aç'}
+            danger={!call.mediaState.micOn}
+            onPress={() => void call.toggleMic()}
           />
           <ControlBtn
-            icon={camOn ? 'videocam' : 'videocam-off'}
-            label={camOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
-            danger={!camOn}
-            onPress={() => void toggleCam()}
+            icon={call.mediaState.camOn ? 'videocam' : 'videocam-off'}
+            label={call.mediaState.camOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
+            danger={!call.mediaState.camOn}
+            onPress={() => void call.toggleCam()}
           />
-          <ControlBtn danger icon="call" label="Ayrıl" onPress={leave} />
+          <ControlBtn danger icon="call" label="Ayrıl" onPress={() => void leave()} />
         </View>
       </View>
     );
@@ -536,7 +451,7 @@ export function VideoCallShell({
         <Pressable
           accessibilityLabel="Görüşmeden ayrıl"
           hitSlop={12}
-          onPress={leave}
+          onPress={() => void leave()}
           style={styles.back}>
           <Ionicons color={colors.white} name="chevron-back" size={22} />
           <Text style={styles.backText}>Ayrıl</Text>
@@ -553,7 +468,9 @@ export function VideoCallShell({
           <View style={styles.connectRow}>
             <ConnectingDot />
             <Text style={styles.connectText}>
-              {joinAccess?.statusLabel || 'Görüşme odası hazırlanıyor…'}
+              {joining || call.isLoading
+                ? 'Bağlanıyor…'
+                : joinAccess?.statusLabel || 'Görüşme odası hazırlanıyor…'}
             </Text>
           </View>
           {!canJoin && joinAccess?.reason ? (
@@ -595,15 +512,15 @@ export function VideoCallShell({
         </View>
 
         <Button
-          disabled={!canJoin}
-          label={joining ? 'Bağlanılıyor…' : 'Görüşmeye katıl'}
-          loading={joining}
+          disabled={!canJoin || joining || call.isLoading}
+          label={joining || call.isLoading ? 'Bağlanılıyor…' : 'Görüşmeye katıl'}
+          loading={joining || call.isLoading}
           onPress={() => void joinCall()}
-          rightIcon={joining ? undefined : 'videocam'}
+          rightIcon={joining || call.isLoading ? undefined : 'videocam'}
         />
-        {tokenError ? (
+        {displayError ? (
           <View style={styles.tokenError}>
-            <Text style={styles.tokenErrorText}>{tokenError}</Text>
+            <Text style={styles.tokenErrorText}>{displayError}</Text>
             {canJoin ? (
               <Pressable onPress={() => void joinCall()}>
                 <Text style={styles.retryText}>Tekrar dene</Text>
@@ -611,7 +528,7 @@ export function VideoCallShell({
             ) : null}
           </View>
         ) : null}
-        <Button label="Geri dön" onPress={leave} variant="glass" />
+        <Button label="Geri dön" onPress={() => void leave()} variant="glass" />
       </View>
 
       <Modal
@@ -651,6 +568,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    zIndex: 20,
   },
   callHeader: {
     flexDirection: 'row',
@@ -689,6 +607,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansSemi,
     fontSize: 13,
     color: colors.white,
+    zIndex: 2,
   },
   pip: {
     position: 'absolute',
@@ -701,6 +620,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
     backgroundColor: '#1f2937',
+    zIndex: 5,
   },
   pipPlaceholder: {
     flex: 1,
@@ -714,6 +634,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansSemi,
     fontSize: 10,
     color: colors.white,
+    zIndex: 2,
   },
   controls: {
     flexDirection: 'row',

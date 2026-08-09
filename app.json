@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yeni Form",
     "slug": "yeniform",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "yeniform",
@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yeniform.app",
+      "buildNumber": "2",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -27,6 +28,7 @@
     },
     "android": {
       "package": "com.yeniform.app",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#2d8fc4",
         "foregroundImage": "./assets/android-icon-foreground.png",

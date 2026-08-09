@@ -95,16 +95,26 @@ export type MemberSession = {
   createdAt?: string;
   cancelledReason?: string;
   cancelledAt?: string;
+  cancelRequestedAt?: string;
+  cancelRequestedBy?: string;
+  statusBeforeCancel?: string;
+  memberId?: string;
+  memberName?: string;
 };
+
+const SLOT_ACTIVE = [
+  'pending',
+  'scheduled',
+  'rescheduled',
+  'cancel_pending',
+  'admin_cancel_pending',
+];
 
 export function countSessionsThisMonth(sessions: MemberSession[] = [], now = new Date()) {
   const y = now.getFullYear();
   const m = now.getMonth();
   return sessions.filter((s) => {
-    if (
-      !s?.date ||
-      !['scheduled', 'rescheduled'].includes(s.status || 'scheduled')
-    ) {
+    if (!s?.date || !SLOT_ACTIVE.includes(s.status || 'scheduled')) {
       return false;
     }
     const d = new Date(s.date);

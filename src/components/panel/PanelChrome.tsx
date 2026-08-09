@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { router, usePathname, type Href } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -37,8 +37,12 @@ export function PanelChrome({
   notificationsHref = '/(member)/notifications',
 }: Props) {
   const { logout } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Web VideoCallPage shell dışı — call ekranında top bar / drawer yok
+  const isCallScreen = /\/call\//.test(String(pathname || ''));
 
   const headerRight = useMemo(() => {
     if (!showNotificationBell) return null;
@@ -65,30 +69,35 @@ export function PanelChrome({
   };
 
   return (
-    <View style={styles.root}>
-      <PanelTopBar
-        accent={accent}
-        headerRight={headerRight}
-        onMenuPress={() => setOpen(true)}
-      />
+    <View style={[styles.root, isCallScreen && styles.callRoot]}>
+      {!isCallScreen ? (
+        <PanelTopBar
+          accent={accent}
+          headerRight={headerRight}
+          onMenuPress={() => setOpen(true)}
+        />
+      ) : null}
       <View style={styles.body}>{children}</View>
-      <PanelDrawer
-        accent={accent}
-        badge={badge}
-        brandHref={brandHref}
-        items={items}
-        loggingOut={loggingOut}
-        onClose={() => setOpen(false)}
-        onLogout={handleLogout}
-        open={open}
-        userName={userName}
-      />
+      {!isCallScreen ? (
+        <PanelDrawer
+          accent={accent}
+          badge={badge}
+          brandHref={brandHref}
+          items={items}
+          loggingOut={loggingOut}
+          onClose={() => setOpen(false)}
+          onLogout={handleLogout}
+          open={open}
+          userName={userName}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream[50] },
+  callRoot: { backgroundColor: '#0f1720' },
   body: { flex: 1 },
   bellBtn: {
     width: 36,

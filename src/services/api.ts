@@ -3,15 +3,22 @@
  * UI_ONLY_MODE: uzak istek yok.
  */
 import { isUiOnly } from '@/config/runtime';
-import { apiUrl as buildUrl } from '@/config/env';
+import { apiUrl as buildUrl, env } from '@/config/env';
 import { supabase } from '@/services/supabase';
 
 export function apiUrl(path: string): string {
   return buildUrl(path);
 }
 
+/** Sunucu Turnstile bypass — `api/auth.js` `isVerifiedMobileClient` */
+function withMobileApiKey(headers: Record<string, string>): Record<string, string> {
+  const secret = env.mobileApiSecret;
+  if (secret) headers['x-yeniform-mobile-key'] = secret;
+  return headers;
+}
+
 export async function getApiAuthHeaders(extra: Record<string, string> = {}) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...extra };
+  const headers = withMobileApiKey({ 'Content-Type': 'application/json', ...extra });
   if (isUiOnly() || !supabase) return headers;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -35,7 +42,9 @@ export async function postJson<T = unknown>(
   }
 
   const headers =
-    opts?.auth === false ? { 'Content-Type': 'application/json' } : await getApiAuthHeaders();
+    opts?.auth === false
+      ? withMobileApiKey({ 'Content-Type': 'application/json' })
+      : await getApiAuthHeaders();
   try {
     const res = await fetch(apiUrl(path), {
       method: 'POST',

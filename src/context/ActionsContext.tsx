@@ -54,12 +54,26 @@ export type ActionsContextValue = {
   cancelStaffSession: (
     type: 'coach' | 'dietitian' | 'doctor',
     sessionId: string,
-  ) => Promise<void>;
+    opts?: { memberId?: string },
+  ) => Promise<{ ok: true; outcome?: string } | { ok: false; error: string }>;
   rescheduleStaffSession: (
     type: 'coach' | 'dietitian' | 'doctor',
     sessionId: string,
-    newDate: string,
-  ) => Promise<void>;
+    newDate?: string,
+    days?: number,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  respondCancelSession: (opts: {
+    memberId: string;
+    sessionId: string;
+    sessionType: 'coach' | 'dietitian' | 'doctor';
+    decision: 'approve' | 'reject';
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  respondBookSession: (opts: {
+    memberId: string;
+    sessionId: string;
+    sessionType: 'coach' | 'dietitian' | 'doctor';
+    decision: 'approve' | 'reject';
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   flushNotificationReads: () => Promise<void>;
@@ -281,41 +295,129 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   );
 
   const cancelStaffSession = useCallback(
-    async (type: 'coach' | 'dietitian' | 'doctor', sessionId: string) => {
-      if (!member) return;
-      const key = sessionsKey(type);
-      const existing = ((member[key] as MemberSession[]) || []).map((s) =>
-        s.id === sessionId
-          ? {
-              ...s,
-              status: 'cancelled',
-              cancelledAt: new Date().toISOString(),
-              cancelledReason: 'member_cancel',
-            }
-          : s,
-      );
-      await persistPatch({ [key]: existing }, { toastMsg: 'Randevu iptal edildi' });
+    async (
+      type: 'coach' | 'dietitian' | 'doctor',
+      sessionId: string,
+      opts?: { memberId?: string },
+    ): Promise<{ ok: true; outcome?: string } | { ok: false; error: string }> => {
+      const { requestCancelSessionApi } = await import('@/services/sessionCancel');
+      const r = await requestCancelSessionApi({
+        sessionId,
+        sessionType: type,
+        memberId: opts?.memberId,
+      });
+      if (!r.ok) {
+        toast(r.error, 'error');
+        return r;
+      }
+      if (member && (!opts?.memberId || opts.memberId === member.id)) {
+        const key = sessionsKey(type);
+        const existing = ((member[key] as MemberSession[]) || []).map((s) =>
+          s.id === sessionId ? { ...s, ...r.session } : s,
+        );
+        await persistPatch(
+          { [key]: existing },
+          {
+            toastMsg:
+              r.outcome === 'cancel_pending'
+                ? 'İptal talebiniz gönderildi. Uzman onayı bekleniyor.'
+                : r.outcome === 'admin_cancel_pending'
+                  ? 'İptal talebi yönetime gönderildi.'
+                  : 'Randevu iptal edildi',
+          },
+        );
+      } else {
+        await refreshData();
+        toast(
+          r.outcome === 'admin_cancel_pending'
+            ? 'İptal talebi yönetime gönderildi.'
+            : r.outcome === 'cancel_pending'
+              ? 'İptal talebi gönderildi.'
+              : 'Randevu iptal edildi',
+          'info',
+        );
+      }
+      return { ok: true, outcome: r.outcome };
     },
-    [member, persistPatch],
+    [member, persistPatch, refreshData, toast],
   );
 
-  /** Web parity: AppContext.rescheduleSession — mevcut oturumu yeni tarihe taşı. */
+  /** Web parity: API reschedule-session (≥24s sunucu kontrolü). */
   const rescheduleStaffSession = useCallback(
     async (
       type: 'coach' | 'dietitian' | 'doctor',
       sessionId: string,
-      newDate: string,
-    ) => {
-      if (!member) return;
+      _newDate?: string,
+      days?: number,
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!member) return { ok: false, error: 'Oturum gerekli.' };
+      const { rescheduleSessionApi } = await import('@/services/sessionCancel');
+      const shift = days ?? (type === 'coach' ? 3 : 5);
+      const r = await rescheduleSessionApi({
+        sessionId,
+        sessionType: type,
+        days: shift,
+      });
+      if (!r.ok) {
+        toast(r.error, 'error');
+        return r;
+      }
       const key = sessionsKey(type);
       const sessions = ((member[key] as MemberSession[]) || []).map((session) =>
-        session.id === sessionId
-          ? { ...session, date: newDate, status: 'rescheduled' }
-          : session,
+        session.id === sessionId ? { ...session, ...r.session } : session,
       );
-      await persistPatch({ [key]: sessions });
+      await persistPatch({ [key]: sessions }, { toastMsg: 'Randevu yeniden planlandı' });
+      return { ok: true };
     },
-    [member, persistPatch],
+    [member, persistPatch, toast],
+  );
+
+  const respondCancelSession = useCallback(
+    async (opts: {
+      memberId: string;
+      sessionId: string;
+      sessionType: 'coach' | 'dietitian' | 'doctor';
+      decision: 'approve' | 'reject';
+    }) => {
+      const { respondCancelSessionApi } = await import('@/services/sessionCancel');
+      const r = await respondCancelSessionApi(opts);
+      if (!r.ok) {
+        toast(r.error, 'error');
+        return r;
+      }
+      await refreshData();
+      toast(
+        opts.decision === 'approve'
+          ? 'İptal onaylandı'
+          : 'İptal talebi reddedildi — randevu devam ediyor',
+        opts.decision === 'approve' ? 'info' : 'success',
+      );
+      return r;
+    },
+    [refreshData, toast],
+  );
+
+  const respondBookSession = useCallback(
+    async (opts: {
+      memberId: string;
+      sessionId: string;
+      sessionType: 'coach' | 'dietitian' | 'doctor';
+      decision: 'approve' | 'reject';
+    }) => {
+      const { respondBookSessionApi } = await import('@/services/sessionCancel');
+      const r = await respondBookSessionApi(opts);
+      if (!r.ok) {
+        toast(r.error, 'error');
+        return r;
+      }
+      await refreshData();
+      toast(
+        opts.decision === 'approve' ? 'Randevu onaylandı' : 'Talep reddedildi',
+        opts.decision === 'approve' ? 'success' : 'info',
+      );
+      return r;
+    },
+    [refreshData, toast],
   );
 
   const flushNotificationReads = useCallback(async () => {
@@ -463,6 +565,8 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
       bookStaffSession,
       cancelStaffSession,
       rescheduleStaffSession,
+      respondCancelSession,
+      respondBookSession,
       markNotificationRead,
       markAllNotificationsRead,
       flushNotificationReads,
@@ -479,6 +583,8 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
       bookStaffSession,
       cancelStaffSession,
       rescheduleStaffSession,
+      respondCancelSession,
+      respondBookSession,
       markNotificationRead,
       markAllNotificationsRead,
       flushNotificationReads,

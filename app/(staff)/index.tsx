@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { format, isToday } from 'date-fns';
+import { tr } from 'date-fns/locale';
 import { router, type Href } from 'expo-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -8,14 +10,22 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import type { ReactNode } from 'react';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
+import { useActions } from '@/context/ActionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { isWithinCancelNoticeWindow } from '@/utils/sessionCancelRules';
+import {
+  getStaffAppointments,
+  getStaffCancelPendingAppointments,
+  getStaffPendingAppointments,
+  roleToSessionType,
+  type StaffAppointment,
+} from '@/utils/staffAppointments';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 function initials(name: string) {
@@ -28,7 +38,6 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-/** KPI value entrance — scale 0.96→1 (~220ms) */
 function KpiValueIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   const scale = useSharedValue(0.96);
   useEffect(() => {
@@ -38,28 +47,73 @@ function KpiValueIn({ children, delay = 0 }: { children: ReactNode; delay?: numb
   return <Animated.View style={anim}>{children}</Animated.View>;
 }
 
-const SESSION_SLOTS = [
-  { day: 'Yarın', time: '10:00', duration: '30 dk' },
-  { day: 'Perş', time: '14:00', duration: '30 dk' },
-  { day: 'Cum', time: '11:00', duration: '30 dk' },
-];
+function sessionWhen(dateISO?: string) {
+  if (!dateISO) return '—';
+  const d = new Date(dateISO);
+  const day = isToday(d) ? 'Bugün' : format(d, 'd MMM', { locale: tr });
+  return `${day} ${format(d, 'HH:mm')}`;
+}
 
-/** LOCK: docs/mobile/screens/staff/overview.md */
+/** LOCK: docs/mobile/screens/staff/overview.md — web StaffOverviewPage parity */
 export default function StaffOverview() {
   const { staff, logout } = useAuth();
   const { loading, staffClients } = useData();
+  const { respondBookSession, respondCancelSession, cancelStaffSession } = useActions();
   const role = String(staff?.role || 'coach');
+  const sessionType = roleToSessionType(role);
   const name = String(staff?.name || 'Personel');
   const clients = staffClients;
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const sessions =
-    role === 'doctor'
-      ? []
-      : clients.slice(0, SESSION_SLOTS.length).map((c, i) => ({
-          id: String(c.id),
-          name: String(c.name),
-          ...SESSION_SLOTS[i],
-        }));
+  const appointments = useMemo(
+    () => getStaffAppointments(clients as never, role),
+    [clients, role],
+  );
+  const pendingAppointments = useMemo(
+    () => getStaffPendingAppointments(clients as never, role),
+    [clients, role],
+  );
+  const cancelPending = useMemo(
+    () => getStaffCancelPendingAppointments(clients as never, role),
+    [clients, role],
+  );
+
+  const handleBookRespond = useCallback(
+    async (a: StaffAppointment, decision: 'approve' | 'reject') => {
+      setBusyId(a.id);
+      await respondBookSession({
+        memberId: a.memberId,
+        sessionId: a.id,
+        sessionType,
+        decision,
+      });
+      setBusyId(null);
+    },
+    [respondBookSession, sessionType],
+  );
+
+  const handleCancelRespond = useCallback(
+    async (a: StaffAppointment, decision: 'approve' | 'reject') => {
+      setBusyId(a.id);
+      await respondCancelSession({
+        memberId: a.memberId,
+        sessionId: a.id,
+        sessionType,
+        decision,
+      });
+      setBusyId(null);
+    },
+    [respondCancelSession, sessionType],
+  );
+
+  const handleStaffCancel = useCallback(
+    async (a: StaffAppointment) => {
+      setBusyId(a.id);
+      await cancelStaffSession(sessionType, a.id, { memberId: a.memberId });
+      setBusyId(null);
+    },
+    [cancelStaffSession, sessionType],
+  );
 
   return (
     <PanelScaffold
@@ -69,111 +123,214 @@ export default function StaffOverview() {
         <InlineSpinner fill />
       ) : (
         <>
-      <FadeIn delay={40}>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpi}>
-            <View style={[styles.kpiIcon, { backgroundColor: colors.sage[100] }]}>
-              <Ionicons color={colors.sage[600]} name="people" size={17} />
-            </View>
-            <KpiValueIn delay={40}>
-              <Text style={styles.kpiVal}>{clients.length}</Text>
-            </KpiValueIn>
-            <Text style={styles.kpiLabel}>Danışan</Text>
-          </View>
-          <View style={styles.kpi}>
-            <View style={[styles.kpiIcon, { backgroundColor: colors.brand[100] }]}>
-              <Ionicons color={colors.brand[600]} name="videocam" size={17} />
-            </View>
-            <KpiValueIn delay={70}>
-              <Text style={styles.kpiVal}>{sessions.length}</Text>
-            </KpiValueIn>
-            <Text style={styles.kpiLabel}>Yaklaşan seans</Text>
-          </View>
-        </View>
-      </FadeIn>
-
-      <FadeIn delay={80}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Yaklaşan görüşme</Text>
-          {sessions.length === 0 ? (
-            <Text style={styles.emptyRow}>Yaklaşan görüşme yok</Text>
-          ) : (
-            sessions.map((s, i) => (
-              <FadeIn key={s.id} delay={110 + i * 30}>
-                <View style={styles.sessionRow}>
-                  <View style={styles.sessionAvatar}>
-                    <Text style={styles.sessionAvatarText}>{initials(s.name)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sessionName}>{s.name}</Text>
-                    <Text style={styles.sessionMeta}>
-                      {s.day} {s.time} · {s.duration}
-                    </Text>
-                  </View>
-                  {i > 0 ? (
-                    <View style={styles.timeBadge}>
-                      <Text style={styles.timeBadgeText}>{s.time}</Text>
-                    </View>
-                  ) : null}
+          <FadeIn delay={40}>
+            <View style={styles.kpiRow}>
+              <View style={styles.kpi}>
+                <View style={[styles.kpiIcon, { backgroundColor: colors.sage[100] }]}>
+                  <Ionicons color={colors.sage[600]} name="people" size={17} />
                 </View>
-                {i === 0 ? (
-                  <Button
-                    label="Görüşmeye katıl"
-                    onPress={() =>
-                      router.push('/(staff)/call/coach/ui-sess-coach-1' as Href)
-                    }
-                    size="md"
-                    style={{ marginTop: 10 }}
-                  />
-                ) : null}
-              </FadeIn>
-            ))
-          )}
-        </View>
-      </FadeIn>
+                <KpiValueIn delay={40}>
+                  <Text style={styles.kpiVal}>{clients.length}</Text>
+                </KpiValueIn>
+                <Text style={styles.kpiLabel}>Danışan</Text>
+              </View>
+              <View style={styles.kpi}>
+                <View style={[styles.kpiIcon, { backgroundColor: colors.brand[100] }]}>
+                  <Ionicons color={colors.brand[600]} name="videocam" size={17} />
+                </View>
+                <KpiValueIn delay={70}>
+                  <Text style={styles.kpiVal}>{appointments.length}</Text>
+                </KpiValueIn>
+                <Text style={styles.kpiLabel}>Yaklaşan seans</Text>
+              </View>
+            </View>
+          </FadeIn>
 
-      <FadeIn delay={120}>
-        <Pressable
-          onPress={() => router.push('/(staff)/clients' as Href)}
-          style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-          <Ionicons color={colors.brand[600]} name="people" size={18} />
-          <Text style={styles.linkText}>Danışanlara git</Text>
-          <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-        </Pressable>
-        <Pressable
-          onPress={() => router.push('/(staff)/payments' as Href)}
-          style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-          <Ionicons color={colors.brand[600]} name="card" size={18} />
-          <Text style={styles.linkText}>Ödemeler</Text>
-          <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-        </Pressable>
-        <Pressable
-          onPress={() => router.push('/(staff)/messages/admin' as Href)}
-          style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-          <Ionicons color={colors.brand[600]} name="shield" size={18} />
-          <Text style={styles.linkText}>Admin mesajları</Text>
-          <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-        </Pressable>
-        {(role === 'coach' || role === 'dietitian') && (
-          <Pressable
-            onPress={() => router.push('/(staff)/messages/collab' as Href)}
-            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-            <Ionicons color={colors.brand[600]} name="git-network" size={18} />
-            <Text style={styles.linkText}>Ekip (collab)</Text>
-            <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-          </Pressable>
-        )}
-      </FadeIn>
+          {pendingAppointments.length > 0 ? (
+            <FadeIn delay={60}>
+              <View style={[styles.card, styles.pendingCard]}>
+                <Text style={styles.cardTitle}>Onay bekleyen talepler</Text>
+                {pendingAppointments.slice(0, 8).map((a) => (
+                  <View key={a.id} style={styles.queueBlock}>
+                    <View style={styles.sessionRow}>
+                      <View style={styles.sessionAvatar}>
+                        <Text style={styles.sessionAvatarText}>{initials(a.memberName)}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sessionName}>{a.memberName}</Text>
+                        <Text style={styles.sessionMeta}>
+                          {sessionWhen(a.date)} · onay bekliyor
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.actionRow}>
+                      <Button
+                        disabled={busyId === a.id}
+                        label="Onayla"
+                        onPress={() => handleBookRespond(a, 'approve')}
+                        size="md"
+                        style={{ flex: 1 }}
+                      />
+                      <Button
+                        disabled={busyId === a.id}
+                        label="Reddet"
+                        onPress={() => handleBookRespond(a, 'reject')}
+                        size="md"
+                        style={{ flex: 1 }}
+                        variant="secondary"
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </FadeIn>
+          ) : null}
 
-      <View style={styles.divider} />
-      <Button
-        label="Çıkış Yap"
-        onPress={async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        }}
-        variant="ghost"
-      />
+          {cancelPending.length > 0 ? (
+            <FadeIn delay={70}>
+              <View style={[styles.card, styles.cancelCard]}>
+                <Text style={styles.cardTitle}>İptal talepleri</Text>
+                {cancelPending.slice(0, 8).map((a) => (
+                  <View key={`c-${a.id}`} style={styles.queueBlock}>
+                    <View style={styles.sessionRow}>
+                      <View style={[styles.sessionAvatar, { backgroundColor: colors.warm[500] }]}>
+                        <Text style={styles.sessionAvatarText}>{initials(a.memberName)}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sessionName}>{a.memberName}</Text>
+                        <Text style={styles.sessionMeta}>
+                          {sessionWhen(a.date)} · iptal onayı bekliyor
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.actionRow}>
+                      <Button
+                        disabled={busyId === a.id}
+                        label="İptali Onayla"
+                        onPress={() => handleCancelRespond(a, 'approve')}
+                        size="md"
+                        style={{ flex: 1 }}
+                      />
+                      <Button
+                        disabled={busyId === a.id}
+                        label="Reddet"
+                        onPress={() => handleCancelRespond(a, 'reject')}
+                        size="md"
+                        style={{ flex: 1 }}
+                        variant="secondary"
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </FadeIn>
+          ) : null}
+
+          <FadeIn delay={80}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Yaklaşan görüşme</Text>
+              {appointments.length === 0 ? (
+                <Text style={styles.emptyRow}>Yaklaşan görüşme yok</Text>
+              ) : (
+                appointments.slice(0, 8).map((a, i) => {
+                  const needsAdmin = isWithinCancelNoticeWindow(a);
+                  const canCancel = ['scheduled', 'rescheduled', 'cancel_pending'].includes(
+                    a.status || 'scheduled',
+                  );
+                  return (
+                    <FadeIn key={a.id} delay={110 + i * 30}>
+                      <View style={styles.sessionRow}>
+                        <View style={styles.sessionAvatar}>
+                          <Text style={styles.sessionAvatarText}>{initials(a.memberName)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.sessionName}>{a.memberName}</Text>
+                          <Text style={styles.sessionMeta}>
+                            {sessionWhen(a.date)}
+                            {a.status === 'admin_cancel_pending'
+                              ? ' · yönetim iptal onayı'
+                              : a.status === 'cancel_pending'
+                                ? ' · iptal onayı bekliyor'
+                                : ''}
+                          </Text>
+                        </View>
+                        <View style={styles.timeBadge}>
+                          <Text style={styles.timeBadgeText}>
+                            {a.date ? format(new Date(a.date), 'HH:mm') : '—'}
+                          </Text>
+                        </View>
+                      </View>
+                      {i === 0 && a.status === 'scheduled' ? (
+                        <Button
+                          label="Görüşmeye katıl"
+                          onPress={() =>
+                            router.push(
+                              `/(staff)/call/${sessionType}/${a.id}` as Href,
+                            )
+                          }
+                          size="md"
+                          style={{ marginTop: 10 }}
+                        />
+                      ) : null}
+                      {canCancel && a.status !== 'admin_cancel_pending' ? (
+                        <Pressable
+                          disabled={busyId === a.id}
+                          onPress={() => handleStaffCancel(a)}
+                          style={styles.cancelLink}>
+                          <Text style={styles.cancelLinkText}>
+                            {needsAdmin ? 'İptal (yönetim onayı)' : 'İptal Et'}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </FadeIn>
+                  );
+                })
+              )}
+            </View>
+          </FadeIn>
+
+          <FadeIn delay={120}>
+            <Pressable
+              onPress={() => router.push('/(staff)/clients' as Href)}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+              <Ionicons color={colors.brand[600]} name="people" size={18} />
+              <Text style={styles.linkText}>Danışanlara git</Text>
+              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/(staff)/payments' as Href)}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+              <Ionicons color={colors.brand[600]} name="card" size={18} />
+              <Text style={styles.linkText}>Ödemeler</Text>
+              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/(staff)/messages/admin' as Href)}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+              <Ionicons color={colors.brand[600]} name="shield" size={18} />
+              <Text style={styles.linkText}>Admin mesajları</Text>
+              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
+            </Pressable>
+            {(role === 'coach' || role === 'dietitian') && (
+              <Pressable
+                onPress={() => router.push('/(staff)/messages/collab' as Href)}
+                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+                <Ionicons color={colors.brand[600]} name="git-network" size={18} />
+                <Text style={styles.linkText}>Ekip (collab)</Text>
+                <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
+              </Pressable>
+            )}
+          </FadeIn>
+
+          <View style={styles.divider} />
+          <Button
+            label="Çıkış Yap"
+            onPress={async () => {
+              await logout();
+              router.replace('/(auth)/login');
+            }}
+            variant="ghost"
+          />
         </>
       )}
     </PanelScaffold>
@@ -212,8 +369,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cream[200],
   },
+  pendingCard: { borderColor: colors.warm[200] || colors.cream[200], backgroundColor: colors.warm[50] || colors.cream[50] },
+  cancelCard: { borderColor: '#FDBA74', backgroundColor: '#FFF7ED' },
   cardTitle: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
   emptyRow: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[800], marginTop: 10 },
+  queueBlock: { marginTop: 12, gap: 8 },
+  actionRow: { flexDirection: 'row', gap: 8 },
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,6 +399,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   timeBadgeText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.brand[700] },
+  cancelLink: { marginTop: 8, paddingVertical: 6 },
+  cancelLinkText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.warm[500] },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/context/ToastContext';
 import {
+  BOOKING_POLICY_ACK_COPY,
+  SLOT_ACTIVE_STATUSES,
+} from '@/utils/sessionCancelRules';
+import {
   BOOK_WINDOW_DAYS,
   DEFAULT_SESSION_DURATION,
   expandAvailabilitySlots,
@@ -65,6 +69,7 @@ export function SessionBooker({
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [policyAck, setPolicyAck] = useState(false);
   const [takenTimes, setTakenTimes] = useState<Set<number>>(new Set());
 
   const staffName = staff ? String(staff.name || 'Uzman') : '';
@@ -102,7 +107,9 @@ export function SessionBooker({
     return existingSessions.filter((session) => {
       if (
         !session.date ||
-        !['scheduled', 'rescheduled'].includes(session.status || 'scheduled')
+        !SLOT_ACTIVE_STATUSES.includes(
+          (session.status || 'scheduled') as (typeof SLOT_ACTIVE_STATUSES)[number],
+        )
       ) {
         return false;
       }
@@ -121,7 +128,9 @@ export function SessionBooker({
     for (const s of existingSessions) {
       if (
         !s?.date ||
-        !['scheduled', 'rescheduled'].includes(s.status || 'scheduled')
+        !SLOT_ACTIVE_STATUSES.includes(
+          (s.status || 'scheduled') as (typeof SLOT_ACTIVE_STATUSES)[number],
+        )
       ) {
         continue;
       }
@@ -156,6 +165,7 @@ export function SessionBooker({
     setSelectedSlot(null);
     setConfirming(false);
     setBooking(false);
+    setPolicyAck(false);
   };
 
   const handleClose = () => {
@@ -174,6 +184,10 @@ export function SessionBooker({
 
   const confirm = async () => {
     if (!selectedSlot) return;
+    if (!policyAck) {
+      toast('Devam etmek için iptal kurallarını onaylayın.', 'warning');
+      return;
+    }
     setBooking(true);
     const res = await onBook(selectedSlot.toISOString(), duration);
     setBooking(false);
@@ -212,16 +226,31 @@ export function SessionBooker({
             <Text style={styles.confirmRow}>
               Saat: {format(selectedSlot, 'HH:mm')} · {duration} dk
             </Text>
+            <Pressable
+              onPress={() => setPolicyAck((v) => !v)}
+              style={styles.policyRow}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: policyAck }}>
+              <View style={[styles.checkbox, policyAck && styles.checkboxOn]}>
+                {policyAck ? <Text style={styles.checkboxMark}>✓</Text> : null}
+              </View>
+              <Text style={styles.policyText}>
+                <Text style={styles.policyBold}>Anladım — </Text>
+                {BOOKING_POLICY_ACK_COPY}
+              </Text>
+            </Pressable>
             <View style={styles.confirmActions}>
               <Button
                 label="Saati değiştir"
                 onPress={() => {
                   setConfirming(false);
                   setSelectedSlot(null);
+                  setPolicyAck(false);
                 }}
                 variant="secondary"
               />
               <Button
+                disabled={!policyAck}
                 label={booking ? 'Oluşturuluyor…' : 'Randevuyu Onayla'}
                 loading={booking}
                 onPress={confirm}
@@ -376,5 +405,35 @@ const styles = StyleSheet.create({
   },
   confirmTitle: { fontFamily: fonts.displayExtra, fontSize: 20, color: colors.cream[900], marginBottom: 4 },
   confirmRow: { fontFamily: fonts.sans, fontSize: 15, color: colors.cream[800] },
+  policyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warm[50] || colors.cream[100],
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.brand[400],
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxOn: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
+  checkboxMark: { color: colors.white, fontSize: 13, fontFamily: fonts.sansSemi },
+  policyText: {
+    flex: 1,
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.cream[900],
+  },
+  policyBold: { fontFamily: fonts.sansSemi },
   confirmActions: { marginTop: spacing.md, gap: spacing.sm },
 });

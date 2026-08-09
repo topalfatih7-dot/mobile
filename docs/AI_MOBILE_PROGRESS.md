@@ -1,8 +1,29 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-08 — RevenueCat / telefon IAP tam iptal; web Stripe CTA  
+> **Son güncelleme:** 2026-08-08 — Randevu iptal 24s + personel/admin onay zinciri  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-09 Mobil giriş Turnstile bypass
+
+| Madde | Durum |
+|-------|--------|
+| Kök neden: Aug 6 `YENIFORM_MOBILE_API_SECRET` + `x-yeniform-mobile-key` zorunlu; mobil header göndermiyordu; Vercel’de secret yoktu | ✅ bulundu |
+| `postJson` / `getApiAuthHeaders` → `x-yeniform-mobile-key` | ✅ |
+| Vercel `YENIFORM_MOBILE_API_SECRET` (prod+preview) + mobil `.env` | ✅ |
+| Contract `api-auth.md` / `env-vars.md` güncellendi | ✅ |
+
+## 2026-08-08 Randevu iptal / yeniden planla (24s + onay)
+
+| Madde | Durum |
+|-------|--------|
+| `cancel_pending` / `admin_cancel_pending` + `staff_booked_slots` | ✅ |
+| API: request/respond cancel, respond-admin-cancel, reschedule-session | ✅ |
+| Web üye: booker Anladım + iptal talebi / &lt;24s gizleme | ✅ |
+| Web personel iptal kuyruğu + personel iptali; admin kuyruk (yalnız web) | ✅ |
+| Mobil üye schedule / SessionBooker / ActionsContext | ✅ |
+| Mobil staff overview: gerçek seanslar + book/cancel pending | ✅ |
+| LOCK / contracts / copy | ✅ |
 
 ## 2026-08-08 RevenueCat / IAP iptal
 

@@ -115,13 +115,14 @@ export function getVideoCallTiming(
   };
 }
 
-/** API daily-room: yalnız status === 'scheduled' */
+/** API daily-room: scheduled + iptal onayı bekleyen (henüz kesin iptal değil) */
 export function canAccessVideoCall(
   session: MemberSession | null | undefined,
   sessionType: string = 'coach',
   now = new Date(),
 ): VideoCallAccess {
-  if (!session || (session.status || 'scheduled') !== 'scheduled') {
+  const st = session?.status || 'scheduled';
+  if (!session || !['scheduled', 'cancel_pending', 'admin_cancel_pending'].includes(st)) {
     return { ok: false, reason: 'Bu randevu aktif değil veya iptal edilmiş.' };
   }
 
@@ -249,6 +250,55 @@ export function resolveMemberCallContext(opts: {
       sessionType,
       displayName: String(member.name || 'Danışan'),
       remoteLabel: String(session.coach || remoteStaffLabel(sessionType)),
+      roomAccess,
+      joinCheck,
+    },
+    error: roomAccess.ok ? null : roomAccess.reason || 'Randevu bulunamadı.',
+  };
+}
+
+/** Web `resolveCallContext` staff branch parity */
+export function resolveStaffCallContext(opts: {
+  staff: Record<string, unknown> | null;
+  members: Record<string, unknown>[];
+  sessionType: string;
+  sessionId: string;
+  now?: Date;
+}): { context: MemberCallContext | null; error: string | null } {
+  const { staff, members, sessionId } = opts;
+  if (!staff?.id) {
+    return {
+      context: null,
+      error: 'Randevu bulunamadı veya bu görüşmeye erişiminiz yok.',
+    };
+  }
+
+  const sessionType = normalizeVideoSessionType(opts.sessionType);
+  const found = findStaffSession(
+    members,
+    String(staff.id),
+    staff.role ? String(staff.role) : undefined,
+    sessionType,
+    sessionId,
+  );
+
+  if (!found) {
+    return {
+      context: null,
+      error: 'Randevu bulunamadı veya bu görüşmeye erişiminiz yok.',
+    };
+  }
+
+  const roomAccess = canAccessVideoCall(found.session, sessionType, opts.now);
+  const joinCheck = canJoinVideoCall(found.session, sessionType, opts.now);
+  return {
+    context: {
+      session: found.session,
+      sessionType,
+      displayName: String(staff.name || 'Uzman'),
+      remoteLabel: String(
+        (found.member as { name?: string } | undefined)?.name || 'Danışan',
+      ),
       roomAccess,
       joinCheck,
     },

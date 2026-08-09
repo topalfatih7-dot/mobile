@@ -9,6 +9,7 @@
 | EXPO_PUBLIC_API_BASE_URL | https://www.yeniform.com or Vercel URL (membership CTA) |
 | EXPO_PUBLIC_DAILY_DOMAIN | Daily domain |
 | EXPO_PUBLIC_TURNSTILE_SITE_KEY | if using Turnstile webview |
+| EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET | `/api/auth` Turnstile bypass; header `x-yeniform-mobile-key` — Vercel `YENIFORM_MOBILE_API_SECRET` ile aynı |
 | EXPO_PUBLIC_GA4_ID | optional analytics |
 | EXPO_PUBLIC_PHONE_VERIFY_ENABLED | `true` to show phone verify UI (web `VITE_PHONE_VERIFY_ENABLED`; default off) |
 | EXPO_PUBLIC_PHONE_VERIFY_VIA_EMAIL | `true` for email-link fallback (web `VITE_PHONE_VERIFY_VIA_EMAIL`) |
@@ -17,7 +18,7 @@
 
 ## Server (Vercel — already used by web)
 
-SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, DAILY_API_KEY, GEMINI/OPENAI keys, TURNSTILE_SECRET_KEY, UPSTASH_*, CRON_SECRET, TELEGRAM_*
+SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, DAILY_API_KEY, GEMINI/OPENAI keys, TURNSTILE_SECRET_KEY, YENIFORM_MOBILE_API_SECRET, UPSTASH_*, CRON_SECRET, TELEGRAM_*
 
 ~(Kaldırıldı: EXPO_PUBLIC_REVENUECAT_*, REVENUECAT_WEBHOOK_SECRET — mobil IAP iptal 2026-08-08)~
 

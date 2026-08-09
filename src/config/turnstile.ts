@@ -3,8 +3,9 @@ import { env } from '@/config/env';
 /**
  * MOBILE DIFF (P1): native app’te Turnstile yok.
  * Web production’da Turnstile zorunlu kalır.
- * Mobil `/api/auth` çağrıları `client: 'yeniform-mobile'` gönderir;
- * sunucu rate limit ile korur, CAPTCHA service-role grant ile aşılır.
+ * Mobil `/api/auth`: body `client: 'yeniform-mobile'` + header
+ * `x-yeniform-mobile-key` (= Vercel `YENIFORM_MOBILE_API_SECRET`) ile bypass.
+ * Secret yok/yanlış → sunucu “Bot doğrulaması gerekli” döner.
  *
  * Site key env’de kalsa bile widget gösterilmez.
  */

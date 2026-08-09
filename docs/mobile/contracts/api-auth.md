@@ -7,7 +7,13 @@ Optional: `Authorization: Bearer <access_token>`
 
 ## MOBILE DIFF — client
 
-Native Expo app sends `"client": "yeniform-mobile"`. Server skips Turnstile for this client (rate limits remain). Web browsers must still send Turnstile.
+Native Expo app must send:
+
+1. Body: `"client": "yeniform-mobile"`
+2. Header: `x-yeniform-mobile-key: <EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET>`  
+   (Vercel `YENIFORM_MOBILE_API_SECRET` ile birebir)
+
+Both required — `api/auth.js` `isVerifiedMobileClient`. Missing/wrong → **Bot doğrulaması gerekli.** Rate limits remain. Web browsers must still send Turnstile.
 
 ## password-login
 

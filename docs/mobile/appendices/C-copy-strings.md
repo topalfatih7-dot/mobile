@@ -48,6 +48,9 @@
 | Book CTA | Randevu Al |
 | Appointments empty title | Randevu bulunamadı |
 | Cancel appointment | Randevu iptal edildi |
+| Cancel request sent | İptal talebiniz gönderildi. Uzman onayı bekleniyor. |
+| Cancel blocked 24h | Randevuya 24 saatten az kaldığı için iptal veya değişiklik yapılamaz. |
+| Booking policy ack | Randevu saatinden 24 saatten az kaldığında iptal veya yeniden planlama yapılamaz. Onaylı randevularda iptal talebi personel onayına gider. |
 | Book success | Randevunuz oluşturuldu. |
 | Book fail | Randevu oluşturulamadı. |
 | Past slot | Geçmiş bir saat seçilemez. |

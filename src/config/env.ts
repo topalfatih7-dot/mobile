@@ -24,6 +24,11 @@ export const env = {
   apiBaseUrl: apiBase,
   adminEmail: (read('EXPO_PUBLIC_ADMIN_EMAIL') || 'admin@yeniform.com').toLowerCase(),
   turnstileSiteKey: read('EXPO_PUBLIC_TURNSTILE_SITE_KEY'),
+  /**
+   * Sunucu `YENIFORM_MOBILE_API_SECRET` ile birebir — `x-yeniform-mobile-key`.
+   * Yoksa `/api/auth` Turnstile ister (native’de widget yok → “Bot doğrulaması gerekli”).
+   */
+  mobileApiSecret: read('EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET'),
   dailyDomain: read('EXPO_PUBLIC_DAILY_DOMAIN'),
   dailyRoomPrefix: read('EXPO_PUBLIC_DAILY_ROOM_PREFIX') || 'donusum',
   /** Web VITE_PHONE_VERIFY_ENABLED parity — varsayılan kapalı (Twilio yok). */

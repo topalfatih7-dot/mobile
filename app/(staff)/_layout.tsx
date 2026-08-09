@@ -125,7 +125,14 @@ export default function StaffLayout() {
         <Stack.Screen name="lists" />
         <Stack.Screen name="library" />
         <Stack.Screen name="payments" />
-        <Stack.Screen name="call/[sessionType]/[sessionId]" />
+        <Stack.Screen
+          name="call/[sessionType]/[sessionId]"
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+            gestureEnabled: false,
+          }}
+        />
       </Stack>
     </PanelChrome>
   );

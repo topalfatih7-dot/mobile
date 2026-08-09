@@ -356,7 +356,14 @@ export default function MemberLayout() {
         <Stack.Screen name="health-test/[sectionId]" />
         <Stack.Screen name="profile/index" />
         <Stack.Screen name="profile/payments" />
-        <Stack.Screen name="call/[sessionType]/[sessionId]" />
+        <Stack.Screen
+          name="call/[sessionType]/[sessionId]"
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+            gestureEnabled: false,
+          }}
+        />
       </Stack>
     </PanelChrome>
   );

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -16,7 +16,6 @@ import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { useActions } from '@/context/ActionsContext';
 import { useData, useMember } from '@/context/DataContext';
-import { useToast } from '@/context/ToastContext';
 import { fetchBookedSlots } from '@/services/bookSession';
 import {
   coachMonthlyLimit,
@@ -27,6 +26,12 @@ import {
   packageIncludesDoctor,
 } from '@/data/membershipPlans';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
+import {
+  canMemberModifySession,
+  memberCancelBlockedCopy,
+  memberCancelLabel,
+  VIDEO_ACTIVE_STATUSES,
+} from '@/utils/sessionCancelRules';
 import {
   countSessionsThisMonth,
   memberCallPath,
@@ -42,6 +47,14 @@ import {
 } from '@/services/videoCallSession';
 import { colors, fonts, radius, spacing } from '@/theme';
 
+const UPCOMING_STATUSES = [
+  'pending',
+  'scheduled',
+  'rescheduled',
+  'cancel_pending',
+  'admin_cancel_pending',
+];
+
 /**
  * LOCK: docs/mobile/screens/member/schedule.md + session-booker.md
  */
@@ -52,9 +65,10 @@ export default function ScheduleScreen() {
   const member = useMember();
   const { staffById, isFreeTrialExpired } = useData();
   const { bookStaffSession, cancelStaffSession, rescheduleStaffSession } = useActions();
-  const { toast } = useToast();
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<MemberSession | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<MemberSession | null>(null);
+  const [busy, setBusy] = useState(false);
   const [listFilter, setListFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
 
   const { packageConfig } = useMemo(() => {
@@ -98,7 +112,7 @@ export default function ScheduleScreen() {
     }
     return sessions.filter(
       (s) =>
-        ['scheduled', 'rescheduled'].includes(s.status || 'scheduled') &&
+        UPCOMING_STATUSES.includes(s.status || 'scheduled') &&
         s.date &&
         new Date(s.date).getTime() >= now,
     );
@@ -246,11 +260,16 @@ export default function ScheduleScreen() {
             ) : (
               filteredSessions.map((s, i) => {
                 const isPast = s.date ? new Date(s.date).getTime() < Date.now() : false;
-                const isActive = ['scheduled', 'rescheduled'].includes(
-                  s.status || 'scheduled',
-                );
-                const canModify = isActive && !isPast;
-                // API daily-room: yalnız scheduled + sektör join window (web parity)
+                const status = s.status || 'scheduled';
+                const withinNotice = canMemberModifySession(s);
+                const isActive = UPCOMING_STATUSES.includes(status);
+                const canReschedule =
+                  ['scheduled', 'rescheduled'].includes(status) && !isPast && withinNotice;
+                const canCancel =
+                  (status === 'pending' && !isPast) ||
+                  (['scheduled', 'rescheduled'].includes(status) && !isPast && withinNotice);
+                const showBlocked =
+                  ['scheduled', 'rescheduled'].includes(status) && !isPast && !withinNotice;
                 const joinCheck = canJoinSession(s, tab);
                 const joinable = Boolean(s.id && joinCheck.ok);
                 const win = getJoinWindowMinutes(tab);
@@ -258,13 +277,21 @@ export default function ScheduleScreen() {
                   ? format(new Date(s.date), "d MMMM yyyy · HH:mm", { locale: tr })
                   : '—';
                 const statusLabel =
-                  s.status === 'completed'
+                  status === 'completed'
                     ? 'Tamamlandı'
-                    : s.status === 'cancelled'
+                    : status === 'cancelled'
                       ? 'İptal'
-                      : s.status === 'rescheduled'
-                        ? 'Yeniden planlandı'
-                        : 'Planlandı';
+                      : status === 'rejected'
+                        ? 'Reddedildi'
+                        : status === 'pending'
+                          ? 'Onay bekliyor'
+                          : status === 'cancel_pending'
+                            ? 'İptal onayı bekleniyor'
+                            : status === 'admin_cancel_pending'
+                              ? 'Yönetim iptal onayı'
+                              : status === 'rescheduled'
+                                ? 'Yeniden planlandı'
+                                : 'Planlandı';
                 return (
                   <FadeIn key={s.id} delay={80 + i * 40}>
                     <View style={styles.card}>
@@ -283,7 +310,18 @@ export default function ScheduleScreen() {
                       </View>
                       {isActive ? (
                         <View style={styles.cardActions}>
-                        {!joinable && !isPast && (s.status || 'scheduled') === 'scheduled' ? (
+                        {showBlocked ? (
+                          <Text style={styles.joinHint}>{memberCancelBlockedCopy()}</Text>
+                        ) : null}
+                        {status === 'cancel_pending' ? (
+                          <Text style={styles.joinHint}>
+                            İptal talebiniz uzman onayını bekliyor. Onaylanana kadar randevu
+                            geçerlidir.
+                          </Text>
+                        ) : null}
+                        {!joinable &&
+                        !isPast &&
+                        VIDEO_ACTIVE_STATUSES.includes(status as (typeof VIDEO_ACTIVE_STATUSES)[number]) ? (
                           <Text style={styles.joinHint}>
                             {joinCheck.reason ||
                               `Katılım penceresi: seans öncesi ${win.before} dk / sonrası ${win.after} dk`}
@@ -300,19 +338,19 @@ export default function ScheduleScreen() {
                               style={{ flex: 1 }}
                             />
                           ) : null}
-                          {canModify ? (
-                            <>
-                              <Pressable
-                                onPress={() => setRescheduleTarget(s)}
-                                style={styles.modifyBtn}>
-                                <Text style={styles.modifyText}>Yeniden Planla</Text>
-                              </Pressable>
-                              <Pressable
-                                onPress={() => cancelStaffSession(tab, s.id)}
-                                style={styles.cancelBtn}>
-                                <Text style={styles.cancelText}>İptal Et</Text>
-                              </Pressable>
-                            </>
+                          {canReschedule ? (
+                            <Pressable
+                              onPress={() => setRescheduleTarget(s)}
+                              style={styles.modifyBtn}>
+                              <Text style={styles.modifyText}>Yeniden Planla</Text>
+                            </Pressable>
+                          ) : null}
+                          {canCancel ? (
+                            <Pressable
+                              onPress={() => setCancelTarget(s)}
+                              style={styles.cancelBtn}>
+                              <Text style={styles.cancelText}>{memberCancelLabel(status)}</Text>
+                            </Pressable>
                           ) : null}
                         </View>
                         </View>
@@ -328,14 +366,14 @@ export default function ScheduleScreen() {
 
       <Modal
         animationType="slide"
-        onRequestClose={() => setRescheduleTarget(null)}
+        onRequestClose={() => !busy && setRescheduleTarget(null)}
         transparent
         visible={!!rescheduleTarget}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.rescheduleModal, { paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>Randevuyu Yeniden Planla</Text>
-              <Pressable onPress={() => setRescheduleTarget(null)}>
+              <Pressable disabled={busy} onPress={() => setRescheduleTarget(null)}>
                 <Text style={styles.modalClose}>Kapat</Text>
               </Pressable>
             </View>
@@ -343,19 +381,73 @@ export default function ScheduleScreen() {
               Mevcut randevu iptal edilip {rescheduleDays} gün sonrasına taşınacak. Kesin saat
               için Randevu Al kullanın.
             </Text>
+            <Text style={[styles.modalBody, { marginTop: 8, opacity: 0.75 }]}>
+              Randevu saatinden 24 saatten az kaldığında yeniden planlama yapılamaz.
+            </Text>
             <Button
-              label="Onayla"
+              label={busy ? 'İşleniyor…' : 'Onayla'}
+              loading={busy}
               onPress={async () => {
-                if (!rescheduleTarget?.date) return;
-                await rescheduleStaffSession(
+                if (!rescheduleTarget?.id || busy) return;
+                setBusy(true);
+                const r = await rescheduleStaffSession(
                   tab,
                   rescheduleTarget.id,
-                  addDays(new Date(rescheduleTarget.date), rescheduleDays).toISOString(),
+                  undefined,
+                  rescheduleDays,
                 );
-                toast('Randevu yeniden planlandı', 'success');
-                setRescheduleTarget(null);
+                setBusy(false);
+                if (r.ok) setRescheduleTarget(null);
               }}
             />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={() => !busy && setCancelTarget(null)}
+        transparent
+        visible={!!cancelTarget}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.rescheduleModal, { paddingBottom: insets.bottom + spacing.lg }]}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>
+                {cancelTarget?.status === 'pending' ? 'Talebi İptal Et' : 'İptal Talebi Gönder'}
+              </Text>
+              <Pressable disabled={busy} onPress={() => setCancelTarget(null)}>
+                <Text style={styles.modalClose}>Kapat</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.modalBody}>
+              {cancelTarget?.status === 'pending'
+                ? 'Onay bekleyen randevu talebiniz anında iptal edilecek.'
+                : 'İptal talebiniz uzmanınıza iletilecek. Uzman onayladıktan sonra randevu iptal olur; reddedilirse görüşme planlandığı gibi devam eder.'}
+            </Text>
+            <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+              <Button
+                label={
+                  busy
+                    ? 'İşleniyor…'
+                    : cancelTarget?.status === 'pending'
+                      ? 'Talebi İptal Et'
+                      : 'Talebi Gönder'
+                }
+                loading={busy}
+                onPress={async () => {
+                  if (!cancelTarget?.id || busy) return;
+                  setBusy(true);
+                  const r = await cancelStaffSession(tab, cancelTarget.id);
+                  setBusy(false);
+                  if (r.ok) setCancelTarget(null);
+                }}
+              />
+              <Button
+                label="Vazgeç"
+                onPress={() => setCancelTarget(null)}
+                variant="secondary"
+              />
+            </View>
           </View>
         </View>
       </Modal>

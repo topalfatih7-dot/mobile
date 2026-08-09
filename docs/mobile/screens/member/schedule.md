@@ -52,16 +52,16 @@ Redirects (web App.jsx): `/schedule/coach|dietitian|doctor` → `?tab=`.
 Port from `src/components/calendar/MemberScheduleView.jsx` — booking, join window, cancel/reschedule if present.  
 Join → `memberCallPath(type, sessionId)` = `/call/{type}/{id}`.
 
-### Cancel / reschedule (web parity)
+### Cancel / reschedule (web parity — 24s + onay zinciri)
 
-- Yalnız `status === 'scheduled'` ve gelecekteki seans değiştirilebilir.
-- **Yeniden Planla** → **Randevuyu Yeniden Planla** modalı.
-- Koç seansı mevcut tarihten **3 gün**, diyetisyen/doktor seansı **5 gün** ileri taşınır.
-- Açıklama: **Mevcut randevu iptal edilip {n} gün sonrasına taşınacak. Kesin saat için Randevu Al kullanın.**
-- **Onayla** → mevcut session nesnesinin `date` alanı yeni ISO tarih, `status` alanı `rescheduled` olur; aynı `members.data.{type}Sessions` dizisi güncellenir.
-- Başarı: **Randevu yeniden planlandı**
-- **İptal Et** → aynı session `status: 'cancelled'`; başarı: **Randevu iptal edildi**
-- Ayrı reschedule endpoint’i yoktur; web `AppContext.rescheduleSession` mevcut member data patch yolunu kullanır.
+- **≥24 saat** kala (`session.date - now >= 24h`):
+  - `pending` → **Talebi İptal Et** → anında `cancelled` (çekme).
+  - `scheduled` / `rescheduled` → **İptal Talebi Gönder** → `cancel_pending` (personel onay/red). Toast: **İptal talebiniz gönderildi. Uzman onayı bekleniyor.**
+  - **Yeniden Planla** → +3 (koç) / +5 gün; API `reschedule-session`; `status: rescheduled`.
+- **&lt;24 saat** kala: iptal ve yeniden planla **yok**; bilgi: **Randevuya 24 saatten az kaldığı için iptal veya değişiklik yapılamaz.**
+- `cancel_pending`: rozet **İptal onayı bekleniyor**; video join açık kalır; tekrar iptal yok.
+- API: `request-cancel-session` / `reschedule-session` — client patch ile anında iptal yok.
+- Booker: 24s kuralı metni + **Anladım** onayı zorunlu (bkz. session-booker + `BOOKING_POLICY_ACK_COPY`).
 
 Join window config (`videoCall.js`):
 - `joinMinutesBefore` default **15**
