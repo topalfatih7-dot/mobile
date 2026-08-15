@@ -30,6 +30,7 @@
     "android": {
       "package": "com.yeniform.app",
       "versionCode": 3,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#2d8fc4",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -97,7 +98,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-video"
+      "expo-video",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

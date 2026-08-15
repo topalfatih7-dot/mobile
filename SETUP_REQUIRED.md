@@ -1,6 +1,6 @@
 # Setup Required — Native Credentials
 
-These files are **not committed to git** (they are in `.gitignore`). You must obtain and place them manually before running a native build.
+These files are **not committed to git** (they are in `.gitignore`). You must obtain and place them manually before running a native build that needs push.
 
 ---
 
@@ -15,13 +15,17 @@ These files are **not committed to git** (they are in `.gitignore`). You must ob
    - If it doesn't exist, click **Add app** → Android → enter `com.yeniform.app`.
 4. Click **Download google-services.json**.
 5. Place the file at the **project root**: `/Users/mac/Desktop/mobile/google-services.json`
+6. Firebase then shows **Add Firebase SDK** (Kotlin vs Java, Gradle Groovy vs Kotlin DSL). **Skip those steps.** This is an Expo managed app — do not paste Gradle/Kotlin snippets. EAS prebuild reads `android.googleServicesFile` from `app.json`.
 
-`app.json` already points to it:
+`app.json` points to it **only when the file exists** at the project root:
+
 ```json
 "android": {
   "googleServicesFile": "./google-services.json"
 }
 ```
+
+Do not add `googleServicesFile` without the file — Expo config parse fails and EAS build can fail.
 
 ---
 
@@ -42,14 +46,14 @@ These files are **not committed to git** (they are in `.gitignore`). You must ob
 
 ## 3. Expo Push Notification Setup
 
-After placing both files above:
+After placing the Android file (and iOS plist when targeting iOS):
 
 1. Run a new EAS build so the native project picks up the credentials:
    ```bash
-   eas build --platform android --profile development
-   eas build --platform ios --profile development
+   npm run build:preview:android
+   npm run build:preview:ios
    ```
-2. To test push notifications with Expo Go / dev client, you need an Expo push token. The app already calls `Notifications.getExpoPushTokenAsync()` — check the console output on first launch.
+2. Member login on a physical device → allow notifications. The app calls `Notifications.getExpoPushTokenAsync()` and upserts `device_push_tokens`.
 
 ---
 

@@ -29,7 +29,7 @@ EKRAN / LOG: (screenshot veya kırmızı hata metni)
 
 | # | Kontrol | Nasıl | OK? |
 |---|---------|-------|-----|
-| 1 | `.env.local` dolu | `EXPO_PUBLIC_SUPABASE_*`, `EXPO_PUBLIC_API_BASE_URL`, RC keys, Turnstile (varsa) | ☐ |
+| 1 | `.env.local` dolu | `EXPO_PUBLIC_SUPABASE_*`, `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET`, Daily (varsa) | ☐ |
 | 2 | `UI_ONLY_MODE === false` | `src/config/runtime.ts` | ☐ |
 | 3 | Dev client yüklü | `npm run build:dev:ios` veya android (veya mevcut build) | ☐ |
 | 4 | Metro | `npm start` → cihazdan bağlan | ☐ |
@@ -258,7 +258,7 @@ Her satır için: açılır · loading · empty · hata · ana CTA.
 
 1. **Bugün:** T0 → T1 → T2 → T4 (public + auth + chrome)  
 2. **Sonra:** T5 (üye features) — en uzun  
-3. **Sonra:** T3 (IAP — store hazırsa)  
+3. **Sonra:** T3 (ödeme — web `/plans` CTA; IAP yok)  
 4. **Sonra:** T6 staff → T7 admin  
 5. **Son:** T8–T10  
 

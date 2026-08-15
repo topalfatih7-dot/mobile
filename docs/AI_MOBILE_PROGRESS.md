@@ -1,6 +1,18 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-15 — Preview login: RN `signOut`+AsyncStorage `setSession` yarışı  
+> **Son güncelleme:** 2026-08-15 — Android preview: FCM `googleServicesFile` + Expo 56 paket hizası + EAS APK  
+> **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
+> **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-15 Android preview hazırlık
+
+| Madde | Durum |
+|-------|--------|
+| `google-services.json` (`com.yeniform.app`) yerelde; gitignore | ✅ |
+| `app.json` `android.googleServicesFile` | ✅ |
+| `npx expo install --fix` + `expo-asset` | ✅ |
+| `pickLabFile` + `memberRowRefresh` tsc | ✅ |
+| EAS `build:preview:android` | 🔄 bu tur |  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
 
@@ -167,7 +179,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | Madde | Durum |
 |-------|--------|
 | Docs cleanup (`docs/` kök kopyaları silindi; otorite `docs/mobile/`) | ✅ |
-| FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ config; `google-services.json` / `GoogleService-Info.plist` kullanıcı sağlar |
+| FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ Android: `google-services.json` yerelde + `app.json`; iOS plist USER |
 | RevenueCat test key + Paywall / CustomerCenter | ⛔ IAP kaldırıldı (2026-08-08) |
 | `shadow*` → `boxShadow` + `pointerEvents` style migrasyonu | ✅ |
 | Library virtualization + admin members pagination | ✅ |
@@ -179,9 +191,9 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | EAS profiles (`development`, `preview`, `production`) + `projectId` | ✅ |
 
 **Kalan USER blockers:**
-1. Proje köküne `google-services.json` + `GoogleService-Info.plist` koy (`SETUP_REQUIRED.md`)
-2. ~~App Store / Play + RevenueCat ürün eşlemesi~~ — IAP iptal; web Stripe
-3. Cihazda EAS preview: `npm run build:preview:ios` / `npm run build:preview:android`
+1. ~~Android `google-services.json`~~ — yerelde var (`com.yeniform.app`); git’e girmez
+2. iOS `GoogleService-Info.plist` — iOS preview için (`SETUP_REQUIRED.md`)
+3. Cihazda EAS preview: `npm run build:preview:android` (bu tur) / iOS ayrı
 
 ## Store yolu (üye)
 
@@ -190,8 +202,8 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | P0 Hesaplar | 🔑 test key eklendi | `store/P0-handoff-checklist.md` |
 | P1 Auth | ✅ kod | — |
 | P2 IAP | ⛔ iptal — web membership CTA | `store/P2-live-gate.md` |
-| P3 Push | ✅ + yerel banner; FCM files USER | `store/P3-push-test-gate.md` |
-| P4 Splash/EAS | ✅ projectId; preview build USER | `store/P4-splash-eas-gate.md` |
+| P3 Push | ✅ kod + Android FCM dosyası; cihaz smoke | `store/P3-push-test-gate.md` |
+| P4 Splash/EAS | ✅ projectId; Android preview APK bu tur | `store/P4-splash-eas-gate.md` |
 | P5 Parity | ✅ messages presence/programs | `store/P5-parity-gate.md` |
 | P6 Store | ✅ listing şablon | `store/P6-store-gate.md` |
 
@@ -313,15 +325,15 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Kalan doğrulanmış GAP’ler (blocked — karar / env)
 
-1. **FCM native files:** `google-services.json` / `GoogleService-Info.plist` yok — `SETUP_REQUIRED.md`
-2. **Push cihaz smoke:** native preview build + `device_push_tokens` satırı + arka plan banner
-3. **App Store / Play ürünleri:** store ürün ID’leri + RevenueCat dashboard eşlemesi
-4. **EAS preview build:** `npm run build:preview:ios` / `npm run build:preview:android` (cihaz)
+1. **iOS FCM:** `GoogleService-Info.plist` yok — `SETUP_REQUIRED.md` (Android dosyası yerelde)
+2. **Push cihaz smoke:** yeni preview APK + `device_push_tokens` satırı + arka plan banner
+3. ~~App Store / Play + RevenueCat~~ — IAP iptal; web Stripe `/plans`
+4. **EAS preview iOS:** `npm run build:preview:ios` (ayrı tur)
 5. **Library equipment filter:** mobil eski spec; web UI yok — otorite: web only (yapılmadı)
-6. **Payments history ledger:** RC tam ledger yok
+6. **Payments history ledger:** Stripe ledger UI yok (status `members` paketleri)
 
 ## Sonraki
 
-1. `google-services.json` + `GoogleService-Info.plist` yerleştir
-2. EAS preview iOS/Android → cihaz smoke (push + IAP)
-3. Store ürünleri + RevenueCat dashboard eşlemesi
+1. Android preview APK kur + üye login push smoke
+2. iOS plist + `build:preview:ios` (ayrı)
+3. Ödeme: native IAP yok — web `/plans` CTA

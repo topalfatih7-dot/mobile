@@ -14,7 +14,7 @@
 ## Build (sen — credentials)
 
 ```bash
-# Fiziksel cihaz + push/IAP için:
+# Fiziksel cihaz + push için:
 npm run build:dev:android   # veya
 npm run build:dev:ios
 
@@ -30,7 +30,7 @@ npm run build:preview:ios
 1. Soğuk açılış → markalı splash (mavi + logo)
 2. Fontlar Inter / Plus Jakarta
 3. Üye login → `device_push_tokens` satırı (projectId ile token)
-4. IAP configure (keys varsa) native hata vermez
+4. Ödeme: native IAP yok — `/(member)/profile/payments` web `/plans` CTA
 5. Daily join native path (cihaz)
 
 ## Sonraki

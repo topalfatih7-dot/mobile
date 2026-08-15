@@ -7,9 +7,9 @@ import { supabase } from '@/services/supabase';
 
 const SELECT_TIMEOUT_MS = 8000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return Promise.race([
-    promise.then((value) => value).catch(() => null),
+    Promise.resolve(promise).then((value) => value).catch(() => null),
     new Promise<null>((resolve) => {
       setTimeout(() => resolve(null), ms);
     }),

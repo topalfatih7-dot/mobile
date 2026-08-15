@@ -20,6 +20,19 @@ export type LabFileMeta = {
   contentType: string;
 };
 
+/** Sağlık testi lab yükleme — native galeri (PDF: web; Expo ImagePicker görsel). */
+export async function pickLabFile(): Promise<{
+  uri: string;
+  name: string;
+  mimeType?: string;
+} | null> {
+  const picked = await pickImageFromLibrary();
+  if (!picked?.uri) return null;
+  const mime = picked.mimeType || 'image/jpeg';
+  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  return { uri: picked.uri, name: `lab.${ext}`, mimeType: mime };
+}
+
 export async function pickImageFromLibrary(): Promise<PickedImage | null> {
   try {
     const { pickWithLibrary } = await import('@/services/memberMediaPicker');

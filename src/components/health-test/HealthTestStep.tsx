@@ -312,10 +312,10 @@ function FileUploadInput({
       const res = await uploadHealthLabResult({
         userId,
         uri: picked.uri,
-        name: picked.name,
+        fileName: picked.name,
         contentType: picked.mimeType,
       });
-      if (!res.success) {
+      if (!res.ok) {
         setError(res.error);
         return;
       }
