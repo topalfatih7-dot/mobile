@@ -55,18 +55,6 @@ type Props = {
   joinAccess?: VideoCallAccess;
 };
 
-function PulseRing() {
-  const progress = useSharedValue(0);
-  useEffect(() => {
-    progress.value = withRepeat(withTiming(1, { duration: 1800 }), -1);
-  }, [progress]);
-  const anim = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + progress.value * 0.25 }],
-    opacity: 0.6 * (1 - progress.value),
-  }));
-  return <Animated.View style={[styles.pulseRing, anim, { pointerEvents: 'none' }]} />;
-}
-
 function ConnectingDot() {
   const opacity = useSharedValue(0.4);
   useEffect(() => {
@@ -125,6 +113,7 @@ export function VideoCallShell({
   const [permsDenied, setPermsDenied] = useState(false);
   const [permsUnavailable, setPermsUnavailable] = useState(false);
   const attendanceJoined = useRef(false);
+  const previewStarted = useRef(false);
 
   const call = useDailyCall();
 
@@ -149,20 +138,58 @@ export function VideoCallShell({
     });
   };
 
+  /** Exit: preview kamerasını da kapat + geri dön */
   const leave = async () => {
     reportLeaveAttendance();
     setWebViewUrl(null);
-    await call.leaveMeeting();
+    await call.destroy();
     if (backHref) router.replace(backHref);
     else router.back();
   };
 
-  // Daily düşerse attendance leave
+  const beginPreview = async () => {
+    if (isUiOnly()) return;
+    const perms = await requestCallMediaPermissions();
+    if (!perms.granted) {
+      setPermsDenied(true);
+      setPermsUnavailable(Boolean(perms.unavailable));
+      return;
+    }
+    setPermsDenied(false);
+    setPermsUnavailable(false);
+    const result = await call.startPreview({ camOn: true, micOn: true });
+    if (!result.ok) {
+      toast(result.error || 'Kamera önizlemesi başlatılamadı.', 'error');
+    }
+  };
+
+  // Web parity: call ekranı açılınca yerel kamera önizlemesi
   useEffect(() => {
-    if (call.isJoined || !attendanceJoined.current) return;
+    if (isUiOnly() || previewStarted.current) return;
+    previewStarted.current = true;
+    void beginPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
+  }, []);
+
+  // Web parity: join attendance isJoined / WebView bağlanınca
+  useEffect(() => {
+    const sid = String(sessionId || '').trim();
+    if (!sid || attendanceJoined.current) return;
+    if (!call.isJoined && !webViewUrl) return;
+    attendanceJoined.current = true;
+    void reportSessionAttendance({
+      sessionId: sid,
+      sessionType,
+      event: 'join',
+    });
+  }, [call.isJoined, webViewUrl, sessionId, sessionType]);
+
+  // Daily düşerse attendance leave (preview'a dönüşte isJoined false)
+  useEffect(() => {
+    if (call.isJoined || webViewUrl || !attendanceJoined.current) return;
     reportLeaveAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [call.isJoined]);
+  }, [call.isJoined, webViewUrl]);
 
   const joinCall = async () => {
     setTokenError('');
@@ -188,19 +215,25 @@ export function VideoCallShell({
 
     setJoining(true);
     try {
-      const perms = await requestCallMediaPermissions();
-      if (!perms.granted) {
-        setPermsDenied(true);
-        setPermsUnavailable(Boolean(perms.unavailable));
-        toast(
-          perms.unavailable
-            ? 'Görüşme için development build gerekir (kamera / Daily native).'
-            : 'Kamera ve mikrofon izni gerekli. Ayarlardan izin verin.',
-          'warning',
-        );
-        return;
+      if (!call.isPreview) {
+        const perms = await requestCallMediaPermissions();
+        if (!perms.granted) {
+          setPermsDenied(true);
+          setPermsUnavailable(Boolean(perms.unavailable));
+          toast(
+            perms.unavailable
+              ? 'Görüşme için development build gerekir (kamera / Daily native).'
+              : 'Kamera ve mikrofon izni gerekli. Ayarlardan izin verin.',
+            'warning',
+          );
+          return;
+        }
+        setPermsDenied(false);
+        await call.startPreview({
+          camOn: call.mediaState.camOn,
+          micOn: call.mediaState.micOn,
+        });
       }
-      setPermsDenied(false);
 
       const tokenRes = await getDailyRoomToken({
         sessionType,
@@ -230,17 +263,12 @@ export function VideoCallShell({
         url,
         token: tokenRes.token,
         userName,
-        camOn: true,
-        micOn: true,
+        camOn: call.mediaState.camOn,
+        micOn: call.mediaState.micOn,
       });
 
       if (joined.ok) {
-        attendanceJoined.current = true;
-        void reportSessionAttendance({
-          sessionId: sid,
-          sessionType,
-          event: 'join',
-        });
+        // attendance: isJoined effect (web parity)
         return;
       }
 
@@ -253,14 +281,10 @@ export function VideoCallShell({
         toast(message, 'error');
         return;
       }
+      // WebView yolunda native preview'ı kapat
+      await call.destroy();
       const wvUrl = `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(tokenRes.token)}`;
       setWebViewUrl(wvUrl);
-      attendanceJoined.current = true;
-      void reportSessionAttendance({
-        sessionId: sid,
-        sessionType,
-        event: 'join',
-      });
     } catch (e: unknown) {
       const err = e as { message?: string };
       const message = String(err?.message || 'Görüşmeye katılılamadı.');
@@ -319,7 +343,7 @@ export function VideoCallShell({
             <Pressable
               onPress={() => {
                 setPermsDenied(false);
-                void joinCall();
+                void beginPreview();
               }}
               style={styles.settingsBtn}>
               <Text style={styles.settingsBtnText}>Tekrar dene</Text>
@@ -458,19 +482,66 @@ export function VideoCallShell({
         </Pressable>
 
         <FadeIn style={styles.preStage}>
-          <View style={styles.avatarWrap}>
-            <PulseRing />
-            <View style={styles.avatar}>
-              <Ionicons color={colors.white} name="videocam" size={36} />
-            </View>
-          </View>
           <Text style={styles.title}>{label}</Text>
+          <View style={styles.previewFrame}>
+            {(() => {
+              const DailyMediaView = call.DailyMediaView;
+              if (DailyMediaView && call.localVideo && call.mediaState.camOn) {
+                return (
+                  <DailyMediaView
+                    audioTrack={null}
+                    mirror
+                    objectFit="cover"
+                    style={StyleSheet.absoluteFill}
+                    videoTrack={call.localVideo}
+                    zOrder={0}
+                  />
+                );
+              }
+              if (call.isPreview || call.phase === 'loading') {
+                return (
+                  <View style={styles.previewPlaceholder}>
+                    <Ionicons
+                      color={colors.white}
+                      name={call.mediaState.camOn ? 'person' : 'videocam-off'}
+                      size={40}
+                    />
+                    <Text style={styles.previewPlaceholderText}>
+                      {call.mediaState.camOn ? 'Kamera hazırlanıyor…' : 'Kamera kapalı'}
+                    </Text>
+                  </View>
+                );
+              }
+              return (
+                <View style={styles.previewPlaceholder}>
+                  <ActivityIndicator color={colors.white} />
+                  <Text style={styles.previewPlaceholderText}>Kamera açılıyor…</Text>
+                </View>
+              );
+            })()}
+            <Text style={styles.previewLabel}>Sen</Text>
+          </View>
+          <View style={styles.previewControls}>
+            <ControlBtn
+              icon={call.mediaState.micOn ? 'mic' : 'mic-off'}
+              label={call.mediaState.micOn ? 'Sesi kapat' : 'Sesi aç'}
+              danger={!call.mediaState.micOn}
+              onPress={() => void call.toggleMic()}
+            />
+            <ControlBtn
+              icon={call.mediaState.camOn ? 'videocam' : 'videocam-off'}
+              label={call.mediaState.camOn ? 'Kamerayı kapat' : 'Kamerayı aç'}
+              danger={!call.mediaState.camOn}
+              onPress={() => void call.toggleCam()}
+            />
+          </View>
           <View style={styles.connectRow}>
             <ConnectingDot />
             <Text style={styles.connectText}>
               {joining || call.isLoading
                 ? 'Bağlanıyor…'
-                : joinAccess?.statusLabel || 'Görüşme odası hazırlanıyor…'}
+                : joinAccess?.statusLabel ||
+                  'Görüşmeye katılmadan önce cihazlarınızı test edebilirsiniz.'}
             </Text>
           </View>
           {!canJoin && joinAccess?.reason ? (
@@ -659,46 +730,76 @@ const styles = StyleSheet.create({
   },
   back: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   backText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.white },
-  preStage: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xxl },
-  avatarWrap: {
+  preStage: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    width: '100%',
+  },
+  previewFrame: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    maxHeight: 320,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  previewPlaceholder: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    gap: 10,
+    backgroundColor: '#1f2937',
   },
-  pulseRing: {
+  previewPlaceholderText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  previewLabel: {
     position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    left: 12,
+    bottom: 12,
+    fontFamily: fonts.sansSemi,
+    fontSize: 13,
+    color: colors.white,
+    zIndex: 2,
   },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
+  previewControls: {
+    flexDirection: 'row',
     justifyContent: 'center',
+    gap: 14,
+    marginTop: 4,
   },
   title: {
     fontFamily: fonts.displayExtra,
-    fontSize: 26,
+    fontSize: 22,
     color: colors.white,
     textAlign: 'center',
   },
-  connectRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  connectRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 2,
+    paddingHorizontal: spacing.sm,
+  },
   connectDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.mint[400],
+    marginTop: 5,
   },
   connectText: {
+    flex: 1,
     fontFamily: fonts.sans,
     fontSize: 13,
+    lineHeight: 19,
     color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
   },
   joinNotice: {
     marginTop: spacing.sm,

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import {
   addMonths,
   eachDayOfInterval,
@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
@@ -115,17 +116,14 @@ export default function CalendarScreen() {
   const { toggleActivityCompletion, toggleMealCompletion, updateProfile } = useActions();
   const { toast } = useToast();
 
-  useFocusEffect(
-    useCallback(() => {
-      void refreshData();
-    }, [refreshData]),
-  );
+  // Realtime programs + pull-to-refresh — no full refreshData on every tab focus
 
   const [current, setCurrent] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     isToday(new Date()) ? new Date() : null,
   );
   const [saving, setSaving] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
   const [availOpen, setAvailOpen] = useState(false);
   const [availForm, setAvailForm] = useState<Record<string, string[]>>(
     (member?.availability as Record<string, string[]>) || {},
@@ -175,16 +173,59 @@ export default function CalendarScreen() {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const daysWithPrograms = useMemo(() => {
-    const set = new Set<string>();
+  /** Per-day meta once per month — avoids O(programs×entries) per cell render */
+  const dayMetaByDate = useMemo(() => {
+    const map = new Map<
+      string,
+      { dots: string[]; total: number; done: number; allDone: boolean }
+    >();
     days.forEach((day) => {
       if (!isSameMonth(day, current)) return;
-      if (getProgramEntriesForDate(myPrograms, day, member as never).length > 0) {
-        set.add(format(day, 'yyyy-MM-dd'));
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const entries = getProgramEntriesForDate(myPrograms, day, member as never);
+      const dots: string[] = [];
+      if (
+        entries.some(
+          (e: { programType?: string; mealType?: string }) =>
+            e.programType === 'workout' && !e.mealType,
+        )
+      ) {
+        dots.push('workout');
       }
+      if (
+        entries.some(
+          (e: { programType?: string; mealType?: string }) =>
+            e.programType === 'nutrition' || e.mealType,
+        )
+      ) {
+        dots.push('nutrition');
+      }
+      const { workout: w, nutrition: n } = splitEntriesByType(entries);
+      const groups = groupEntriesByMeal(n);
+      const total = w.length + groups.length;
+      if (total === 0) {
+        map.set(dateStr, { dots, total: 0, done: 0, allDone: false });
+        return;
+      }
+      const keys = completedActivities[dateStr] || [];
+      const done =
+        w.filter((e: { id: string }) => keys.includes(completionKey(dateStr, e.id)))
+          .length +
+        groups.filter((g: { mealType: string; entries: unknown[] }) =>
+          isMealCompleted(completedActivities, dateStr, g.mealType, g.entries),
+        ).length;
+      map.set(dateStr, { dots, total, done, allDone: done === total });
+    });
+    return map;
+  }, [days, current, myPrograms, member, completedActivities]);
+
+  const daysWithPrograms = useMemo(() => {
+    const set = new Set<string>();
+    dayMetaByDate.forEach((meta, dateStr) => {
+      if (meta.dots.length > 0 || meta.total > 0) set.add(dateStr);
     });
     return set;
-  }, [days, current, myPrograms, member]);
+  }, [dayMetaByDate]);
 
   const selectedEntries = useMemo(() => {
     if (!selectedDate) return [];
@@ -197,76 +238,46 @@ export default function CalendarScreen() {
 
   const dayCompletionCount = useMemo(() => {
     if (!selectedDateStr) return { done: 0, total: 0 };
-    const keys = completedActivities[selectedDateStr] || [];
-    const workoutDone = workout.filter((e: { id: string }) =>
-      keys.includes(completionKey(selectedDateStr, e.id)),
-    ).length;
-    const mealDone = mealGroups.filter((g: { mealType: string; entries: unknown[] }) =>
-      isMealCompleted(completedActivities, selectedDateStr, g.mealType, g.entries),
-    ).length;
-    return { done: workoutDone + mealDone, total: workout.length + mealGroups.length };
-  }, [selectedEntries, selectedDateStr, completedActivities, workout, mealGroups]);
+    const meta = dayMetaByDate.get(selectedDateStr);
+    if (meta) return { done: meta.done, total: meta.total };
+    return { done: 0, total: 0 };
+  }, [selectedDateStr, dayMetaByDate]);
 
   const progressPct =
     dayCompletionCount.total > 0
       ? Math.round((dayCompletionCount.done / dayCompletionCount.total) * 100)
       : 0;
 
-  // Gün bazında tamamlanma (hücre check ikonu + mini bar)
-  const getDayStats = useCallback(
-    (day: Date) => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      const entries = getProgramEntriesForDate(myPrograms, day, member as never);
-      const { workout: w, nutrition: n } = splitEntriesByType(entries);
-      const groups = groupEntriesByMeal(n);
-      const total = w.length + groups.length;
-      if (total === 0) return { total: 0, done: 0, allDone: false };
-      const keys = completedActivities[dateStr] || [];
-      const done =
-        w.filter((e: { id: string }) => keys.includes(completionKey(dateStr, e.id))).length +
-        groups.filter((g: { mealType: string; entries: unknown[] }) =>
-          isMealCompleted(completedActivities, dateStr, g.mealType, g.entries),
-        ).length;
-      return { total, done, allDone: done === total };
-    },
-    [myPrograms, member, completedActivities],
-  );
-
-  // Ay bazında tamamlama yüzdesi (web CalendarPage monthStats paritesi)
   const monthStats = useMemo(() => {
     let total = 0;
     let done = 0;
-    days.forEach((day) => {
-      if (!isSameMonth(day, current)) return;
-      const stats = getDayStats(day);
+    dayMetaByDate.forEach((stats) => {
       total += stats.total;
       done += stats.done;
     });
     return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
-  }, [days, current, getDayStats]);
+  }, [dayMetaByDate]);
 
   const getDotsForDay = (day: Date) => {
     const dateStr = format(day, 'yyyy-MM-dd');
-    if (!daysWithPrograms.has(dateStr)) return [] as string[];
-    const entries = getProgramEntriesForDate(myPrograms, day, member as never);
-    const dots: string[] = [];
-    if (entries.some((e: { programType?: string; mealType?: string }) => e.programType === 'workout' && !e.mealType)) {
-      dots.push('workout');
-    }
-    if (entries.some((e: { programType?: string; mealType?: string }) => e.programType === 'nutrition' || e.mealType)) {
-      dots.push('nutrition');
-    }
-    return dots;
+    return dayMetaByDate.get(dateStr)?.dots || [];
+  };
+
+  const getDayStats = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    return dayMetaByDate.get(dateStr) || { total: 0, done: 0, allDone: false };
   };
 
   const toggleActivity = useCallback(
     async (entryId: string) => {
       if (!selectedDateStr || saving) return;
       setSaving(true);
+      setSavingKey(`activity:${entryId}`);
       try {
         await toggleActivityCompletion(selectedDateStr, entryId);
       } finally {
         setSaving(false);
+        setSavingKey(null);
       }
     },
     [selectedDateStr, saving, toggleActivityCompletion],
@@ -276,10 +287,12 @@ export default function CalendarScreen() {
     async (mealType: string, entryIds: string[]) => {
       if (!selectedDateStr || saving) return;
       setSaving(true);
+      setSavingKey(`meal:${mealType}`);
       try {
         await toggleMealCompletion(selectedDateStr, mealType, entryIds);
       } finally {
         setSaving(false);
+        setSavingKey(null);
       }
     },
     [selectedDateStr, saving, toggleMealCompletion],
@@ -738,16 +751,21 @@ export default function CalendarScreen() {
                         )
                       }
                       style={[styles.entryRow, done && styles.entryRowDone]}>
-                      <Animated.View
-                        key={done ? 'done' : 'undone'}
-                        entering={ZoomIn.springify()}
-                        style={saving ? styles.checkSaving : null}>
-                        <Ionicons
-                          color={done ? colors.sage[500] : colors.cream[300]}
-                          name={done ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={24}
-                        />
-                      </Animated.View>
+                      {savingKey === `meal:${g.mealType}` ? (
+                        <View style={styles.checkSlot}>
+                          <BrandLoader mark={false} size="xs" />
+                        </View>
+                      ) : (
+                        <Animated.View
+                          key={done ? 'done' : 'undone'}
+                          entering={ZoomIn.springify()}>
+                          <Ionicons
+                            color={done ? colors.sage[500] : colors.cream[300]}
+                            name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={24}
+                          />
+                        </Animated.View>
+                      )}
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.entryTitle, done && styles.entryTitleDone]}>
                           {mealLabel(g.mealType) || g.label}
@@ -793,16 +811,21 @@ export default function CalendarScreen() {
                       key={String(entry.id)}
                       onPress={() => void toggleActivity(String(entry.id))}
                       style={[styles.entryRow, done && styles.entryRowDone]}>
-                      <Animated.View
-                        key={done ? 'done' : 'undone'}
-                        entering={ZoomIn.springify()}
-                        style={saving ? styles.checkSaving : null}>
-                        <Ionicons
-                          color={done ? colors.sage[500] : colors.cream[300]}
-                          name={done ? 'checkmark-circle' : 'ellipse-outline'}
-                          size={24}
-                        />
-                      </Animated.View>
+                      {savingKey === `activity:${String(entry.id)}` ? (
+                        <View style={styles.checkSlot}>
+                          <BrandLoader mark={false} size="xs" />
+                        </View>
+                      ) : (
+                        <Animated.View
+                          key={done ? 'done' : 'undone'}
+                          entering={ZoomIn.springify()}>
+                          <Ionicons
+                            color={done ? colors.sage[500] : colors.cream[300]}
+                            name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={24}
+                          />
+                        </Animated.View>
+                      )}
                       <ExerciseVideoThumbnail
                         pending={Boolean(entry.videoPending)}
                         size={44}
@@ -1319,7 +1342,12 @@ const styles = StyleSheet.create({
   entryMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
   celebrateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   celebrateText: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.sage[600] },
-  checkSaving: { opacity: 0.5 },
+  checkSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   watchBtn: {
     flexDirection: 'row',
     alignItems: 'center',

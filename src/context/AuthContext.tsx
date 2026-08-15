@@ -32,6 +32,12 @@ export type AuthContextValue = {
   staff: Record<string, unknown> | null;
   registeredMember: boolean;
   refreshAuth: () => Promise<HydratedAuth | null>;
+  /** Optimistic staff patch (notifications mark-read) before refreshAuth */
+  setLocalStaffOverlay: (staff: Record<string, unknown> | null) => void;
+  /** Realtime member row — update auth without full hydrateAuth round-trip */
+  applyRemoteMember: (member: Record<string, unknown>) => void;
+  /** Realtime staff row patch into overlay/auth */
+  applyRemoteStaff: (staff: Record<string, unknown>) => void;
   login: (opts: {
     email: string;
     password: string;
@@ -47,6 +53,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(true);
   const [auth, setAuth] = useState<HydratedAuth | null>(null);
+  const [staffOverride, setStaffOverride] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const authRef = useRef<HydratedAuth | null>(null);
   authRef.current = auth;
 
@@ -55,8 +64,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return authRef.current;
     }
     const next = await hydrateAuth();
+    setStaffOverride(null);
     setAuth(next);
     return next;
+  }, []);
+
+  const setLocalStaffOverlay = useCallback((next: Record<string, unknown> | null) => {
+    setStaffOverride(next);
+  }, []);
+
+  const applyRemoteMember = useCallback((member: Record<string, unknown>) => {
+    setAuth((prev) => {
+      if (!prev || prev.role !== 'member') return prev;
+      return { ...prev, member };
+    });
+  }, []);
+
+  const applyRemoteStaff = useCallback((next: Record<string, unknown>) => {
+    setStaffOverride(next);
+    setAuth((prev) => {
+      if (!prev || prev.role !== 'staff') return prev;
+      return { ...prev, staff: next };
+    });
   }, []);
 
   useEffect(() => {
@@ -139,14 +168,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isUiOnly()) {
       resetChatUi();
       await clearDemoAuth();
+      setStaffOverride(null);
       setAuth(null);
       return;
     }
     if (supabase) await supabase.auth.signOut();
+    setStaffOverride(null);
     setAuth(null);
   }, []);
 
   const routeForRole = useCallback(() => (auth ? routeForHydrated(auth) : null), [auth]);
+
+  const resolvedStaff = staffOverride ?? auth?.staff ?? null;
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -156,14 +189,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId: auth?.userId ?? null,
       email: auth?.email ?? null,
       member: auth?.member ?? null,
-      staff: auth?.staff ?? null,
+      staff: resolvedStaff,
       registeredMember: auth?.registeredMember ?? false,
       refreshAuth,
+      setLocalStaffOverlay,
+      applyRemoteMember,
+      applyRemoteStaff,
       login,
       logout,
       routeForRole,
     }),
-    [booting, auth, refreshAuth, login, logout, routeForRole],
+    [
+      booting,
+      auth,
+      resolvedStaff,
+      refreshAuth,
+      setLocalStaffOverlay,
+      applyRemoteMember,
+      applyRemoteStaff,
+      login,
+      logout,
+      routeForRole,
+    ],
   );
 
   return (

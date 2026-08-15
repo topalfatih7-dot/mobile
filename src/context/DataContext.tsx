@@ -4,12 +4,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { isUiOnly } from '@/config/runtime';
 import { useAuth } from '@/context/AuthContext';
+import { useChatUnread } from '@/context/ChatUnreadContext';
 import {
   DEMO_CLIENTS,
   DEMO_POSTS,
@@ -20,17 +23,23 @@ import {
   DEMO_APPLICATIONS,
 } from '@/data/uiDemo';
 import { usePlatformRealtime } from '@/hooks/usePlatformRealtime';
-import { rowToPost, rowToProgram, type MemberRecord } from '@/services/mappers';
+import {
+  rowToPost,
+  rowToProgram,
+  type MemberRecord,
+} from '@/services/mappers';
 import {
   EMPTY_PLATFORM,
   hydratePlatform,
   type PlatformBundle,
 } from '@/services/platformDb';
 import { isMemberWriteInFlight } from '@/services/memberWriteGate';
+import { fetchMemberRowQuiet } from '@/services/memberRowRefresh';
 import { fetchStaffDirectory } from '@/services/staffDirectory';
 import { requireSupabase, supabase } from '@/services/supabase';
 import { getStaffClients } from '@/utils/staffClients';
 import { isProgramListedForMember } from '@/utils/programPackageScope';
+import { perfInc } from '@/utils/perfCounters';
 
 export type ProgramRecord = Record<string, unknown> & {
   id: string;
@@ -48,6 +57,12 @@ export type PostRecord = Record<string, unknown> & {
   slug?: string;
 };
 
+export type RefreshDataOptions = {
+  /** Realtime / arka plan: full-screen loading yok (call unmount önlenir) */
+  silent?: boolean;
+  reason?: 'boot' | 'chat' | 'ticket' | 'member' | 'focus' | 'write' | 'manual' | 'unknown';
+};
+
 export type DataContextValue = {
   loading: boolean;
   programs: ProgramRecord[];
@@ -55,7 +70,7 @@ export type DataContextValue = {
   posts: PostRecord[];
   staffById: Record<string, Record<string, unknown>>;
   isFreeTrialExpired: boolean;
-  refreshData: () => Promise<void>;
+  refreshData: (opts?: RefreshDataOptions) => Promise<void>;
   setLocalMemberOverlay: (member: MemberRecord | null) => void;
   memberOverride: MemberRecord | null;
   /** Staff/admin platform slice */
@@ -64,6 +79,8 @@ export type DataContextValue = {
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
+
+const STAFF_DIR_TTL_MS = 10 * 60 * 1000;
 
 function demoPlatform(role: string | null): PlatformBundle {
   const members = DEMO_CLIENTS as MemberRecord[];
@@ -109,7 +126,8 @@ function demoPlatform(role: string | null): PlatformBundle {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { userId, role, member, staff, refreshAuth } = useAuth();
+  const { userId, role, member, staff, refreshAuth, applyRemoteMember } = useAuth();
+  const { bump: bumpChatUnread } = useChatUnread();
   const [loading, setLoading] = useState(false);
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
   const [posts, setPosts] = useState<PostRecord[]>([]);
@@ -117,9 +135,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [memberOverride, setMemberOverride] = useState<MemberRecord | null>(null);
   const [platform, setPlatform] = useState<PlatformBundle>(EMPTY_PLATFORM);
 
+  const staffId = staff?.id ? String(staff.id) : null;
+  const staffRoleKey = staff?.role ? String(staff.role) : null;
+  const staffRef = useRef(staff);
+  staffRef.current = staff;
+
+  const staffDirFetchedAt = useRef(0);
+  const bootHydrated = useRef(false);
+  const staffByIdRef = useRef(staffById);
+  staffByIdRef.current = staffById;
+
   const effectiveMember = (memberOverride || member) as MemberRecord | null;
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (opts?: RefreshDataOptions) => {
+    const silent = Boolean(opts?.silent);
+    const reason = opts?.reason || (silent ? 'unknown' : 'boot');
+    perfInc('refreshData', reason);
+    const staffNow = staffRef.current;
+
     if (isUiOnly()) {
       if (role === 'member' && userId) {
         setPrograms(DEMO_PROGRAMS);
@@ -147,11 +180,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const client = requireSupabase();
 
-      // Public / guest: published posts (anon RLS) — blog landing parity
       if (!userId) {
         const postsRes = await client
           .from('posts')
@@ -171,11 +203,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
 
       if (role === 'member') {
+        const cachedDir = staffByIdRef.current;
+        const needStaffDir =
+          !silent ||
+          Date.now() - staffDirFetchedAt.current > STAFF_DIR_TTL_MS ||
+          Object.keys(cachedDir).length === 0;
+
         const [progRes, postsRes, staffBundle] = await Promise.all([
           client.from('programs').select('*').eq('member_id', userId),
           client.from('posts').select('*').eq('published', true).limit(24),
-          // RLS: ham `staff` üye için boş döner — web gibi staff_directory
-          fetchStaffDirectory(),
+          needStaffDir
+            ? fetchStaffDirectory()
+            : Promise.resolve({
+                staffById: cachedDir,
+                staffList: [] as Record<string, unknown>[],
+              }),
         ]);
 
         setPrograms(
@@ -188,29 +230,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
             (row) => rowToPost(row as Record<string, unknown>) as PostRecord,
           ),
         );
-        setStaffById(staffBundle.staffById);
+        if (needStaffDir) {
+          setStaffById(staffBundle.staffById);
+          staffDirFetchedAt.current = Date.now();
+        }
         setPlatform(EMPTY_PLATFORM);
-        await refreshAuth();
-        // Yazma sırasında override'ı silme — Analizi Başlat sonrası skor kaybı / flicker
-        if (!isMemberWriteInFlight()) {
+        // Boot: Auth already hydrated — skip duplicate members select.
+        // Explicit non-silent refresh (pull-to-refresh) still refreshes auth once.
+        if (!silent && bootHydrated.current) {
+          await refreshAuth();
+        }
+        bootHydrated.current = true;
+        // Only clear overlay when auth is the SoT (non-silent)
+        if (!silent && !isMemberWriteInFlight()) {
           setMemberOverride(null);
         }
       } else if (role === 'staff' || role === 'admin') {
-        const bundle = await hydratePlatform({ role, userId, staff });
+        const bundle = await hydratePlatform({ role, userId, staff: staffNow });
         setPlatform(bundle);
         setPrograms(bundle.programs as ProgramRecord[]);
         setPosts(bundle.posts as PostRecord[]);
         setStaffById(bundle.staffById);
-        await refreshAuth();
+        if (!silent && bootHydrated.current) {
+          await refreshAuth();
+        }
+        bootHydrated.current = true;
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [userId, role, staff, refreshAuth]);
+  }, [userId, role, staffId, staffRoleKey, refreshAuth]);
 
   useEffect(() => {
-    void refreshData();
-  }, [refreshData]);
+    bootHydrated.current = false;
+    void refreshData({ reason: 'boot' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional boot on identity change
+  }, [userId, role, staffId, staffRoleKey]);
 
   const onProgramsChange = useCallback(
     (change: { type: 'delete'; id: string } | { type: 'upsert'; program: Record<string, unknown> }) => {
@@ -225,7 +280,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         return [next, ...prev];
       });
-      // Staff/admin platform.programs mirror
       if (role === 'staff' || role === 'admin') {
         setPlatform((prev) => {
           const list = (prev.programs || []) as ProgramRecord[];
@@ -237,24 +291,95 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
           const next = change.program as ProgramRecord;
           const idx = list.findIndex((p) => String(p.id) === String(next.id));
-          const programs =
+          const nextPrograms =
             idx >= 0 ? list.map((p, i) => (i === idx ? next : p)) : [next, ...list];
-          return { ...prev, programs };
+          return { ...prev, programs: nextPrograms };
         });
       }
     },
     [role],
   );
 
+  const onChatChange = useCallback(() => {
+    perfInc('refreshData', 'chat');
+    bumpChatUnread();
+  }, [bumpChatUnread]);
+
+  const onMemberChange = useCallback(
+    (change: { member: Record<string, unknown> }) => {
+      perfInc('refreshData', 'member');
+      const next = change.member as MemberRecord;
+      if (role === 'member') {
+        if (isMemberWriteInFlight()) return;
+        applyRemoteMember(next);
+        // Auth is now fresh — safe to drop stale overlay
+        setMemberOverride(null);
+        return;
+      }
+      if (role === 'staff') {
+        setPlatform((prev) => {
+          const list = prev.members || [];
+          const idx = list.findIndex((m) => String(m.id) === String(next.id));
+          const members =
+            idx >= 0
+              ? list.map((m, i) => (i === idx ? next : m))
+              : [...list, next];
+          const staffClients = staffRef.current
+            ? getStaffClients(members, String(staffRef.current.role), String(staffRef.current.id))
+            : prev.staffClients;
+          return { ...prev, members, staffClients };
+        });
+      }
+    },
+    [role, applyRemoteMember],
+  );
+
+  const onTicketsChange = useCallback(() => {
+    perfInc('refreshData', 'ticket');
+    bumpChatUnread();
+  }, [bumpChatUnread]);
+
+  const onPlatformChange = useCallback(() => {
+    // Admin apps / staff row notification refresh
+    if (role === 'admin') {
+      void refreshData({ silent: true, reason: 'unknown' });
+      return;
+    }
+    if (role === 'staff') {
+      // Staff row UPDATE → refresh auth for notification badge (not full hydrate)
+      void refreshAuth();
+    }
+  }, [role, refreshData, refreshAuth]);
+
   usePlatformRealtime({
     role,
     userId,
     staffId: staff?.id ? String(staff.id) : null,
-    onChange: () => {
-      void refreshData();
-    },
+    staffRole: staff?.role ? String(staff.role) : null,
+    onChange: onPlatformChange,
     onProgramsChange,
+    onChatChange,
+    onMemberChange,
+    onTicketsChange,
   });
+
+  useEffect(() => {
+    if (isUiOnly() || role !== 'member' || !userId) return undefined;
+    const onChange = (state: AppStateStatus) => {
+      if (state !== 'active') return;
+      void (async () => {
+        try {
+          if (isMemberWriteInFlight()) return;
+          const row = await fetchMemberRowQuiet(userId);
+          if (row) applyRemoteMember(row);
+        } catch {
+          /* keep stale membership card */
+        }
+      })();
+    };
+    const sub = AppState.addEventListener('change', onChange);
+    return () => sub.remove();
+  }, [role, userId, applyRemoteMember]);
 
   const myPrograms = useMemo(() => {
     if (!effectiveMember?.id) return [];

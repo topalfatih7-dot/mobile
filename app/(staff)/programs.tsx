@@ -1,14 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { CYCLE_PLAN_LENGTH } from '@/utils/programSchedule';
+import {
+  countDayCartExercises,
+  filledWeekdaysFromDayCarts,
+  hydrateDayCartsFromEntries,
+  weekdayShortLabel,
+} from '@/utils/coachProgram';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 type ProgramCard = {
@@ -18,9 +24,11 @@ type ProgramCard = {
   memberName: string;
   status: 'active' | 'expired';
   summary: string;
+  entryCount: number;
+  filledDays: number;
 };
 
-/** LOCK: docs/mobile/screens/staff/programs.md */
+/** LOCK: docs/mobile/screens/staff/programs.md — web StaffProgramsPage parity */
 export default function StaffPrograms() {
   const { staff } = useAuth();
   const { loading, programs, staffClients } = useData();
@@ -37,69 +45,96 @@ export default function StaffPrograms() {
         if (String(p.type || '') !== 'workout') return false;
         const mid = String(p.memberId || '');
         if (clientIds.has(mid)) return true;
-        if (staffId && String((p as { staffId?: string }).staffId || '') === staffId) return true;
+        if (staffId && String((p as { staffId?: string }).staffId || '') === staffId)
+          return true;
         return false;
       })
       .map((p): ProgramCard => {
-        const entries = Array.isArray(p.entries) ? p.entries : [];
+        const entries = Array.isArray(p.entries)
+          ? (p.entries as Record<string, unknown>[])
+          : [];
+        const dayCarts = hydrateDayCartsFromEntries(entries);
+        const filled = filledWeekdaysFromDayCarts(dayCarts);
+        const entryCount = countDayCartExercises(dayCarts) || entries.length;
+        const cycleLen = Number(p.cycleLength) || CYCLE_PLAN_LENGTH;
+        const dayLabels = filled.map(weekdayShortLabel).join(', ');
         return {
           id: String(p.id),
           title: String(p.title || 'Antrenman'),
           memberId: String(p.memberId || ''),
           memberName: nameById.get(String(p.memberId || '')) || 'Danışan',
           status: 'active',
-          summary: `14 günlük döngü · ${entries.length} hareket · her gün`,
+          entryCount,
+          filledDays: filled.length,
+          summary: `${cycleLen} günlük · ${entryCount} hareket · ${
+            filled.length
+              ? `${filled.length} gün (${dayLabels})`
+              : 'gün yok'
+          }`,
         };
       });
   }, [programs, staffClients, staff?.id]);
 
+  const renderCard = useCallback(
+    ({ item: p }: { item: ProgramCard }) => (
+      <Pressable
+        onPress={() =>
+          router.push(
+            `/(staff)/clients/${p.memberId}/program?programId=${p.id}` as Href,
+          )
+        }
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+        <View style={styles.strip} />
+        <View style={styles.body}>
+          <Text style={styles.title}>{p.title}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.member}>{p.memberName}</Text>
+            <View
+              style={[
+                styles.badge,
+                p.status === 'active' ? styles.badgeActive : styles.badgeExpired,
+              ]}>
+              <Text
+                style={[
+                  styles.badgeText,
+                  p.status === 'active'
+                    ? styles.badgeTextActive
+                    : styles.badgeTextExpired,
+                ]}>
+                {p.status === 'active' ? 'Aktif' : 'Süresi doldu'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.summary}>{p.summary}</Text>
+        </View>
+        <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
+      </Pressable>
+    ),
+    [],
+  );
+
   return (
-    <PanelScaffold subtitle="Gönderilen antrenman programları" title="Programlar">
+    <PanelScaffold scroll={false} subtitle="Gönderilen antrenman programları" title="Programlar">
       {loading && cards.length === 0 ? (
         <InlineSpinner fill />
-      ) : cards.length === 0 ? (
-        <EmptyState
-          description="Danışan seçip oluşturduğunuzda burada görünür."
-          title="Henüz program yok"
-        />
       ) : (
-        cards.map((p, i) => (
-          <FadeIn key={p.id} delay={40 + i * 30}>
-            <Pressable
-              onPress={() =>
-                router.push(`/(staff)/clients/${p.memberId}/program` as Href)
-              }
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.cardPressed,
-              ]}>
-              <View style={styles.strip} />
-              <View style={styles.body}>
-                <Text style={styles.title}>{p.title}</Text>
-                <View style={styles.metaRow}>
-                  <Text style={styles.member}>{p.memberName}</Text>
-                  <View
-                    style={[
-                      styles.badge,
-                      p.status === 'active' ? styles.badgeActive : styles.badgeExpired,
-                    ]}>
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        p.status === 'active'
-                          ? styles.badgeTextActive
-                          : styles.badgeTextExpired,
-                      ]}>
-                      {p.status === 'active' ? 'Aktif' : 'Süresi doldu'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.summary}>{p.summary}</Text>
-              </View>
-              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
-            </Pressable>
-          </FadeIn>
-        ))
+        <FlatList
+          contentContainerStyle={{ gap: spacing.sm, paddingBottom: 16, flexGrow: 1 }}
+          data={cards}
+          initialNumToRender={10}
+          keyExtractor={(p) => p.id}
+          ListEmptyComponent={
+            <EmptyState
+              description="Danışan seçip oluşturduğunuzda burada görünür."
+              title="Henüz program yok"
+            />
+          }
+          maxToRenderPerBatch={8}
+          removeClippedSubviews
+          renderItem={renderCard}
+          style={{ flex: 1 }}
+          windowSize={9}
+        />
       )}
     </PanelScaffold>
   );

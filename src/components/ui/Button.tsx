@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ComponentProps } from 'react';
 
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -39,7 +40,11 @@ export function Button({
   const sz = SIZES[size];
 
   const labelNode = loading ? (
-    <ActivityIndicator color={variant === 'glass' || variant === 'primary' ? colors.white : colors.brand[600]} />
+    <BrandLoader
+      mark={false}
+      size="xs"
+      tone={variant === 'glass' || variant === 'primary' ? 'onDark' : 'brand'}
+    />
   ) : (
     <View style={styles.row}>
       <Text

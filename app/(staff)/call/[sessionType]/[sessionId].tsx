@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { VideoCallShell } from '@/components/call/VideoCallShell';
@@ -12,6 +12,7 @@ import { useData } from '@/context/DataContext';
 import {
   normalizeVideoSessionType,
   resolveStaffCallContext,
+  type MemberCallContext,
 } from '@/services/videoCallSession';
 import { colors, fonts, radius, spacing } from '@/theme';
 
@@ -25,6 +26,9 @@ export default function StaffVideoCall() {
   const { platform, loading, refreshData } = useData();
   const [refreshing, setRefreshing] = useState(false);
   const [clock, setClock] = useState(0);
+  /** Once shell mounts, never unmount for DataContext.loading / mid-call window recheck */
+  const [shellMounted, setShellMounted] = useState(false);
+  const lastContextRef = useRef<MemberCallContext | null>(null);
 
   const rawType = String(sessionType || 'coach');
   const rawId = String(sessionId || '');
@@ -47,6 +51,15 @@ export default function StaffVideoCall() {
     [staff, platform.members, rawType, rawId, clock],
   );
 
+  useEffect(() => {
+    if (resolved.context && !resolved.error) {
+      lastContextRef.current = resolved.context;
+      setShellMounted(true);
+    } else if (resolved.context && shellMounted) {
+      lastContextRef.current = resolved.context;
+    }
+  }, [resolved.context, resolved.error, shellMounted]);
+
   const retry = async () => {
     setRefreshing(true);
     try {
@@ -57,11 +70,14 @@ export default function StaffVideoCall() {
     }
   };
 
-  if (loading || refreshing) {
+  const context = resolved.context || lastContextRef.current;
+
+  // İlk resolve / manuel retry — aktif görüşme shell'ini loading ile öldürme
+  if ((loading || refreshing) && !shellMounted) {
     return <LoadingScreen label="Randevu kontrol ediliyor…" />;
   }
 
-  if (!resolved.context || resolved.error) {
+  if (!shellMounted || !context) {
     return (
       <MeshBackground style={styles.root}>
         <View style={styles.errorCard}>
@@ -87,13 +103,15 @@ export default function StaffVideoCall() {
   return (
     <VideoCallShell
       backHref={backHref}
-      displayName={resolved.context.displayName}
+      displayName={context.displayName}
       isOwner
-      joinAccess={resolved.context.joinCheck}
-      remoteLabel={resolved.context.remoteLabel}
-      session={resolved.context.session}
+      joinAccess={
+        resolved.context?.joinCheck ?? context.joinCheck
+      }
+      remoteLabel={context.remoteLabel}
+      session={context.session}
       sessionId={rawId}
-      sessionType={resolved.context.sessionType || normalizedType}
+      sessionType={context.sessionType || normalizedType}
     />
   );
 }

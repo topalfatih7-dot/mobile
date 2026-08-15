@@ -1,9 +1,10 @@
 /**
- * LOCK: staff messages thread — real chat_threads / chat_messages
+ * LOCK: docs/mobile/screens/staff/messages.md — thread
+ * Web: StaffMessagesPage.jsx — presence + ChatCollapsiblePrograms
  */
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -17,11 +18,15 @@ import {
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatCollapsiblePrograms } from '@/components/chat/ChatCollapsiblePrograms';
+import { PresenceIndicator } from '@/components/chat/PresenceIndicator';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
+import { getPlanLabel } from '@/data/membershipPlans';
+import { useChatPresence } from '@/hooks/useChatPresence';
 import {
   loadStaffClientThread,
   markStaffChatThreadRead,
@@ -31,11 +36,18 @@ import {
   type ChatThread,
 } from '@/services/chat';
 import { setActiveChatThreadId } from '@/services/activeChatThread';
+import { normalizeStaffRole } from '@/utils/staffClients';
 import { colors, fonts, radius, spacing } from '@/theme';
+
+const ROLE_LABEL: Record<string, string> = {
+  coach: 'Koç',
+  dietitian: 'Diyetisyen',
+  doctor: 'Doktor',
+};
 
 export default function StaffThread() {
   const { threadId: memberId } = useLocalSearchParams<{ threadId: string }>();
-  const { staffClients } = useData();
+  const { staffClients, platform } = useData();
   const { staff } = useAuth();
   const client = staffClients.find((c) => String(c.id) === String(memberId));
   const insets = useSafeAreaInsets();
@@ -45,6 +57,18 @@ export default function StaffThread() {
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+
+  const role = normalizeStaffRole(staff?.role as string);
+  const peerId = client?.id ? String(client.id) : null;
+  const { isOnline, lastSeenAt } = useChatPresence(peerId ? [peerId] : []);
+
+  const memberPrograms = useMemo(
+    () =>
+      (platform.programs || []).filter(
+        (p) => String(p.memberId || '') === String(memberId),
+      ),
+    [platform.programs, memberId],
+  );
 
   const reload = useCallback(async () => {
     if (!client?.id || !staff?.id) {
@@ -81,11 +105,6 @@ export default function StaffThread() {
   }, [staff?.id, reload]);
 
   useEffect(() => {
-    const id = setInterval(() => void reload(), 8000);
-    return () => clearInterval(id);
-  }, [reload]);
-
-  useEffect(() => {
     if (thread?.id) {
       setActiveChatThreadId(thread.id);
       return () => setActiveChatThreadId(null);
@@ -107,6 +126,11 @@ export default function StaffThread() {
   };
 
   const initial = String(client?.name || '?').charAt(0).toUpperCase();
+  const planLabel =
+    getPlanLabel(String(client?.membership || '')) || String(client?.membership || '');
+  const subtitle = `${ROLE_LABEL[role] || 'Personel'} · ${planLabel}`;
+  const peerOnline = peerId ? isOnline(peerId) : false;
+  const peerLastSeen = peerId ? lastSeenAt(peerId) : null;
 
   return (
     <MeshBackground style={styles.root}>
@@ -119,9 +143,33 @@ export default function StaffThread() {
           </Pressable>
           <View style={styles.headerAvatar}>
             <Text style={styles.headerAvatarText}>{initial}</Text>
+            {peerId ? (
+              <View style={styles.presenceDot}>
+                <PresenceIndicator lastSeenAt={peerLastSeen} online={peerOnline} />
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.title}>{client ? String(client.name) : 'Sohbet'}</Text>
+          <View style={styles.headerMeta}>
+            <Text style={styles.title}>{client ? String(client.name) : 'Sohbet'}</Text>
+            <View style={styles.headerSubRow}>
+              <Text style={styles.subtitle}>{subtitle}</Text>
+              {peerId ? (
+                <PresenceIndicator
+                  lastSeenAt={peerLastSeen}
+                  online={peerOnline}
+                  showLabel
+                />
+              ) : null}
+            </View>
+          </View>
         </View>
+
+        <ChatCollapsiblePrograms
+          memberName={String(client?.name || '')}
+          programs={memberPrograms as never}
+          role={role}
+        />
+
         {loading ? (
           <InlineSpinner fill />
         ) : (
@@ -181,9 +229,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  presenceDot: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 1,
   },
   headerAvatarText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.white },
-  title: { flex: 1, fontFamily: fonts.displayBold, fontSize: 18, color: colors.cream[900] },
+  headerMeta: { flex: 1, minWidth: 0 },
+  title: { fontFamily: fonts.displayBold, fontSize: 18, color: colors.cream[900] },
+  headerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  subtitle: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
   list: { padding: spacing.lg, gap: 8, flexGrow: 1 },
   msgRow: { flexDirection: 'row', marginBottom: 8 },
   msgRowMine: { justifyContent: 'flex-end' },

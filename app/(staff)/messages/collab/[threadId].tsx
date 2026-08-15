@@ -1,6 +1,7 @@
 /**
  * LOCK: docs/mobile/screens/staff/collab-messages.md
  * Param = memberId (web `/staff/collab-messages/:memberId`)
+ * Roles: coach | dietitian | doctor
  */
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -25,6 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import {
+  collabPeerName,
   fetchStaffCollabMessages,
   getOrCreateStaffCollabThread,
   markStaffCollabThreadRead,
@@ -45,6 +47,7 @@ export default function StaffCollabMessages() {
   const { platform } = useData();
   const { toast } = useToast();
   const role = normalizeStaffRole(staff?.role as string);
+  const isAllowed = role === 'coach' || role === 'dietitian' || role === 'doctor';
 
   const member = useMemo(
     () => platform.members.find((m) => String(m.id) === memberId) || null,
@@ -57,16 +60,23 @@ export default function StaffCollabMessages() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
-  const peerName = useMemo(() => {
-    if (role === 'coach') return thread?.dietitianName || 'Diyetisyen';
-    return thread?.coachName || 'Koç';
-  }, [role, thread]);
+  const peerName = useMemo(() => collabPeerName(thread, role), [thread, role]);
 
-  const reload = useCallback(async () => {
-    if (!member || !staff?.id || (role !== 'coach' && role !== 'dietitian')) {
+  const reloadMessages = useCallback(async () => {
+    if (!thread?.id) return;
+    try {
+      setMsgs(await fetchStaffCollabMessages(thread.id));
+    } catch {
+      /* keep */
+    }
+  }, [thread?.id]);
+
+  const bootstrap = useCallback(async () => {
+    if (!member || !staff?.id || !isAllowed) {
       setLoading(false);
       return;
     }
+    setLoading(true);
     try {
       const staffList = platform.staffList.length
         ? platform.staffList
@@ -75,6 +85,7 @@ export default function StaffCollabMessages() {
       setThread(t);
       if (t) {
         setMsgs(await fetchStaffCollabMessages(t.id));
+        // Only clears unread when > 0 — no-op UPDATE avoided in service
         await markStaffCollabThreadRead(t.id, role);
       }
     } catch (e) {
@@ -82,21 +93,24 @@ export default function StaffCollabMessages() {
     } finally {
       setLoading(false);
     }
-  }, [member, staff, role, platform.staffList, platform.staffById, toast]);
+  }, [member, staff?.id, role, isAllowed, platform.staffList, platform.staffById, toast]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    void bootstrap();
+  }, [bootstrap]);
 
   useEffect(() => {
-    if (!staff) return;
-    return subscribeStaffCollabChat(() => void reload(), staff);
-  }, [staff, reload]);
-
-  useEffect(() => {
-    const id = setInterval(() => void reload(), 8000);
-    return () => clearInterval(id);
-  }, [reload]);
+    if (!staff?.id) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const unsub = subscribeStaffCollabChat(() => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => void reloadMessages(), 400);
+    }, staff);
+    return () => {
+      if (t) clearTimeout(t);
+      unsub();
+    };
+  }, [staff, reloadMessages]);
 
   useEffect(() => {
     if (thread?.id) {
@@ -107,7 +121,7 @@ export default function StaffCollabMessages() {
   }, [thread?.id]);
 
   const send = async () => {
-    if (!thread || !staff?.id || (role !== 'coach' && role !== 'dietitian')) return;
+    if (!thread || !staff?.id || !isAllowed) return;
     setSending(true);
     const res = await sendStaffCollabMessage({
       thread,
@@ -121,8 +135,21 @@ export default function StaffCollabMessages() {
       return;
     }
     setText('');
-    await reload();
+    await reloadMessages();
   };
+
+  if (!isAllowed) {
+    return (
+      <MeshBackground style={styles.root}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Pressable onPress={() => router.back()}>
+            <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+          </Pressable>
+        </View>
+        <EmptyState title="Bu rol için ekip sohbeti yok." />
+      </MeshBackground>
+    );
+  }
 
   if (!member) {
     return (

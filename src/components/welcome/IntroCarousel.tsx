@@ -84,10 +84,6 @@ export function IntroCarousel({ onStart, onLogin }: IntroCarouselProps) {
           <BrandMark size={isTablet ? 38 : 34} />
           <Text style={styles.brandName}>Yeni Form</Text>
         </View>
-
-        <Pressable accessibilityRole="button" hitSlop={12} onPress={onStart} style={styles.skip}>
-          <Text style={styles.skipText}>Atla</Text>
-        </Pressable>
       </View>
 
       <View style={styles.scrollArea} onLayout={onViewportLayout}>
@@ -170,7 +166,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingBottom: spacing.sm,
   },
   brandRow: {
@@ -181,17 +176,6 @@ const styles = StyleSheet.create({
   brandName: {
     fontFamily: fonts.displayExtra,
     fontSize: 18,
-    color: colors.white,
-  },
-  skip: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  skipText: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
     color: colors.white,
   },
   scrollArea: {

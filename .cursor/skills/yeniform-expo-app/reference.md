@@ -5,7 +5,7 @@
 | Concern | Library direction |
 |---------|-------------------|
 | Auth session | `@supabase/supabase-js` + `expo-secure-store` |
-| Payments | Web CTA → `/membership` (no IAP SDK) |
+| Payments | Web CTA → login’li `/plans` (no IAP SDK) |
 | Push | `expo-notifications` |
 | Video call | `@daily-co/react-native-daily-js` (+ peer deps) |
 | Exercise video | WebView + signed URLs (`expo-video` opsiyonel) |
@@ -17,7 +17,7 @@
 - Auth callback / password reset
 - `call/:sessionType/:sessionId`
 - Chat thread deep links
-- Membership purchase: open web `/membership` (no IAP restore)
+- Membership purchase: open web `/auth/callback?next=/plans&src=mobile` (same session; no IAP restore)
 
 ## Backend
 

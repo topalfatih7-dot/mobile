@@ -82,9 +82,13 @@ export function ExerciseDetailModal({
 
   const loadUrl = useCallback(async () => {
     if (!exercise || !visible) return;
-    setPlayUrl(null);
-    if (!canPlay || videoPending || !videoRef) return;
+    if (!canPlay || videoPending || !videoRef) {
+      setPlayUrl(null);
+      setLoadingVideo(false);
+      return;
+    }
     setLoadingVideo(true);
+    setPlayUrl(null);
     try {
       const url = await resolveExerciseVideoUrl(videoRef);
       setPlayUrl(url);

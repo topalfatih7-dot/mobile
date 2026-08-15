@@ -1,12 +1,16 @@
 /**
  * LOCK: docs/mobile/screens/staff/client-health.md
- * Web: MemberHealthProfilePage audience=staff — answers + clinical notes only
+ * Web: MemberHealthProfilePage audience=staff — StaffHealthBrief + answers + notes
  */
+import { useCallback, useMemo, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import {
+  StaffHealthBrief,
+  briefKeysForRole,
+} from '@/components/staff/StaffHealthBrief';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -20,7 +24,10 @@ import {
 } from '@/data/coreHealthTest';
 import {
   describeHealthTest,
+  hasHealthTestProgress,
+  HEALTH_AUDIENCE_META,
   isDetailedHealthTestComplete,
+  isHealthTestComplete,
 } from '@/data/healthTest';
 import {
   appendHealthStaffNote,
@@ -28,14 +35,18 @@ import {
   sortHealthStaffNotes,
   HEALTH_NOTE_ROLE_META,
 } from '@/data/healthStaffNotes';
-import { getDefaultPackageForPlan, getPlanLabel } from '@/data/membershipPlans';
+import { getDefaultPackageForPlan, getPlanLabel, isPaidMembership } from '@/data/membershipPlans';
+import { FITNESS_LABELS, GOAL_LABELS, NUTRITION_LABELS } from '@/services/health';
 import {
   getHealthTestLockState,
+  isHealthAnalysisStale,
   needsInitialHealthAnalysis,
   type HealthScoreAnalysis,
 } from '@/services/healthScoreAnalysis';
 import { staffPatchMember } from '@/services/staffDb';
+import { useStaffHealthAnalysisRerun } from '@/hooks/useStaffHealthAnalysisRerun';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
+import { normalizeStaffRole } from '@/utils/staffClients';
 import { formatRelativeTimeTr } from '@/utils/relativeTime';
 import { colors, fonts, radius, spacing } from '@/theme';
 
@@ -47,6 +58,61 @@ function initials(name: string) {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+}
+
+/** Rolün görebileceği sağlık testi audience etiketleri — web parity */
+function sectionVisibleForRole(
+  sectionAudience: string | undefined,
+  viewerRole: string | null | undefined,
+) {
+  const role = normalizeStaffRole(viewerRole);
+  if (!viewerRole || String(viewerRole).toLowerCase() === 'admin') return true;
+  const aud = sectionAudience || 'shared';
+  if (aud === 'shared') return true;
+  if (role === 'coach') return aud === 'coach';
+  if (role === 'dietitian') return aud === 'dietitian';
+  if (role === 'doctor') return aud === 'shared';
+  return true;
+}
+
+function Chips({
+  values,
+  map,
+  tone = 'cream',
+}: {
+  values?: unknown;
+  map: Record<string, string>;
+  tone?: 'cream' | 'sage' | 'brand';
+}) {
+  const list = Array.isArray(values) ? values.map(String) : [];
+  if (!list.length) {
+    return <Text style={styles.chipEmpty}>—</Text>;
+  }
+  const toneStyle =
+    tone === 'sage'
+      ? { bg: colors.sage[50], fg: colors.sage[700], border: colors.sage[100] }
+      : tone === 'brand'
+        ? { bg: colors.brand[50], fg: colors.brand[800], border: colors.brand[100] }
+        : { bg: colors.cream[100], fg: colors.cream[800], border: colors.cream[200] };
+  return (
+    <View style={styles.chips}>
+      {list.map((v) => (
+        <View
+          key={v}
+          style={[
+            styles.chip,
+            {
+              backgroundColor: toneStyle.bg,
+              borderColor: toneStyle.border,
+            },
+          ]}>
+          <Text style={[styles.chipText, { color: toneStyle.fg }]}>
+            {map[v] || v}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 const AVATAR_BG: Record<string, string> = {
@@ -76,6 +142,8 @@ export default function ClientHealth() {
   const plan = String(client?.membership || '');
   const badge = PLAN_BADGE[plan] || { bg: colors.cream[100], fg: colors.cream[800] };
   const genderTr = GENDER_TR[String(client?.gender || '')] || '—';
+  const viewerRole = String(staff?.role || 'coach');
+  const memberPaid = Boolean(client && isPaidMembership(client.membership));
 
   const packageConfig = useMemo(() => {
     if (!client) return getDefaultPackageForPlan('free');
@@ -91,8 +159,8 @@ export default function ClientHealth() {
         (client?.healthTest as Record<string, unknown>) || {},
         client?.gender ? String(client.gender) : null,
         packageConfig as Record<string, unknown>,
-      ),
-    [client, packageConfig],
+      ).filter((sec) => sectionVisibleForRole(sec.audience, viewerRole)),
+    [client, packageConfig, viewerRole],
   );
 
   const notes = useMemo(
@@ -101,6 +169,19 @@ export default function ClientHealth() {
         normalizeHealthStaffNotes(client?.healthStaffNotes),
       ),
     [client?.healthStaffNotes],
+  );
+
+  const briefKeys = useMemo(() => briefKeysForRole(viewerRole), [viewerRole]);
+
+  const analysisStale = useMemo(
+    () =>
+      client && memberPaid
+        ? isHealthAnalysisStale(
+            client.healthAnalysis as HealthScoreAnalysis,
+            client as Record<string, unknown>,
+          )
+        : false,
+    [client, memberPaid],
   );
 
   const lockMeta = useMemo(() => {
@@ -132,8 +213,59 @@ export default function ClientHealth() {
     const analysisReady = Boolean(
       analysis && !needsInitialHealthAnalysis(analysis),
     );
-    return { lockState, stage, coreComplete, detailedComplete, analysisReady };
+    const complete = isHealthTestComplete(
+      ht,
+      gender,
+      packageConfig as Record<string, unknown>,
+    );
+    const hasProgress = hasHealthTestProgress(
+      ht,
+      gender,
+      packageConfig as Record<string, unknown>,
+    );
+    return {
+      lockState,
+      stage,
+      coreComplete,
+      detailedComplete,
+      analysisReady,
+      complete,
+      hasProgress,
+    };
   }, [client, packageConfig]);
+
+  const patchMember = useCallback(
+    async (memberId: string, patch: Record<string, unknown>) => {
+      const res = await staffPatchMember(memberId, patch);
+      if (!res.success) throw new Error(res.error || 'Kayıt başarısız');
+      await refreshData({ silent: true, reason: 'write' });
+      return res;
+    },
+    [refreshData],
+  );
+
+  const {
+    rerun,
+    loading: analysisRerunning,
+    error: analysisRerunError,
+  } = useStaffHealthAnalysisRerun({
+    member: client as Record<string, unknown> | undefined,
+    packageConfig: packageConfig as Record<string, unknown>,
+    patchMember,
+  });
+
+  const handleRerunAnalysis = useCallback(async () => {
+    if (!memberPaid) {
+      toast(
+        'Yeniden analiz yalnızca aktif ücretli üyelikte kullanılabilir',
+        'error',
+      );
+      return;
+    }
+    const result = await rerun();
+    if (result?.ok) toast('Sağlık analizi güncellendi', 'success');
+    else toast(result?.error || 'Yeniden analiz başarısız', 'error');
+  }, [rerun, toast, memberPaid]);
 
   const saveNote = async () => {
     if (!client?.id || !note.trim()) return;
@@ -154,8 +286,30 @@ export default function ClientHealth() {
     }
     setNote('');
     toast('Not kaydedildi.', 'success');
-    await refreshData();
+    await refreshData({ silent: true, reason: 'write' });
   };
+
+  const statusBanner = lockMeta?.complete
+    ? {
+        border: colors.sage[200],
+        bg: colors.sage[50],
+        title: 'Kişisel sağlık analizi tamamlandı',
+      }
+    : lockMeta?.hasProgress
+      ? {
+          border: colors.warm[200],
+          bg: colors.warm[50],
+          title: 'Kişisel sağlık analizi devam ediyor',
+        }
+      : {
+          border: colors.cream[200],
+          bg: colors.cream[50],
+          title: 'Kişisel sağlık analizi başlanmadı',
+        };
+
+  const age = client?.age != null ? String(client.age) : null;
+  const weight = client?.weight != null ? String(client.weight) : null;
+  const height = client?.height != null ? String(client.height) : null;
 
   return (
     <PanelScaffold
@@ -220,40 +374,132 @@ export default function ClientHealth() {
                       : ''}
                   </Text>
                 ) : lockMeta.lockState.canRetake ? (
-                  <Text style={styles.metaLine}>
-                    Yeniden çözme hakkı açık
-                  </Text>
+                  <Text style={styles.metaLine}>Yeniden çözme hakkı açık</Text>
                 ) : null}
               </View>
             </FadeIn>
           ) : null}
 
+          <FadeIn delay={70}>
+            <View
+              style={[
+                styles.statusBanner,
+                {
+                  borderColor: statusBanner.border,
+                  backgroundColor: statusBanner.bg,
+                },
+              ]}>
+              <Text style={styles.statusTitle}>{statusBanner.title}</Text>
+              <Text style={styles.statusMeta}>
+                {client.gender === 'female'
+                  ? 'Kadın'
+                  : client.gender === 'male'
+                    ? 'Erkek'
+                    : 'Cinsiyet belirtilmemiş'}
+                {' · '}
+                {age ? `${age} yaş` : 'Yaş —'}
+                {weight ? ` · ${weight} kg` : ''}
+                {height ? ` · ${height} cm` : ''}
+              </Text>
+            </View>
+          </FadeIn>
+
           <FadeIn delay={80}>
+            <View style={styles.profileGrid}>
+              <View style={styles.profileCard}>
+                <Text style={styles.profileLabel}>Spor Seviyesi</Text>
+                <Text style={styles.profileVal}>
+                  {FITNESS_LABELS[String(client.fitnessLevel || '')] || '—'}
+                </Text>
+              </View>
+              <View style={styles.profileCard}>
+                <Text style={styles.profileLabel}>Hedefler</Text>
+                <Chips map={GOAL_LABELS} tone="brand" values={client.goals} />
+              </View>
+              <View style={styles.profileCard}>
+                <Text style={styles.profileLabel}>Beslenme</Text>
+                <Chips
+                  map={NUTRITION_LABELS}
+                  tone="sage"
+                  values={client.nutritionPrefs}
+                />
+              </View>
+            </View>
+          </FadeIn>
+
+          <FadeIn delay={90}>
+            <StaffHealthBrief
+              analysis={(client.healthAnalysis as HealthScoreAnalysis) || null}
+              briefKeys={briefKeys}
+              onRerun={memberPaid ? () => void handleRerunAnalysis() : null}
+              rerunError={analysisRerunError}
+              rerunning={analysisRerunning}
+              showBrief={memberPaid}
+              stale={analysisStale}
+            />
+          </FadeIn>
+
+          <FadeIn delay={100}>
             <Text style={styles.sectionTitle}>Sağlık Analizi Cevapları</Text>
             {sections.length === 0 ? (
               <View style={styles.card}>
                 <Text style={styles.emptyText}>Henüz cevaplanmış soru yok.</Text>
               </View>
             ) : (
-              sections.map((sec) => (
-                <View key={sec.id} style={styles.card}>
-                  <Text style={styles.cardHeading}>{sec.title}</Text>
-                  {sec.items.map((item, i) => (
-                    <View key={`${sec.id}-${i}`}>
-                      {i > 0 ? <View style={styles.rowDivider} /> : null}
-                      <Text style={styles.label}>{item.label}</Text>
-                      <Text style={styles.val}>{item.value}</Text>
+              sections.map((sec) => {
+                const aud =
+                  HEALTH_AUDIENCE_META[sec.audience || 'shared'] ||
+                  HEALTH_AUDIENCE_META.shared;
+                return (
+                  <View
+                    key={sec.id}
+                    style={[
+                      styles.card,
+                      {
+                        borderColor: aud.borderColor,
+                        backgroundColor: aud.sectionBg,
+                      },
+                    ]}>
+                    <View style={styles.sectionHead}>
+                      <Text style={styles.cardHeading}>{sec.title}</Text>
+                      <View
+                        style={[styles.audChip, { backgroundColor: aud.chipBg }]}>
+                        <Text style={[styles.audChipText, { color: aud.chipText }]}>
+                          {aud.label}
+                        </Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
-              ))
+                    {sec.items.map((item, i) => (
+                      <View key={`${sec.id}-${i}`}>
+                        {i > 0 ? <View style={styles.rowDivider} /> : null}
+                        <Text style={styles.label}>{item.label}</Text>
+                        <Text style={styles.val}>{item.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })
             )}
           </FadeIn>
+
+          {Boolean(client.healthAck || client.disclaimer) ? (
+            <FadeIn delay={110}>
+              <View style={styles.ackCard}>
+                {client.healthAck ? (
+                  <Text style={styles.ackText}>✓ Sağlık bilgisi doğruluğu onayı</Text>
+                ) : null}
+                {client.disclaimer ? (
+                  <Text style={styles.ackText}>✓ Tıbbi feragat onayı</Text>
+                ) : null}
+              </View>
+            </FadeIn>
+          ) : null}
 
           <FadeIn delay={120}>
             <Text style={styles.sectionTitle}>Klinik Notlar</Text>
             {notes.map((n) => {
-              const meta = HEALTH_NOTE_ROLE_META[n.staffRole] || HEALTH_NOTE_ROLE_META.coach;
+              const meta =
+                HEALTH_NOTE_ROLE_META[n.staffRole] || HEALTH_NOTE_ROLE_META.coach;
               return (
                 <View key={n.id} style={styles.noteCard}>
                   <View style={styles.noteMeta}>
@@ -263,7 +509,9 @@ export default function ClientHealth() {
                       </Text>
                     </View>
                     <Text style={styles.noteWho}>{n.staffName}</Text>
-                    <Text style={styles.noteAt}>{formatRelativeTimeTr(n.createdAt)}</Text>
+                    <Text style={styles.noteAt}>
+                      {formatRelativeTimeTr(n.createdAt)}
+                    </Text>
                   </View>
                   <Text style={styles.noteText}>{n.text}</Text>
                 </View>
@@ -344,6 +592,40 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontFamily: fonts.sansSemi, fontSize: 11 },
   gender: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  statusBanner: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  statusTitle: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  statusMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800] },
+  profileGrid: { gap: spacing.sm },
+  profileCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    padding: spacing.md,
+    gap: 8,
+  },
+  profileLabel: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 11,
+    color: colors.cream[300],
+    textTransform: 'uppercase',
+  },
+  profileVal: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[900] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  chipText: { fontFamily: fonts.sansSemi, fontSize: 12 },
+  chipEmpty: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[300] },
   sectionTitle: {
     fontFamily: fonts.displayBold,
     fontSize: 18,
@@ -358,7 +640,21 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: spacing.sm,
   },
-  cardHeading: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  sectionHead: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  cardHeading: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900], flex: 1 },
+  audChip: {
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  audChipText: { fontFamily: fonts.sansSemi, fontSize: 10 },
   rowDivider: { height: 1, backgroundColor: colors.cream[100], marginBottom: 8 },
   label: {
     fontFamily: fonts.sansSemi,
@@ -373,6 +669,16 @@ const styles = StyleSheet.create({
     color: colors.cream[800],
     marginBottom: spacing.sm,
   },
+  ackCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.sage[100],
+    backgroundColor: colors.sage[50],
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  ackText: { fontFamily: fonts.sans, fontSize: 12, color: colors.sage[700] },
   noteCard: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,

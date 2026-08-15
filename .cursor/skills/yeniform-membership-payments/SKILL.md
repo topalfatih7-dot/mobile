@@ -10,7 +10,7 @@ description: >-
 
 ## Locked model
 
-- **Mobile:** No App Store / Play IAP. Payments screen shows Supabase plan/status + CTA to `${apiBase}/membership` (web Stripe).
+- **Mobile:** No App Store / Play IAP. Payments screen shows Supabase plan/status + CTA to logged-in web `/plans` via `/auth/callback?next=/plans&src=mobile` (same JWT hash; web Stripe).
 - **Web:** Stripe Checkout + `api/stripe-webhook.js` (web repo).
 - **Source of truth:** Supabase `members.membership`, `membership_status`, package/expiry in `members.data`.
 - **Removed:** RevenueCat SDK, `api/revenuecat-webhook.js`, mobil satın alma / restore / Customer Center.

@@ -69,11 +69,35 @@ export const HEALTH_SECTIONS = RAW_SECTIONS as HealthSectionDef[];
 
 export const HEALTH_AUDIENCE_META: Record<
   string,
-  { label: string; chipBg: string; chipText: string }
+  {
+    label: string;
+    chipBg: string;
+    chipText: string;
+    borderColor: string;
+    sectionBg: string;
+  }
 > = {
-  shared: { label: 'Genel', chipBg: '#fef3c7', chipText: '#92400e' },
-  coach: { label: 'Hareket', chipBg: '#dceef7', chipText: '#1f6289' },
-  dietitian: { label: 'Beslenme', chipBg: '#e0f0e6', chipText: '#2d6242' },
+  shared: {
+    label: 'Genel',
+    chipBg: '#fef3c7',
+    chipText: '#92400e',
+    borderColor: '#fde68a',
+    sectionBg: '#fffbeb',
+  },
+  coach: {
+    label: 'Hareket',
+    chipBg: '#dceef7',
+    chipText: '#1f6289',
+    borderColor: '#b8dcef',
+    sectionBg: '#f0f7fb',
+  },
+  dietitian: {
+    label: 'Beslenme',
+    chipBg: '#e0f0e6',
+    chipText: '#2d6242',
+    borderColor: '#bfe0cc',
+    sectionBg: '#f2f9f5',
+  },
 };
 
 function emptyValueForType(type: string) {

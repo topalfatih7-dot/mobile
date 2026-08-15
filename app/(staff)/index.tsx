@@ -12,12 +12,16 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
+import { StaffVideoPanel } from '@/components/staff/StaffVideoPanel';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useActions } from '@/context/ActionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { canJoinSession } from '@/services/videoCallSession';
+import { AVAILABILITY_WEEKDAYS } from '@/utils/memberAvailability';
 import { isWithinCancelNoticeWindow } from '@/utils/sessionCancelRules';
 import {
   getStaffAppointments,
@@ -38,6 +42,42 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function resolveFirstName(staff: Record<string, unknown> | null | undefined, role: string) {
+  const name = String(staff?.name || '').trim();
+  if (name) return name.split(/\s+/)[0];
+  const email = String(staff?.email || '').split('@')[0];
+  if (email) return email;
+  if (role === 'dietitian') return 'Diyetisyen';
+  if (role === 'doctor') return 'Doktor';
+  return 'Koç';
+}
+
+function panelTitleForRole(role: string) {
+  if (role === 'dietitian') return 'Diyetisyen paneli';
+  if (role === 'doctor') return 'Doktor paneli';
+  return 'Koç paneli';
+}
+
+function roleIcon(role: string): keyof typeof Ionicons.glyphMap {
+  if (role === 'dietitian') return 'nutrition-outline';
+  if (role === 'doctor') return 'medkit-outline';
+  return 'barbell-outline';
+}
+
+function workSubtitle(staff: Record<string, unknown> | null | undefined) {
+  const workDays = (staff?.workDays as number[]) || [];
+  const start = String(staff?.workStart || '').trim();
+  const end = String(staff?.workEnd || '').trim();
+  if (!workDays.length) return '';
+  const days = workDays
+    .map((d) => AVAILABILITY_WEEKDAYS.find((w) => w.value === Number(d))?.label)
+    .filter(Boolean)
+    .join(', ');
+  if (!days) return '';
+  if (start && end) return ` · ${days} · ${start}–${end}`;
+  return ` · ${days}`;
+}
+
 function KpiValueIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   const scale = useSharedValue(0.96);
   useEffect(() => {
@@ -56,12 +96,13 @@ function sessionWhen(dateISO?: string) {
 
 /** LOCK: docs/mobile/screens/staff/overview.md — web StaffOverviewPage parity */
 export default function StaffOverview() {
-  const { staff, logout } = useAuth();
-  const { loading, staffClients } = useData();
+  const { staff } = useAuth();
+  const { loading, staffClients, platform } = useData();
   const { respondBookSession, respondCancelSession, cancelStaffSession } = useActions();
   const role = String(staff?.role || 'coach');
   const sessionType = roleToSessionType(role);
-  const name = String(staff?.name || 'Personel');
+  const isCoach = role === 'coach';
+  const firstName = resolveFirstName(staff, role);
   const clients = staffClients;
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -77,6 +118,40 @@ export default function StaffOverview() {
     () => getStaffCancelPendingAppointments(clients as never, role),
     [clients, role],
   );
+
+  const myPrograms = useMemo(() => {
+    const staffId = String(staff?.id || '');
+    return ((platform.programs || []) as { staffId?: string }[]).filter(
+      (p) => String(p.staffId || '') === staffId,
+    );
+  }, [platform.programs, staff?.id]);
+
+  const thisWeekCount = useMemo(() => {
+    const now = new Date();
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const key =
+      role === 'dietitian'
+        ? 'dietitianSessions'
+        : role === 'doctor'
+          ? 'doctorSessions'
+          : 'coachSessions';
+    return clients.reduce((sum, m) => {
+      const sessions = ((m as Record<string, unknown>)[key] as { date?: string; status?: string }[]) || [];
+      return (
+        sum +
+        sessions.filter((s) => {
+          const d = new Date(String(s.date || ''));
+          const st = s.status || 'scheduled';
+          return (
+            ['scheduled', 'rescheduled', 'cancel_pending', 'admin_cancel_pending'].includes(st) &&
+            d >= now &&
+            d <= weekEnd
+          );
+        }).length
+      );
+    }, 0);
+  }, [clients, role]);
 
   const handleBookRespond = useCallback(
     async (a: StaffAppointment, decision: 'approve' | 'reject') => {
@@ -115,14 +190,21 @@ export default function StaffOverview() {
     [cancelStaffSession, sessionType],
   );
 
+  const subtitle = `${panelTitleForRole(role)}${workSubtitle(staff)}`;
+
   return (
-    <PanelScaffold
-      subtitle={`${name} · ${role === 'dietitian' ? 'Diyetisyen' : role === 'doctor' ? 'Doktor' : 'Koç'}`}
-      title="Genel Bakış">
+    <PanelScaffold subtitle={subtitle} title={`Merhaba, ${firstName}`}>
       {loading && clients.length === 0 ? (
         <InlineSpinner fill />
       ) : (
         <>
+          <FadeIn delay={20}>
+            <View style={styles.roleRow}>
+              <Ionicons color={colors.cream[800]} name={roleIcon(role)} size={16} />
+              <Text style={styles.roleText}>{panelTitleForRole(role)}</Text>
+            </View>
+          </FadeIn>
+
           <FadeIn delay={40}>
             <View style={styles.kpiRow}>
               <View style={styles.kpi}>
@@ -133,23 +215,52 @@ export default function StaffOverview() {
                   <Text style={styles.kpiVal}>{clients.length}</Text>
                 </KpiValueIn>
                 <Text style={styles.kpiLabel}>Danışan</Text>
+                <Text style={styles.kpiSub}>Aktif ücretli üye</Text>
               </View>
               <View style={styles.kpi}>
                 <View style={[styles.kpiIcon, { backgroundColor: colors.brand[100] }]}>
-                  <Ionicons color={colors.brand[600]} name="videocam" size={17} />
+                  <Ionicons color={colors.brand[600]} name="calendar" size={17} />
                 </View>
                 <KpiValueIn delay={70}>
-                  <Text style={styles.kpiVal}>{appointments.length}</Text>
+                  <Text style={styles.kpiVal}>{thisWeekCount}</Text>
                 </KpiValueIn>
-                <Text style={styles.kpiLabel}>Yaklaşan seans</Text>
+                <Text style={styles.kpiLabel}>Bu Hafta Randevu</Text>
+                <Text style={styles.kpiSub}>Planlanan görüşme</Text>
+              </View>
+              <View style={styles.kpi}>
+                <View style={[styles.kpiIcon, { backgroundColor: colors.cream[100] }]}>
+                  <Ionicons color={colors.gold[500]} name="clipboard" size={17} />
+                </View>
+                <KpiValueIn delay={100}>
+                  <Text style={styles.kpiVal}>{myPrograms.length}</Text>
+                </KpiValueIn>
+                <Text style={styles.kpiLabel}>Oluşturulan Program</Text>
+                <Text style={styles.kpiSub}>{isCoach ? 'Antrenman programı' : 'Toplam'}</Text>
               </View>
             </View>
           </FadeIn>
 
+          <FadeIn delay={55}>
+            <Button
+              label={isCoach ? 'Program Oluştur' : 'Danışanlarım'}
+              onPress={() => router.push('/(staff)/clients' as Href)}
+              size="md"
+            />
+          </FadeIn>
+
+          <FadeIn delay={70}>
+            <StaffVideoPanel clients={clients as never} role={role} />
+          </FadeIn>
+
           {pendingAppointments.length > 0 ? (
-            <FadeIn delay={60}>
+            <FadeIn delay={80}>
               <View style={[styles.card, styles.pendingCard]}>
-                <Text style={styles.cardTitle}>Onay bekleyen talepler</Text>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>Onay bekleyen talepler</Text>
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{pendingAppointments.length}</Text>
+                  </View>
+                </View>
                 {pendingAppointments.slice(0, 8).map((a) => (
                   <View key={a.id} style={styles.queueBlock}>
                     <View style={styles.sessionRow}>
@@ -159,7 +270,7 @@ export default function StaffOverview() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.sessionName}>{a.memberName}</Text>
                         <Text style={styles.sessionMeta}>
-                          {sessionWhen(a.date)} · onay bekliyor
+                          {sessionWhen(a.date)} · {a.title || 'Randevu talebi'} · onay bekliyor
                         </Text>
                       </View>
                     </View>
@@ -187,9 +298,16 @@ export default function StaffOverview() {
           ) : null}
 
           {cancelPending.length > 0 ? (
-            <FadeIn delay={70}>
+            <FadeIn delay={90}>
               <View style={[styles.card, styles.cancelCard]}>
-                <Text style={styles.cardTitle}>İptal talepleri</Text>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>İptal talepleri</Text>
+                  <View style={[styles.countBadge, { backgroundColor: '#FFEDD5' }]}>
+                    <Text style={[styles.countBadgeText, { color: '#9A3412' }]}>
+                      {cancelPending.length}
+                    </Text>
+                  </View>
+                </View>
                 {cancelPending.slice(0, 8).map((a) => (
                   <View key={`c-${a.id}`} style={styles.queueBlock}>
                     <View style={styles.sessionRow}>
@@ -199,7 +317,7 @@ export default function StaffOverview() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.sessionName}>{a.memberName}</Text>
                         <Text style={styles.sessionMeta}>
-                          {sessionWhen(a.date)} · iptal onayı bekliyor
+                          {sessionWhen(a.date)} · {a.title || 'Randevu'} · iptal onayı bekliyor
                         </Text>
                       </View>
                     </View>
@@ -226,17 +344,23 @@ export default function StaffOverview() {
             </FadeIn>
           ) : null}
 
-          <FadeIn delay={80}>
+          <FadeIn delay={100}>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Yaklaşan görüşme</Text>
+              <View style={styles.cardHead}>
+                <Text style={styles.cardTitle}>Yaklaşan Randevular</Text>
+                <Pressable onPress={() => router.push('/(staff)/clients' as Href)}>
+                  <Text style={styles.linkMini}>Danışanlar →</Text>
+                </Pressable>
+              </View>
               {appointments.length === 0 ? (
-                <Text style={styles.emptyRow}>Yaklaşan görüşme yok</Text>
+                <Text style={styles.emptyRow}>Yaklaşan randevu yok</Text>
               ) : (
                 appointments.slice(0, 8).map((a, i) => {
                   const needsAdmin = isWithinCancelNoticeWindow(a);
                   const canCancel = ['scheduled', 'rescheduled', 'cancel_pending'].includes(
                     a.status || 'scheduled',
                   );
+                  const join = canJoinSession(a, sessionType);
                   return (
                     <FadeIn key={a.id} delay={110 + i * 30}>
                       <View style={styles.sessionRow}>
@@ -251,7 +375,10 @@ export default function StaffOverview() {
                               ? ' · yönetim iptal onayı'
                               : a.status === 'cancel_pending'
                                 ? ' · iptal onayı bekliyor'
-                                : ''}
+                                : a.title
+                                  ? ` · ${a.title}`
+                                  : ''}
+                            {join.statusLabel ? ` · ${join.statusLabel}` : ''}
                           </Text>
                         </View>
                         <View style={styles.timeBadge}>
@@ -260,13 +387,11 @@ export default function StaffOverview() {
                           </Text>
                         </View>
                       </View>
-                      {i === 0 && a.status === 'scheduled' ? (
+                      {join.ok && (a.status || 'scheduled') === 'scheduled' ? (
                         <Button
                           label="Görüşmeye katıl"
                           onPress={() =>
-                            router.push(
-                              `/(staff)/call/${sessionType}/${a.id}` as Href,
-                            )
+                            router.push(`/(staff)/call/${sessionType}/${a.id}` as Href)
                           }
                           size="md"
                           style={{ marginTop: 10 }}
@@ -289,7 +414,17 @@ export default function StaffOverview() {
             </View>
           </FadeIn>
 
-          <FadeIn delay={120}>
+          {clients.length === 0 ? (
+            <FadeIn delay={120}>
+              <EmptyState
+                description="Premium üyeler kayıt oldukça ve paketlerinde destek seçtikçe burada görünecekler."
+                icon="people-outline"
+                title="Henüz danışan yok"
+              />
+            </FadeIn>
+          ) : null}
+
+          <FadeIn delay={130}>
             <Pressable
               onPress={() => router.push('/(staff)/clients' as Href)}
               style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
@@ -311,26 +446,14 @@ export default function StaffOverview() {
               <Text style={styles.linkText}>Admin mesajları</Text>
               <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
             </Pressable>
-            {(role === 'coach' || role === 'dietitian') && (
-              <Pressable
-                onPress={() => router.push('/(staff)/messages/collab' as Href)}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-                <Ionicons color={colors.brand[600]} name="git-network" size={18} />
-                <Text style={styles.linkText}>Ekip (collab)</Text>
-                <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => router.push('/(staff)/messages/collab' as Href)}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+              <Ionicons color={colors.brand[600]} name="git-network" size={18} />
+              <Text style={styles.linkText}>Ekip mesajları</Text>
+              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
+            </Pressable>
           </FadeIn>
-
-          <View style={styles.divider} />
-          <Button
-            label="Çıkış Yap"
-            onPress={async () => {
-              await logout();
-              router.replace('/(auth)/login');
-            }}
-            variant="ghost"
-          />
         </>
       )}
     </PanelScaffold>
@@ -338,30 +461,33 @@ export default function StaffOverview() {
 }
 
 const styles = StyleSheet.create({
-  kpiRow: { flexDirection: 'row', gap: 10 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  roleText: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
+  kpiRow: { flexDirection: 'row', gap: 8 },
   kpi: {
     flex: 1,
     backgroundColor: colors.white,
     borderRadius: radius.xl,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.cream[200],
   },
   kpiIcon: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   kpiVal: {
     fontFamily: fonts.displayExtra,
-    fontSize: 28,
+    fontSize: 22,
     color: colors.brand[700],
     alignSelf: 'flex-start',
   },
-  kpiLabel: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], marginTop: 2 },
+  kpiLabel: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.cream[900], marginTop: 2 },
+  kpiSub: { fontFamily: fonts.sans, fontSize: 10, color: colors.cream[800], marginTop: 1 },
   card: {
     backgroundColor: colors.white,
     borderRadius: radius.xl,
@@ -369,9 +495,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cream[200],
   },
-  pendingCard: { borderColor: colors.warm[200] || colors.cream[200], backgroundColor: colors.warm[50] || colors.cream[50] },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  pendingCard: {
+    borderColor: colors.warm[200] || colors.cream[200],
+    backgroundColor: colors.warm[50] || colors.cream[50],
+  },
   cancelCard: { borderColor: '#FDBA74', backgroundColor: '#FFF7ED' },
   cardTitle: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.cream[900] },
+  countBadge: {
+    backgroundColor: colors.warm[100] || colors.cream[100],
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  countBadgeText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.warm[500] },
+  linkMini: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.brand[600] },
   emptyRow: { fontFamily: fonts.sans, fontSize: 14, color: colors.cream[800], marginTop: 10 },
   queueBlock: { marginTop: 12, gap: 8 },
   actionRow: { flexDirection: 'row', gap: 8 },
@@ -415,9 +558,4 @@ const styles = StyleSheet.create({
   linkRowPressed: { backgroundColor: colors.cream[100] },
   linkText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
   chevron: { marginLeft: 'auto' },
-  divider: {
-    height: 1,
-    backgroundColor: colors.cream[200],
-    marginTop: spacing.sm,
-  },
 });

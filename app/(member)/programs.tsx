@@ -1,13 +1,12 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
 import { addDays, format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useCallback, useMemo, useState } from 'react';
 import {
+  FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -41,11 +40,7 @@ export default function ProgramsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Ekran odaklanınca yeniden çek (realtime kaçarsa / arka plandan dönüş)
-  useFocusEffect(
-    useCallback(() => {
-      void refreshData();
-    }, [refreshData]),
-  );
+  // Realtime programs + pull-to-refresh — no full refreshData on every tab focus
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -69,13 +64,199 @@ export default function ProgramsScreen() {
     setActive(entry);
   };
 
+  const renderProgram = useCallback(
+    ({ item: p }: { item: (typeof filtered)[number] }) => {
+      const isNutrition = p.type === 'nutrition';
+      const entries = (p.entries as Record<string, unknown>[]) || [];
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardHead}>
+            <View
+              style={[
+                styles.typeIcon,
+                {
+                  backgroundColor: isNutrition ? colors.sage[50] : colors.brand[50],
+                },
+              ]}>
+              <Ionicons
+                color={isNutrition ? colors.sage[600] : colors.brand[600]}
+                name={isNutrition ? 'nutrition' : 'barbell'}
+                size={20}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>{String(p.title || 'Program')}</Text>
+              <Text style={styles.cardMeta}>
+                {isNutrition ? 'Beslenme' : 'Antrenman'}
+                {p.staffName ? ` · ${String(p.staffName)}` : ''}
+                {p.sessionDuration ? ` · ${String(p.sessionDuration)} dk` : ''}
+                {p.createdAt
+                  ? ` · ${format(new Date(String(p.createdAt)), 'd MMMM yyyy', {
+                      locale: tr,
+                    })}`
+                  : ''}
+              </Text>
+              {p.description ? (
+                <Text numberOfLines={3} style={styles.cardDesc}>
+                  {String(p.description)}
+                </Text>
+              ) : null}
+              <View style={styles.badgeRow}>
+                {p.scheduleType === 'cycle14' ? (
+                  <Text style={styles.badge}>14 Gün · Her Gün Aynı</Text>
+                ) : null}
+                {p.scheduleType === 'dateRange' && p.cycleStartDate ? (
+                  <Text style={styles.badge}>
+                    {Number(p.cycleLength) || 0} Gün
+                    {p.cycleSameDaily === false
+                      ? ' · Haftalık Rotasyon'
+                      : ' · Her Gün Aynı'}
+                  </Text>
+                ) : null}
+              </View>
+              {(p.scheduleType === 'cycle14' || p.scheduleType === 'dateRange') &&
+              p.cycleStartDate ? (
+                <Text style={styles.cardSchedule}>
+                  {format(
+                    new Date(`${String(p.cycleStartDate)}T12:00:00`),
+                    'd MMMM yyyy',
+                    { locale: tr },
+                  )}
+                  {' — '}
+                  {format(
+                    addDays(
+                      new Date(`${String(p.cycleStartDate)}T12:00:00`),
+                      (Number(p.cycleLength) || CYCLE_PLAN_LENGTH) - 1,
+                    ),
+                    'd MMMM yyyy',
+                    { locale: tr },
+                  )}
+                  {p.cycleSameDaily === false
+                    ? ' · antrenman günlerinde geçerli'
+                    : ' · her gün aynı program'}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {entries.length > 0
+            ? groupBySchedule(entries, p).map((g) => (
+                <View key={g.key} style={styles.group}>
+                  <Text style={styles.groupLabel}>{g.label}</Text>
+                  {g.items.map((e: Record<string, unknown>) => {
+                    const title = String(e.name || e.exerciseName || 'Madde');
+                    const setsLabel =
+                      e.sets != null && e.sets !== ''
+                        ? `${e.sets} set × ${amountText(e as never)}`
+                        : e.amount
+                          ? amountText(e as never)
+                          : '';
+                    return (
+                      <Pressable
+                        key={String(e.id || `${g.key}-${title}`)}
+                        onPress={() => openEntry(e)}
+                        onPressIn={() => {
+                          if (e.videoUrl && !e.videoPending) {
+                            prefetchExerciseVideo(e.videoUrl);
+                          }
+                        }}
+                        style={styles.entry}>
+                        <ExerciseVideoThumbnail
+                          pending={Boolean(e.videoPending)}
+                          size={48}
+                          videoUrl={e.videoUrl as string}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.entryTitle}>
+                            {title}
+                            {!isNutrition && setsLabel ? ` · ${setsLabel}` : ''}
+                          </Text>
+                          {e.note ? (
+                            <Text numberOfLines={2} style={styles.entryNote}>
+                              {String(e.note)}
+                            </Text>
+                          ) : null}
+                          {e.start ? (
+                            <Text style={styles.entryNote}>
+                              {String(e.start)}
+                              {e.end ? `–${String(e.end)}` : ''}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Ionicons color={colors.brand[500]} name="play-circle" size={22} />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))
+            : Array.isArray(p.items) && (p.items as unknown[]).length > 0
+              ? (p.items as unknown[]).map((item, idx) => (
+                  <Text key={`item-${idx}`} style={styles.legacyItem}>
+                    •{' '}
+                    {typeof item === 'string'
+                      ? item
+                      : String((item as { text?: string })?.text || item)}
+                  </Text>
+                ))
+              : null}
+        </View>
+      );
+    },
+    [],
+  );
+
   return (
     <MeshBackground style={styles.root}>
-      <ScrollView
+      <FlatList
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
         ]}
+        data={filtered}
+        initialNumToRender={4}
+        keyExtractor={(p) => String(p.id)}
+        ListEmptyComponent={
+          <EmptyState
+            description="Koçunuz veya diyetisyeniniz size bir program oluşturduğunda burada görünecek ve bildirim alacaksınız."
+            title="Henüz program yok"
+          />
+        }
+        ListHeaderComponent={
+          <>
+            <FadeIn>
+              <View style={styles.header}>
+                <Image
+                  contentFit="cover"
+                  source={{ uri: PANEL_IMAGES.programs.url }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <LinearGradient
+                  colors={['rgba(26,69,92,0.2)', 'rgba(26,69,92,0.82)']}
+                  style={StyleSheet.absoluteFill}
+                />
+                <Text style={styles.title}>Programlarım</Text>
+                <Text style={styles.sub}>
+                  Koçunuz ve diyetisyeniniz tarafından hazırlanan programlar
+                </Text>
+              </View>
+            </FadeIn>
+            <View style={styles.filters}>
+              {FILTERS.map((f) => (
+                <Pressable
+                  accessibilityLabel={`${f.label} filtresi`}
+                  accessibilityRole="button"
+                  key={f.id}
+                  onPress={() => setFilter(f.id)}
+                  style={[styles.chip, filter === f.id && styles.chipOn]}>
+                  <Text style={[styles.chipText, filter === f.id && styles.chipTextOn]}>
+                    {f.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        }
+        maxToRenderPerBatch={4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -83,182 +264,11 @@ export default function ProgramsScreen() {
             tintColor={colors.brand[500]}
           />
         }
-        showsVerticalScrollIndicator={false}>
-        <FadeIn>
-          <View style={styles.header}>
-            <Image
-              contentFit="cover"
-              source={{ uri: PANEL_IMAGES.programs.url }}
-              style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-              colors={['rgba(26,69,92,0.2)', 'rgba(26,69,92,0.82)']}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text style={styles.title}>Programlarım</Text>
-            <Text style={styles.sub}>
-              Koçunuz ve diyetisyeniniz tarafından hazırlanan programlar
-            </Text>
-          </View>
-        </FadeIn>
-
-        <View style={styles.filters}>
-          {FILTERS.map((f) => (
-            <Pressable
-              accessibilityLabel={`${f.label} filtresi`}
-              accessibilityRole="button"
-              key={f.id}
-              onPress={() => setFilter(f.id)}
-              style={[styles.chip, filter === f.id && styles.chipOn]}>
-              <Text style={[styles.chipText, filter === f.id && styles.chipTextOn]}>
-                {f.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {!filtered.length ? (
-          <EmptyState
-            description="Koçunuz veya diyetisyeniniz size bir program oluşturduğunda burada görünecek ve bildirim alacaksınız."
-            title="Henüz program yok"
-          />
-        ) : (
-          filtered.map((p, i) => {
-            const isNutrition = p.type === 'nutrition';
-            const entries = (p.entries as Record<string, unknown>[]) || [];
-            return (
-              <FadeIn key={String(p.id)} delay={80 + i * 40} style={styles.card}>
-                <View style={styles.cardHead}>
-                  <View
-                    style={[
-                      styles.typeIcon,
-                      {
-                        backgroundColor: isNutrition ? colors.sage[50] : colors.brand[50],
-                      },
-                    ]}>
-                    <Ionicons
-                      color={isNutrition ? colors.sage[600] : colors.brand[600]}
-                      name={isNutrition ? 'nutrition' : 'barbell'}
-                      size={20}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{String(p.title || 'Program')}</Text>
-                    <Text style={styles.cardMeta}>
-                      {isNutrition ? 'Beslenme' : 'Antrenman'}
-                      {p.staffName ? ` · ${String(p.staffName)}` : ''}
-                      {p.sessionDuration ? ` · ${String(p.sessionDuration)} dk` : ''}
-                      {p.createdAt
-                        ? ` · ${format(new Date(String(p.createdAt)), 'd MMMM yyyy', {
-                            locale: tr,
-                          })}`
-                        : ''}
-                    </Text>
-                    {p.description ? (
-                      <Text numberOfLines={3} style={styles.cardDesc}>
-                        {String(p.description)}
-                      </Text>
-                    ) : null}
-                    <View style={styles.badgeRow}>
-                      {p.scheduleType === 'cycle14' ? (
-                        <Text style={styles.badge}>14 Gün · Her Gün Aynı</Text>
-                      ) : null}
-                      {p.scheduleType === 'dateRange' && p.cycleStartDate ? (
-                        <Text style={styles.badge}>
-                          {Number(p.cycleLength) || 0} Gün
-                          {p.cycleSameDaily === false
-                            ? ' · Haftalık Rotasyon'
-                            : ' · Her Gün Aynı'}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {(p.scheduleType === 'cycle14' || p.scheduleType === 'dateRange') &&
-                    p.cycleStartDate ? (
-                      <Text style={styles.cardSchedule}>
-                        {format(
-                          new Date(`${String(p.cycleStartDate)}T12:00:00`),
-                          'd MMMM yyyy',
-                          { locale: tr },
-                        )}
-                        {' — '}
-                        {format(
-                          addDays(
-                            new Date(`${String(p.cycleStartDate)}T12:00:00`),
-                            (Number(p.cycleLength) || CYCLE_PLAN_LENGTH) - 1,
-                          ),
-                          'd MMMM yyyy',
-                          { locale: tr },
-                        )}
-                        {p.cycleSameDaily === false
-                          ? ' · antrenman günlerinde geçerli'
-                          : ' · her gün aynı program'}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                {entries.length > 0
-                  ? groupBySchedule(entries, p).map((g) => (
-                      <View key={g.key} style={styles.group}>
-                        <Text style={styles.groupLabel}>{g.label}</Text>
-                        {g.items.map((e: Record<string, unknown>) => {
-                          const title = String(e.name || e.exerciseName || 'Madde');
-                          const setsLabel =
-                            e.sets != null && e.sets !== ''
-                              ? `${e.sets} set × ${amountText(e as never)}`
-                              : e.amount
-                                ? amountText(e as never)
-                                : '';
-                          return (
-                            <Pressable
-                              key={String(e.id || `${g.key}-${title}`)}
-                              onPress={() => openEntry(e)}
-                              onPressIn={() => {
-                                if (e.videoUrl && !e.videoPending) {
-                                  prefetchExerciseVideo(e.videoUrl);
-                                }
-                              }}
-                              style={styles.entry}>
-                              <ExerciseVideoThumbnail
-                                pending={Boolean(e.videoPending)}
-                                size={48}
-                                videoUrl={e.videoUrl as string}
-                              />
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.entryTitle}>
-                                  {title}
-                                  {!isNutrition && setsLabel ? ` · ${setsLabel}` : ''}
-                                </Text>
-                                {e.note ? (
-                                  <Text numberOfLines={2} style={styles.entryNote}>
-                                    {String(e.note)}
-                                  </Text>
-                                ) : null}
-                                {e.start ? (
-                                  <Text style={styles.entryNote}>
-                                    {String(e.start)}
-                                    {e.end ? `–${String(e.end)}` : ''}
-                                  </Text>
-                                ) : null}
-                              </View>
-                              <Ionicons color={colors.brand[500]} name="play-circle" size={22} />
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ))
-                  : Array.isArray(p.items) && (p.items as unknown[]).length > 0
-                    ? (p.items as unknown[]).map((item, idx) => (
-                        <Text key={`item-${idx}`} style={styles.legacyItem}>
-                          • {typeof item === 'string' ? item : String((item as { text?: string })?.text || item)}
-                        </Text>
-                      ))
-                    : null}
-              </FadeIn>
-            );
-          })
-        )}
-      </ScrollView>
+        removeClippedSubviews
+        renderItem={renderProgram}
+        showsVerticalScrollIndicator={false}
+        windowSize={7}
+      />
 
       <ExerciseDetailModal
         exercise={active}

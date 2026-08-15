@@ -1,4 +1,9 @@
 # Staff — Payments (LOCK) (IMPLEMENTATION LOCK)
 
-- Web mock payout UI — label demo if still mock
-- Future: sessionAttendance hakediş (web P2) — do not invent payout math
+- **Expo:** `/(staff)/payments`
+- **Web:** `PaymentManagementPage.jsx` → `StaffPayments` / `useStaffEarnings`
+- Live `staff_earnings` by `staff_id` (no mock / no Demo badge)
+- KPI: Bekleyen Hakediş (+ next Friday), Bu Ay Seans, Toplam Kazanç
+- History: group by `period_key` + status badges
+- Info banner: billable session rules (15 dk co-presence; programs/lists excluded)
+- Do not invent payout math — amounts come from `staff_earnings.amount_try`

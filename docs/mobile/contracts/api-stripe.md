@@ -15,7 +15,7 @@ Success:
 { "url": "https://checkout.stripe.com/..." }
 ```
 
-Mobile: prefer IAP; if ever used, open URL in browser / SFSafariView and rely on webhook + deep link return.
+Mobile: no IAP. Payments CTA opens login’li web `/plans` via `/auth/callback?next=/plans&src=mobile` (same JWT). Stripe webhook updates `members`; app refreshes the row on resume.
 
 ## POST /api/stripe-webhook
 

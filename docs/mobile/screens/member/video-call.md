@@ -62,11 +62,18 @@ Status for token: **`scheduled` only** (not `rescheduled` / `pending`).
 ## UI / SDK
 
 - Daily RN (`@daily-co/react-native-daily-js`) or WebView fallback
-- Camera/mic permission before join
+- Camera/mic permission on call screen open
+- **Pre-join preview (web parity):** `startCamera()` yerel önizleme; mic/cam toggle join öncesi; “Görüşmeye katılmadan önce cihazlarınızı test edebilirsiniz.”
+- Join: preview call object **reuse** (destroy → yeni object yok)
+- Exit / Geri dön: `destroy()` (kamera kapanır)
 - Empty `sessionId` → client: `Randevu bulunamadı.` (no API call)
+- MOBILE DIFF: cihaz seçici dropdown yok (web desktop)
 
 ## Acceptance
 
-- [ ] Schedule Katıl → call screen → token 200 (no `sessionId gerekli`)
+- [ ] Schedule Katıl → call screen → local camera preview before join
+- [ ] Mic/cam toggle works in preview
+- [ ] Görüşmeye katıl → token 200 (no `sessionId gerekli`); same Daily call object reused
 - [ ] Body contains `sessionType` + `sessionId`
 - [ ] Outside window: Turkish too_early / client countdown
+- [ ] Geri dön stops camera / leaves preview

@@ -15,16 +15,16 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { useChatUnread } from '@/context/ChatUnreadContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { useChatPresence } from '@/hooks/useChatPresence';
 import {
-  loadMemberChat,
+  ensureMemberChatThreads,
   recordChatConsent,
-  subscribeMemberChat,
   type ChatThread,
 } from '@/services/chat';
-import { CHAT_CONSENT_KEY, getMemberChatContacts } from '@/utils/chatContacts';
+import { CHAT_CONSENT_KEY, getMemberChatContacts, memberHasChatAccess } from '@/utils/chatContacts';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -43,6 +43,7 @@ export default function MessagesIndex() {
   const insets = useSafeAreaInsets();
   const member = useMember();
   const { staffById, loading: dataLoading } = useData();
+  const { subscribeBump } = useChatUnread();
   const { toast } = useToast();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [busy, setBusy] = useState(true);
@@ -74,12 +75,12 @@ export default function MessagesIndex() {
       return;
     }
     try {
-      const snap = await loadMemberChat(
+      const list = await ensureMemberChatThreads(
         contacts,
         String(member.id),
         String(member.name || 'Üye'),
       );
-      setThreads(snap.threads);
+      setThreads(list);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Mesajlar yüklenemedi', 'error');
     } finally {
@@ -87,12 +88,8 @@ export default function MessagesIndex() {
     }
   }, [contacts, member?.id, member?.name, toast]);
 
-  useEffect(() => {
-    if (!member?.id) return;
-    return subscribeMemberChat(() => {
-      void reload();
-    }, String(member.id));
-  }, [reload, member?.id]);
+  // Layout owns chat subscription; inbox listens to shared bump
+  useEffect(() => subscribeBump(() => void reload()), [subscribeBump, reload]);
 
   // Thread’den dönüşte rozet tazele (Expo Router stack — web navigate('/messages') eşleniği)
   useFocusEffect(
@@ -153,6 +150,11 @@ export default function MessagesIndex() {
   };
 
   const waitingMember = !member?.id && dataLoading;
+  const waitingStaffDir =
+    Boolean(member?.id) &&
+    dataLoading &&
+    contacts.length === 0 &&
+    memberHasChatAccess(member);
 
   return (
     <MeshBackground style={styles.root}>
@@ -175,13 +177,13 @@ export default function MessagesIndex() {
           <Text style={styles.sub}>Paketinize atanmış uzmanlarınızla iletişim</Text>
         </FadeIn>
 
-        {waitingMember || (busy && contacts.length === 0 && threads.length === 0) ? (
+        {waitingMember || waitingStaffDir || (busy && contacts.length === 0 && threads.length === 0) ? (
           <InlineSpinner fill />
         ) : contacts.length === 0 ? (
           <EmptyState
-            description="Premium paketinizde koç, diyetisyen veya doktor atandığında buradan mesajlaşabilirsiniz."
+            description="Paketinizdeki uzman ataması tamamlanınca buradan mesajlaşabilirsiniz. Atama profilinizde görünecektir."
             icon="chatbubbles-outline"
-            title="Mesajlaşma henüz aktif değil"
+            title="Uzmanınız atanıyor"
           />
         ) : (
           <>

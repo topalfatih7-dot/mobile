@@ -15,6 +15,7 @@ export type StaffNavItem = {
   chatBadge?: boolean;
   collabChatBadge?: boolean;
   adminChatBadge?: boolean;
+  notifBadge?: boolean;
 };
 
 export type ResolvedStaffNavItem = StaffNavItem & { badgeCount: number };
@@ -32,6 +33,12 @@ export function staffNavForRole(role: string | null | undefined): StaffNavItem[]
     { href: '/(staff)/profile', icon: 'person-circle-outline', label: 'Profilim' },
     { href: '/(staff)/clients', icon: 'people-outline', label: 'Danışanlarım' },
     {
+      href: '/(staff)/notifications',
+      icon: 'notifications-outline',
+      label: 'Bildirimler',
+      notifBadge: true,
+    },
+    {
       href: '/(staff)/messages',
       icon: 'chatbubble-ellipses-outline',
       label: 'Mesajlar',
@@ -40,7 +47,7 @@ export function staffNavForRole(role: string | null | undefined): StaffNavItem[]
   ];
 
   const normalized = normalizeStaffRole(role);
-  if (normalized === 'coach' || normalized === 'dietitian') {
+  if (normalized === 'coach' || normalized === 'dietitian' || normalized === 'doctor') {
     base.push({
       href: '/(staff)/messages/collab',
       icon: 'people-circle-outline',
@@ -55,6 +62,13 @@ export function staffNavForRole(role: string | null | undefined): StaffNavItem[]
     adminChatBadge: true,
   });
 
+  if (normalized === 'doctor') {
+    return [
+      ...base,
+      { href: '/(staff)/payments', icon: 'wallet-outline', label: 'Ödeme Yönetimi' },
+    ];
+  }
+
   if (normalized === 'dietitian') {
     return [
       ...base,
@@ -66,11 +80,9 @@ export function staffNavForRole(role: string | null | undefined): StaffNavItem[]
   const items: StaffNavItem[] = [
     ...base,
     { href: '/(staff)/programs', icon: 'clipboard-outline', label: 'Programlar' },
+    { href: '/(staff)/library', icon: 'library-outline', label: 'Kütüphane' },
+    { href: '/(staff)/payments', icon: 'wallet-outline', label: 'Ödeme Yönetimi' },
   ];
-  if (normalized === 'coach') {
-    items.push({ href: '/(staff)/library', icon: 'library-outline', label: 'Kütüphane' });
-  }
-  items.push({ href: '/(staff)/payments', icon: 'wallet-outline', label: 'Ödeme Yönetimi' });
   return items;
 }
 
@@ -80,12 +92,14 @@ export function buildStaffNavItems(
     chatUnreadCount?: number;
     staffAdminUnreadCount?: number;
     staffCollabUnreadCount?: number;
+    notificationUnreadCount?: number;
   } = {},
 ): ResolvedStaffNavItem[] {
   const {
     chatUnreadCount = 0,
     staffAdminUnreadCount = 0,
     staffCollabUnreadCount = 0,
+    notificationUnreadCount = 0,
   } = badges;
 
   return staffNavForRole(role).map((item) => ({
@@ -96,6 +110,8 @@ export function buildStaffNavItems(
         ? staffAdminUnreadCount
         : item.collabChatBadge
           ? staffCollabUnreadCount
-          : 0,
+          : item.notifBadge
+            ? notificationUnreadCount
+            : 0,
   }));
 }

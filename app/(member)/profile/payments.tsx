@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -13,8 +13,8 @@ import { MeshBackground } from '@/components/ui/MeshBackground';
 import { MembershipBadge } from '@/components/home/MembershipBadge';
 import { useToast } from '@/context/ToastContext';
 import { useMember } from '@/context/DataContext';
-import { env } from '@/config/env';
 import { getPlanLabel } from '@/data/membershipPlans';
+import { openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
 import {
   isPackageEntryActive,
   migrateLegacyToPackages,
@@ -44,15 +44,11 @@ export default function PaymentsScreen() {
   );
 
   const openWebMembership = async () => {
-    const url = `${env.apiBaseUrl}/membership`;
     setOpeningWeb(true);
     try {
-      const can = await Linking.canOpenURL(url);
-      if (!can) {
-        toast('Web sayfası açılamadı.', 'error');
-        return;
-      }
-      await Linking.openURL(url);
+      const result = await openWebCheckoutHandoff();
+      if (result.ok) return;
+      toast(result.error, result.fallback === 'plans-login' ? 'warning' : 'error');
     } catch {
       toast('Web sayfası açılamadı.', 'error');
     } finally {

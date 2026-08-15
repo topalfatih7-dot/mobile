@@ -26,6 +26,7 @@
 - `src/services/stripePayment.js`, `api/stripe-checkout.js`, `api/stripe-webhook.js`
 - `src/services/premiumMembership.js`
 - `src/services/supabaseDb.js` → `changeMemberPlan`, `adminUpdatePremiumMembership`, `registerWithPlan`
+- Mobil handoff: `src/services/webCheckoutHandoff.ts` → web `/auth/callback?next=/plans&src=mobile`
 
 ## IAP SKU naming — KALDIRILDI
 

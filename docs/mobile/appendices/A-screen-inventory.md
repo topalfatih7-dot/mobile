@@ -26,6 +26,7 @@
 | staff | library | LOCK | screens/staff/library.md |
 | staff | lists | LOCK | screens/staff/lists.md |
 | staff | messages | LOCK | screens/staff/messages.md |
+| staff | notifications | LOCK | screens/staff/notifications.md |
 | staff | overview | LOCK | screens/staff/overview.md |
 | staff | payments | LOCK | screens/staff/payments.md |
 | staff | profile | LOCK | screens/staff/profile.md |

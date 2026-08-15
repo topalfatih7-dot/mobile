@@ -1,4 +1,7 @@
-/** Web `exerciseTurkish.js` — yalnızca UI etiket / temizlik yardımcıları (RN). */
+/** Web `exerciseTurkish.js` / `exerciseCategories.js` — UI etiket yardımcıları (RN). */
+
+/** Web `EXERCISE_CATEGORY_ALL` — body_part filtresi «tümü». */
+export const EXERCISE_CATEGORY_ALL = 'Tümü';
 
 export const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: 'Başlangıç',

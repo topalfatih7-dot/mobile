@@ -171,7 +171,7 @@ export function getDateInputBounds(packageRange, { cycleLength = 0 } = {}) {
 }
 
 /** Gönderim öncesi: sabit tarihli girdiler paket dışında mı? */
-export function findEntriesOutsidePackage(entries = [], member, programType) {
+export function findEntriesOutsidePackage(entries = [] as any[], member, programType) {
   const windows = getPackageWindowsForProgramType(member, programType)
   if (!windows?.length) return entries
 

@@ -45,7 +45,7 @@ Kaynak özeti (reopt handbook + Expo SDK 56 notes, May–Jun 2026):
 
 - `UI_ONLY_MODE` = **false** (`src/config/runtime.ts`) → gerçek Supabase/API.
 - Env isimleri: `docs/mobile/contracts/env-vars.md`.
-- Ödeme: mobilde IAP yok; web Stripe `/membership` CTA — LOCK §3 (2026-08-08).
+- Ödeme: mobilde IAP yok; web Stripe login’li `/plans` CTA — LOCK §3 (2026-08-15).
 
 ## Bağımlılık envanteri (runtime)
 

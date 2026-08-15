@@ -1,15 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Redirect, type Href } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { FadeIn as ReFadeIn, FadeOut as ReFadeOut } from 'react-native-reanimated';
 
+import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
-import { fetchExercisesPage } from '@/services/exerciseLibrary';
+import { useAuth } from '@/context/AuthContext';
+import {
+  DIFFICULTY_LABELS,
+  EXERCISE_CATEGORY_ALL,
+  formatExerciseLocations,
+} from '@/data/exerciseLabels';
+import { fetchDistinctExerciseCategories, fetchExercisesPage } from '@/services/exerciseLibrary';
+import { prefetchExerciseVideo } from '@/services/exerciseMedia';
+import { normalizeStaffRole } from '@/utils/staffClients';
 import { colors, fonts, radius, spacing } from '@/theme';
+
+/** Web CoachProgramEditor / staff library browse pageSize. */
+const STAFF_LIBRARY_PAGE_SIZE = 20;
 
 const LOCATIONS = [
   { id: 'home', label: 'Ev' },
@@ -17,67 +37,150 @@ const LOCATIONS = [
   { id: 'office', label: 'Ofis' },
 ];
 
-/** Görünen etiket TR — filtre/veri değerleri İngilizce kalır (member paritesi). */
-const DIFFICULTY_LABELS: Record<string, string> = {
-  beginner: 'Başlangıç',
-  intermediate: 'Orta',
-  advanced: 'İleri',
-};
+const ITEM_HEIGHT = 98;
+const ITEM_MARGIN = 8;
 
-const ITEM_HEIGHT = 90; // padding 16*2 + thumbnail 64 - some margin
-
-/** LOCK: docs/mobile/screens/staff/library.md */
+/** LOCK: docs/mobile/screens/staff/library.md — web StaffLibraryGate + ExerciseLibraryPage staffMode */
 export default function StaffLibrary() {
+  const { staff } = useAuth();
+  const role = normalizeStaffRole(staff?.role as string);
+
+  if (role === 'dietitian') {
+    return <Redirect href={'/(staff)/lists' as Href} />;
+  }
+  if (role !== 'coach') {
+    return <Redirect href={'/(staff)' as Href} />;
+  }
+
+  return <StaffLibraryScreen />;
+}
+
+function StaffLibraryScreen() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [category, setCategory] = useState(EXERCISE_CATEGORY_ALL);
   const [difficulty, setDifficulty] = useState('');
   const [location, setLocation] = useState('');
   const [requiresMachine, setRequiresMachine] = useState('');
-  const [active, setActive] = useState<Record<string, unknown> | null>(null);
-  const [exercises, setExercises] = useState<Record<string, unknown>[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState<Record<string, unknown> | null>(null);
 
-  const activeFilterCount = [difficulty, location, requiresMachine].filter(Boolean).length;
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetchExercisesPage({
-        page: 1,
-        pageSize: 200,
-        filters: { search, difficulty, location, requiresMachine },
-      });
-      setExercises(res.items);
-    } catch {
-      setExercises([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, difficulty, location, requiresMachine]);
+  const activeFilterCount = [
+    search.trim(),
+    category !== EXERCISE_CATEGORY_ALL ? category : '',
+    difficulty,
+    location,
+    requiresMachine,
+  ].filter(Boolean).length;
 
   useEffect(() => {
-    void load();
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const load = useCallback(
+    async (pageNum = 1, append = false) => {
+      setLoading(true);
+      try {
+        const res = await fetchExercisesPage({
+          page: pageNum,
+          pageSize: STAFF_LIBRARY_PAGE_SIZE,
+          filters: {
+            search: debouncedSearch,
+            category: category === EXERCISE_CATEGORY_ALL ? '' : category,
+            difficulty,
+            location,
+            requiresMachine,
+          },
+        });
+        setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+        setPage(res.page);
+        setTotalPages(res.totalPages);
+      } catch {
+        if (!append) setItems([]);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [debouncedSearch, category, difficulty, location, requiresMachine],
+  );
+
+  useEffect(() => {
+    void load(1, false);
   }, [load]);
 
-  const items = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    return exercises.filter((ex) => {
-      if (s && !String(ex.name || '').toLowerCase().includes(s)) return false;
-      if (difficulty && String(ex.difficulty) !== difficulty) return false;
-      if (location && !(ex.locations as string[] | undefined)?.includes(location))
-        return false;
-      if (requiresMachine === 'true' && !ex.requiresMachine) return false;
-      return true;
-    });
-  }, [search, difficulty, location, requiresMachine, exercises]);
+  useEffect(() => {
+    void fetchDistinctExerciseCategories().then(setCategories);
+  }, []);
+
+  const openExercise = useCallback((ex: Record<string, unknown>) => {
+    if (ex.videoUrl && !ex.videoPending) {
+      prefetchExerciseVideo(ex.videoUrl);
+    }
+    setActive(ex);
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: Record<string, unknown>; index: number }) => {
+      const locLabels = formatExerciseLocations(item.locations).slice(0, 2);
+      return (
+        <FadeIn delay={Math.min(40 + index * 20, 200)}>
+          <Pressable
+            onPress={() => openExercise(item)}
+            onPressIn={() => {
+              if (item.videoUrl && !item.videoPending) {
+                prefetchExerciseVideo(item.videoUrl);
+              }
+            }}
+            style={styles.row}>
+            <ExerciseVideoThumbnail
+              pending={Boolean(item.videoPending)}
+              size={64}
+              videoUrl={item.videoUrl as string}
+            />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={styles.rowTitle}>{String(item.name)}</Text>
+              <Text style={styles.rowMeta}>
+                {String(item.bodyPart || item.category || '')}
+                {item.difficulty
+                  ? ` · ${DIFFICULTY_LABELS[String(item.difficulty)] || String(item.difficulty)}`
+                  : ''}
+                {item.requiresMachine ? ' · Makinalı' : ''}
+              </Text>
+              {locLabels.length > 0 ? (
+                <View style={styles.locRow}>
+                  {locLabels.map((label) => (
+                    <View key={label} style={styles.locChip}>
+                      <Text style={styles.locChipText}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+            <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
+          </Pressable>
+        </FadeIn>
+      );
+    },
+    [openExercise],
+  );
 
   return (
-    <PanelScaffold subtitle="Egzersiz kütüphanesi" title="Kütüphane">
+    <PanelScaffold
+      scroll={false}
+      subtitle="Tüm hareket videolarını inceleyin ve programlara ekleyin"
+      title="Hareket Kütüphanesi">
       <View style={styles.searchRow}>
         <Ionicons color={colors.cream[800]} name="search" size={18} />
         <TextInput
           onChangeText={setSearch}
-          placeholder="Ara…"
+          placeholder="Hareket adı ara…"
           placeholderTextColor={colors.cream[300]}
           style={styles.searchInput}
           value={search}
@@ -100,6 +203,32 @@ export default function StaffLibrary() {
           entering={ReFadeIn.duration(180)}
           exiting={ReFadeOut.duration(140)}
           style={styles.filters}>
+          <Pressable
+            onPress={() => setCategory(EXERCISE_CATEGORY_ALL)}
+            style={[
+              styles.chip,
+              category === EXERCISE_CATEGORY_ALL && styles.chipOn,
+            ]}>
+            <Text
+              style={[
+                styles.chipText,
+                category === EXERCISE_CATEGORY_ALL && styles.chipTextOn,
+              ]}>
+              Tüm tipler
+            </Text>
+          </Pressable>
+          {categories.map((item) => (
+            <Pressable
+              key={item}
+              onPress={() =>
+                setCategory((cur) => (cur === item ? EXERCISE_CATEGORY_ALL : item))
+              }
+              style={[styles.chip, category === item && styles.chipOn]}>
+              <Text style={[styles.chipText, category === item && styles.chipTextOn]}>
+                {item}
+              </Text>
+            </Pressable>
+          ))}
           {['beginner', 'intermediate', 'advanced'].map((d) => (
             <Pressable
               key={d}
@@ -128,14 +257,22 @@ export default function StaffLibrary() {
               Makine
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => setRequiresMachine((cur) => (cur === 'false' ? '' : 'false'))}
+            style={[styles.chip, requiresMachine === 'false' && styles.chipOn]}>
+            <Text
+              style={[styles.chipText, requiresMachine === 'false' && styles.chipTextOn]}>
+              Makinasız
+            </Text>
+          </Pressable>
         </Animated.View>
       ) : null}
 
       <FlatList
         data={items}
         getItemLayout={(_, index) => ({
-          length: ITEM_HEIGHT,
-          offset: ITEM_HEIGHT * index,
+          length: ITEM_HEIGHT + ITEM_MARGIN,
+          offset: (ITEM_HEIGHT + ITEM_MARGIN) * index,
           index,
         })}
         initialNumToRender={15}
@@ -147,54 +284,30 @@ export default function StaffLibrary() {
           loading ? (
             <InlineSpinner fill />
           ) : (
-            <EmptyState description="Filtreleri temizleyip tekrar deneyin." title="Sonuç yok" />
+            <EmptyState
+              description="Arama veya filtreleri değiştirin."
+              title="Hareket bulunamadı"
+            />
           )
         }
-        renderItem={({ item: ex, index: i }) => (
-          <FadeIn delay={40 + i * 30}>
-            <Pressable onPress={() => setActive(ex)} style={styles.row}>
-              <ExerciseVideoThumbnail
-                pending={Boolean(ex.videoPending)}
-                size={64}
-                videoUrl={ex.videoUrl as string}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>{String(ex.name)}</Text>
-                <Text style={styles.rowMeta}>
-                  {String(ex.bodyPart || '')}
-                  {ex.difficulty
-                    ? ` · ${DIFFICULTY_LABELS[String(ex.difficulty)] || String(ex.difficulty)}`
-                    : ''}
-                  {ex.requiresMachine ? ' · Makine' : ''}
-                </Text>
-              </View>
-              <Ionicons color={colors.brand[500]} name="chevron-forward" size={18} />
-            </Pressable>
-          </FadeIn>
-        )}
+        ListFooterComponent={
+          loading && page > 1 ? <InlineSpinner size="sm" /> : null
+        }
+        onEndReached={() => {
+          if (!loading && page < totalPages) void load(page + 1, true);
+        }}
+        onEndReachedThreshold={0.4}
+        renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         style={styles.list}
       />
 
-      <Modal animationType="slide" transparent visible={Boolean(active)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{String(active?.name || '')}</Text>
-            <Text style={styles.modalMeta}>
-              {String(active?.bodyPart || '')}
-              {active?.requiresMachine ? ' · Makine' : ''}
-            </Text>
-            <View style={styles.player}>
-              <Text style={styles.noVideo}>
-                {active?.videoPending ? 'Video hazırlanıyor…' : 'Video yok'}
-              </Text>
-            </View>
-            <Pressable onPress={() => setActive(null)} style={styles.closeBtn}>
-              <Text style={styles.closeText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <ExerciseDetailModal
+        canPlay
+        exercise={active}
+        onClose={() => setActive(null)}
+        visible={Boolean(active)}
+      />
     </PanelScaffold>
   );
 }
@@ -242,33 +355,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cream[200],
     padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   rowTitle: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
   rowMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,35,50,0.5)',
-    justifyContent: 'flex-end',
+  locRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  locChip: {
+    borderRadius: radius.full,
+    backgroundColor: colors.warm[50],
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  modalCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  modalTitle: { fontFamily: fonts.displayBold, fontSize: 20, color: colors.cream[900] },
-  modalMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
-  player: {
-    height: 220,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    backgroundColor: colors.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noVideo: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800], textAlign: 'center' },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  closeText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
+  locChipText: { fontFamily: fonts.sansSemi, fontSize: 10, color: colors.warm[500] },
   list: { flex: 1 },
 });

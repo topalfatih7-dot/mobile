@@ -1,51 +1,80 @@
 /**
  * Realtime sync — web `useRealtimeSync.js` parity.
  * Member: own members row + programs(member_id).
- * Staff: programs(staff_id) + admin_staff + collab.
- * Shared: chat_messages (sound) + tickets (+ admin applications).
+ * Staff: programs(staff_id) + assigned members + admin_staff.
+ * Shared: chat_messages (sound/badges only) + tickets (scoped handlers).
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { isUiOnly } from '@/config/runtime';
 import { getActiveChatThreadId } from '@/services/activeChatThread';
 import { playNotificationSoundThrottled } from '@/services/notificationSound';
-import { rowToProgram } from '@/services/mappers';
+import { rowToMember, rowToProgram } from '@/services/mappers';
 import { supabase } from '@/services/supabase';
+import { perfInc } from '@/utils/perfCounters';
+import { normalizeStaffRole } from '@/utils/staffClients';
 
 export type ProgramsRealtimeChange =
   | { type: 'delete'; id: string }
   | { type: 'upsert'; program: Record<string, unknown> };
 
+export type MemberRealtimeChange = {
+  member: Record<string, unknown>;
+};
+
 type Opts = {
   role: string | null;
   userId: string | null;
   staffId?: string | null;
+  staffRole?: string | null;
+  /** Platform-level refresh (admin apps, staff tickets if needed) — NOT chat */
   onChange: () => void;
   onProgramsChange?: (change: ProgramsRealtimeChange) => void;
-  /** Extra chat-related bump (badges) — same as onChange when omitted */
+  /** Chat badges / inbox only — never full hydrate */
   onChatChange?: () => void;
+  /** Member own-row UPDATE or staff client member UPDATE */
+  onMemberChange?: (change: MemberRealtimeChange) => void;
+  /** Member support tickets badge */
+  onTicketsChange?: () => void;
 };
 
 export function usePlatformRealtime({
   role,
   userId,
   staffId,
+  staffRole,
   onChange,
   onProgramsChange,
   onChatChange,
+  onMemberChange,
+  onTicketsChange,
 }: Opts) {
+  const onChangeRef = useRef(onChange);
+  const onProgramsChangeRef = useRef(onProgramsChange);
+  const onChatChangeRef = useRef(onChatChange);
+  const onMemberChangeRef = useRef(onMemberChange);
+  const onTicketsChangeRef = useRef(onTicketsChange);
+  onChangeRef.current = onChange;
+  onProgramsChangeRef.current = onProgramsChange;
+  onChatChangeRef.current = onChatChange;
+  onMemberChangeRef.current = onMemberChange;
+  onTicketsChangeRef.current = onTicketsChange;
+
   useEffect(() => {
     if (isUiOnly() || !supabase || !userId) return;
     if (role !== 'staff' && role !== 'admin' && role !== 'member') return;
 
+    perfInc('realtime_subscribe');
     const client = supabase;
     const channels: { unsubscribe: () => void }[] = [];
 
     const bump = () => {
-      onChange();
+      onChangeRef.current();
     };
     const bumpChat = () => {
-      (onChatChange || onChange)();
+      const chat = onChatChangeRef.current;
+      if (chat) chat();
+      else onChangeRef.current();
     };
 
     const applyProgramPayload = (payload: {
@@ -53,17 +82,18 @@ export function usePlatformRealtime({
       new?: Record<string, unknown>;
       old?: Record<string, unknown>;
     }) => {
-      if (!onProgramsChange) {
+      const handler = onProgramsChangeRef.current;
+      if (!handler) {
         bump();
         return;
       }
       if (payload.eventType === 'DELETE') {
         const id = payload.old?.id;
-        if (id != null) onProgramsChange({ type: 'delete', id: String(id) });
+        if (id != null) handler({ type: 'delete', id: String(id) });
         return;
       }
       if (payload.new) {
-        onProgramsChange({
+        handler({
           type: 'upsert',
           program: rowToProgram(payload.new) as Record<string, unknown>,
         });
@@ -85,7 +115,6 @@ export function usePlatformRealtime({
           bumpChat();
           const senderId = row.sender_id != null ? String(row.sender_id) : null;
           if (senderId && senderId === String(userId)) return;
-          // Staff sends with staff.id; member with userId — also skip when sender is staffId
           if (staffId && senderId && senderId === String(staffId)) return;
           const openId = getActiveChatThreadId();
           if (openId && String(row.thread_id) === openId) return;
@@ -95,15 +124,26 @@ export function usePlatformRealtime({
       .subscribe();
     channels.push(chatCh);
 
-    const ticketsCh = client
-      .channel(`tickets-sync-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tickets' },
-        () => bump(),
-      )
-      .subscribe();
-    channels.push(ticketsCh);
+    if (role === 'member' || role === 'admin') {
+      const ticketsCh = client
+        .channel(`tickets-sync-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tickets' },
+          () => {
+            perfInc('realtime_ticket');
+            if (role === 'member' && onTicketsChangeRef.current) {
+              onTicketsChangeRef.current();
+              return;
+            }
+            // Admin: full platform may include tickets
+            if (role === 'admin') bump();
+          },
+        )
+        .subscribe();
+      channels.push(ticketsCh);
+    }
+    // Staff: no tickets table usage — skip subscription
 
     if (role === 'member') {
       const memberCh = client
@@ -116,7 +156,17 @@ export function usePlatformRealtime({
             table: 'members',
             filter: `id=eq.${userId}`,
           },
-          () => bump(),
+          (payload) => {
+            perfInc('realtime_member');
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (row && onMemberChangeRef.current) {
+              onMemberChangeRef.current({
+                member: rowToMember(row) as Record<string, unknown>,
+              });
+              return;
+            }
+            bump();
+          },
         )
         .subscribe();
       channels.push(memberCh);
@@ -153,6 +203,54 @@ export function usePlatformRealtime({
         .subscribe();
       channels.push(progCh);
 
+      const assignmentCol =
+        normalizeStaffRole(staffRole) === 'doctor'
+          ? 'assigned_doctor_id'
+          : normalizeStaffRole(staffRole) === 'dietitian'
+            ? 'assigned_dietitian_id'
+            : 'assigned_coach_id';
+
+      const membersCh = client
+        .channel(`staff-members-${staffId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'members',
+            filter: `${assignmentCol}=eq.${staffId}`,
+          },
+          (payload) => {
+            perfInc('realtime_member', 'member');
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (row && onMemberChangeRef.current) {
+              onMemberChangeRef.current({
+                member: rowToMember(row) as Record<string, unknown>,
+              });
+            }
+          },
+        )
+        .subscribe();
+      channels.push(membersCh);
+
+      // Staff notifications live on staff row
+      const staffRowCh = client
+        .channel(`staff-row-${staffId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'staff',
+            filter: `id=eq.${staffId}`,
+          },
+          () => {
+            bump();
+          },
+        )
+        .subscribe();
+      channels.push(staffRowCh);
+
       const adminStaffCh = client
         .channel(`admin-staff-sync-${staffId}`)
         .on(
@@ -172,21 +270,6 @@ export function usePlatformRealtime({
         )
         .subscribe();
       channels.push(adminStaffCh);
-
-      const collabCh = client
-        .channel(`staff-collab-sync-${staffId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'staff_collab_threads' },
-          () => bumpChat(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'staff_collab_messages' },
-          () => bumpChat(),
-        )
-        .subscribe();
-      channels.push(collabCh);
     }
 
     if (role === 'admin') {
@@ -221,6 +304,7 @@ export function usePlatformRealtime({
     }
 
     return () => {
+      perfInc('realtime_unsubscribe');
       channels.forEach((ch) => {
         try {
           client.removeChannel(ch as never);
@@ -229,5 +313,6 @@ export function usePlatformRealtime({
         }
       });
     };
-  }, [role, userId, staffId, onChange, onProgramsChange, onChatChange]);
+    // Refs hold latest handlers — only re-subscribe when identity keys change
+  }, [role, userId, staffId, staffRole]);
 }

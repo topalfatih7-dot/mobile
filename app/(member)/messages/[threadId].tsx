@@ -29,7 +29,9 @@ import { useToast } from '@/context/ToastContext';
 import { useChatPresence } from '@/hooks/useChatPresence';
 import { setActiveChatThreadId } from '@/services/activeChatThread';
 import {
-  loadMemberChat,
+  CHAT_MESSAGE_PAGE_SIZE,
+  ensureMemberChatThreads,
+  fetchThreadMessagesPage,
   markChatThreadRead,
   recordChatConsent,
   sendChatMessage,
@@ -119,21 +121,32 @@ export default function MessageThreadScreen() {
     }
     try {
       setLoadError(null);
-      const snap = await loadMemberChat(
+      if (!contact) {
+        setThread(null);
+        setMessages([]);
+        if (!dataLoading) {
+          setLoadError('Bu sohbet bulunamadı. Uzman atamanızı kontrol edin.');
+        }
+        return;
+      }
+      const threads = await ensureMemberChatThreads(
         contacts,
         String(member.id),
         String(member.name || 'Üye'),
       );
       const t =
-        snap.threads.find(
-          (row) => row.id === threadRef || row.staffRole === threadRef,
+        threads.find(
+          (row) => row.id === threadRef || row.staffRole === contact.staffRole,
         ) || null;
       setThread(t);
-      setMessages(t ? snap.messages[t.id] || [] : []);
+      setMessages(
+        t
+          ? await fetchThreadMessagesPage(t.id, { limit: CHAT_MESSAGE_PAGE_SIZE })
+          : [],
+      );
       if (!t) {
         setLoadError('Bu sohbet bulunamadı. Uzman atamanızı kontrol edin.');
       } else if (focusedRef.current) {
-        // Staff mobile parity: reload sırasında açık sohbette okundu (gelen mesaj + yeniden açılış)
         setActiveChatThreadId(t.id);
         if (Number(t.memberUnread || 0) > 0) {
           void clearMemberUnread(t.id);
@@ -146,7 +159,15 @@ export default function MessageThreadScreen() {
     } finally {
       setLoaded(true);
     }
-  }, [clearMemberUnread, contacts, member?.id, member?.name, threadRef]);
+  }, [
+    clearMemberUnread,
+    contact,
+    contacts,
+    dataLoading,
+    member?.id,
+    member?.name,
+    threadRef,
+  ]);
 
   useEffect(() => {
     setLoaded(false);
@@ -156,14 +177,6 @@ export default function MessageThreadScreen() {
       void reload();
     }, String(member.id));
   }, [reload, member?.id]);
-
-  useEffect(() => {
-    if (!member?.id || !thread?.id) return;
-    const id = setInterval(() => {
-      void reload();
-    }, 8000);
-    return () => clearInterval(id);
-  }, [reload, member?.id, thread?.id]);
 
   // Web MessagesPage: sohbet açılınca markChatThreadRead — RN’de useFocusEffect
   // (stack’te ekran mount kalır; yeniden focus = yeniden okundu).
@@ -254,10 +267,9 @@ export default function MessageThreadScreen() {
     [messages],
   );
 
-  const title =
-    thread?.staffName || contact?.name || ROLE_LABEL[threadRef] || 'Sohbet';
+  const title = contact?.name || thread?.staffName || 'Sohbet';
   const subtitle =
-    ROLE_LABEL[thread?.staffRole || threadRef] || thread?.staffRole || '';
+    ROLE_LABEL[contact?.staffRole || ''] || contact?.staffRole || '';
   const staffRole = String(thread?.staffRole || threadRef || '');
   const peerOnline = peerId ? isOnline(peerId) : false;
   const peerLastSeen = peerId ? lastSeenAt(peerId) : null;
@@ -271,6 +283,14 @@ export default function MessageThreadScreen() {
   }
 
   if (!loaded && member?.id) {
+    return (
+      <MeshBackground style={styles.root}>
+        <InlineSpinner fill />
+      </MeshBackground>
+    );
+  }
+
+  if (dataLoading && !contact) {
     return (
       <MeshBackground style={styles.root}>
         <InlineSpinner fill />
@@ -296,9 +316,12 @@ export default function MessageThreadScreen() {
           </View>
         </View>
         <EmptyState
-          description={loadError || 'Sohbet açılamadı. Tekrar deneyin.'}
+          description={
+            loadError ||
+            'Paketinizdeki uzman ataması tamamlanınca buradan mesajlaşabilirsiniz. Atama profilinizde görünecektir.'
+          }
           icon="chatbubble-ellipses-outline"
-          title="Sohbet bulunamadı"
+          title={contact ? 'Sohbet bulunamadı' : 'Uzmanınız atanıyor'}
         />
         <View style={styles.retryWrap}>
           <Button label="Yeniden dene" onPress={() => void reload()} />

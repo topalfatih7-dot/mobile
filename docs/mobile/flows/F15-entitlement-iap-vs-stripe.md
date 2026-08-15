@@ -7,6 +7,7 @@ UI never trusts a store client. After login / web purchase return:
 1. Read Supabase `members.membership` (+ expiry, packages)
 2. Feature gates use server membership only
 3. **No** RevenueCat restore / in-app purchase sync
+4. App resume after web checkout: `members` row only (`applyRemoteMember`). Do not `refreshAuth()` (null hydrate must not sign the user out).
 
 ## Scenarios
 
@@ -18,4 +19,4 @@ UI never trusts a store client. After login / web purchase return:
 
 Acceptance: single source of truth = Supabase row.
 
-Mobile CTA for new purchase: `/(member)/profile/payments` → web `/membership`.
+Mobile CTA for new purchase: `/(member)/profile/payments` → web `/auth/callback?next=/plans&src=mobile` (hash session) → `/plans` Stripe `flow=change`. No auto-return to the app.

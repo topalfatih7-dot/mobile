@@ -44,7 +44,7 @@ Tek anahtar: `src/config/runtime.ts` → `UI_ONLY_MODE`
 ```text
 1. .env / .env.local: EXPO_PUBLIC_SUPABASE_* + API_BASE + DAILY_DOMAIN
 2. UI_ONLY_MODE = false
-3. Ödeme: web `/membership` CTA (IAP yok)
+3. Ödeme: web login’li `/plans` CTA (IAP yok)
 4. Dev-client rebuild (Daily / notifications)
 ```
 

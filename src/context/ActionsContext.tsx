@@ -19,6 +19,10 @@ import {
   endMemberWrite,
 } from '@/services/memberWriteGate';
 import type { MemberRecord } from '@/services/mappers';
+import {
+  getStaffNotificationsList,
+  setStaffNotifications,
+} from '@/services/staffNotifications';
 import { submitSuccessStory as submitSuccessStoryDb } from '@/services/successStory';
 import { createTicket } from '@/services/supportTickets';
 import { buildProgressPatch } from '@/utils/memberProgress';
@@ -92,11 +96,12 @@ export type ActionsContextValue = {
 const ActionsContext = createContext<ActionsContextValue | null>(null);
 
 export function ActionsProvider({ children }: { children: ReactNode }) {
-  const { refreshAuth } = useAuth();
+  const { refreshAuth, role, staff, setLocalStaffOverlay } = useAuth();
   const { programs, refreshData, setLocalMemberOverlay, staffById } = useData();
   const member = useMember();
   const { toast } = useToast();
   const memberRef = useRef(member);
+  const staffRef = useRef(staff);
   const notificationsRef = useRef<({ id: string; read?: boolean } & Record<string, unknown>)[]>(
     [],
   );
@@ -108,11 +113,19 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     memberRef.current = member;
+    staffRef.current = staff;
     if (!notificationsDirtyRef.current) {
-      notificationsRef.current =
-        ((member?.notifications as typeof notificationsRef.current) || []).slice();
+      if (role === 'staff') {
+        notificationsRef.current = getStaffNotificationsList(staff).map((n) => ({
+          ...n,
+          id: String(n.id || ''),
+        })) as typeof notificationsRef.current;
+      } else {
+        notificationsRef.current =
+          ((member?.notifications as typeof notificationsRef.current) || []).slice();
+      }
     }
-  }, [member]);
+  }, [member, staff, role]);
 
   const refresh = useCallback(async () => {
     await refreshData();
@@ -121,7 +134,12 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   const persistPatch = useCallback(
     async (
       patch: Record<string, unknown>,
-      opts?: { toastMsg?: string; skipAuthRefresh?: boolean },
+      opts?: {
+        toastMsg?: string;
+        skipAuthRefresh?: boolean;
+        /** Skip remote read — safe for activity/health-test patches when overlay is SoT */
+        skipRemoteRead?: boolean;
+      },
     ) => {
       const current = memberRef.current;
       if (!current?.id) return;
@@ -130,7 +148,6 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
       memberRef.current = optimistic;
       setLocalMemberOverlay(optimistic);
 
-      // UI-only: yalnızca bellek — DB yazılmaz
       if (isUiOnly()) {
         if (opts?.toastMsg) toast(opts.toastMsg, 'success');
         return;
@@ -143,17 +160,14 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
           try {
             const localLatest = memberRef.current;
             if (!localLatest?.id) return;
-            // Her yazıdan önce sunucudaki son kaydı al; yalnız bu aksiyonun
-            // patch'ini uygula. Böylece webhook/realtime gibi eşzamanlı
-            // güncellemeler eski bir tam üye snapshot'ıyla ezilmez.
-            const remoteLatest = await fetchMemberById(String(localLatest.id));
-            const next = await patchMemberFields(remoteLatest || localLatest, patch);
+            const base = opts?.skipRemoteRead
+              ? localLatest
+              : (await fetchMemberById(String(localLatest.id))) || localLatest;
+            const next = await patchMemberFields(base, patch);
             if (memberWriteRevisionRef.current === revision) {
               memberRef.current = next;
               setLocalMemberOverlay(next);
             }
-            // Sessiz sağlık analizi yazılarında full hydrate atlanır —
-            // overlay zaten güncel; realtime refresh yarışını azaltır.
             if (!opts?.skipAuthRefresh) {
               await refreshAuth();
             }
@@ -185,7 +199,10 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
         (member.progress as object) || {},
         member as never,
       );
-      await persistPatch({ completedActivities, ...progressPatch });
+      await persistPatch(
+        { completedActivities, ...progressPatch },
+        { skipRemoteRead: true, skipAuthRefresh: true },
+      );
     },
     [member, programs, persistPatch],
   );
@@ -209,7 +226,10 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
         (member.progress as object) || {},
         member as never,
       );
-      await persistPatch({ completedActivities, ...progressPatch });
+      await persistPatch(
+        { completedActivities, ...progressPatch },
+        { skipRemoteRead: true, skipAuthRefresh: true },
+      );
     },
     [member, programs, persistPatch],
   );
@@ -240,7 +260,10 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
     async (nextFlatHealthTest: Record<string, unknown>) => {
       if (!member) return;
       // Web parity: flat keys at top level — no nested sectionId wrapper
-      await persistPatch({ healthTest: nextFlatHealthTest });
+      await persistPatch(
+        { healthTest: nextFlatHealthTest },
+        { skipRemoteRead: true, skipAuthRefresh: true },
+      );
     },
     [member, persistPatch],
   );
@@ -427,14 +450,43 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
     }
     if (!notificationsDirtyRef.current) return;
 
-    const current = memberRef.current;
-    if (!current) return;
     const notifications = notificationsRef.current.slice();
     notificationsDirtyRef.current = false;
 
     if (isUiOnly()) return;
     if (notificationFlushInFlightRef.current) {
       await notificationFlushInFlightRef.current.catch(() => {});
+    }
+
+    if (role === 'staff') {
+      const currentStaff = staffRef.current;
+      if (!currentStaff?.id) {
+        notificationsDirtyRef.current = true;
+        return;
+      }
+      const persist = setStaffNotifications(notifications)
+        .then((r) => {
+          if (!r.success) {
+            notificationsDirtyRef.current = true;
+            return;
+          }
+          setLocalStaffOverlay({ ...currentStaff, notifications });
+        })
+        .catch(() => {
+          notificationsDirtyRef.current = true;
+        })
+        .finally(() => {
+          notificationFlushInFlightRef.current = null;
+        });
+      notificationFlushInFlightRef.current = persist;
+      await persist;
+      return;
+    }
+
+    const current = memberRef.current;
+    if (!current) {
+      notificationsDirtyRef.current = true;
+      return;
     }
     const persist = patchMemberFields(current, { notifications })
       .then((next) => {
@@ -449,19 +501,29 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
       });
     notificationFlushInFlightRef.current = persist;
     await persist;
-  }, [setLocalMemberOverlay]);
+  }, [role, setLocalMemberOverlay, setLocalStaffOverlay]);
 
   const applyNotificationsOptimistic = useCallback(
     (notifications: typeof notificationsRef.current) => {
-      const current = memberRef.current;
-      if (!current) return;
       notificationsRef.current = notifications;
       notificationsDirtyRef.current = true;
+
+      if (role === 'staff') {
+        const currentStaff = staffRef.current;
+        if (!currentStaff) return;
+        const next = { ...currentStaff, notifications };
+        staffRef.current = next;
+        setLocalStaffOverlay(next);
+        return;
+      }
+
+      const current = memberRef.current;
+      if (!current) return;
       const next = { ...current, notifications } as MemberRecord;
       memberRef.current = next;
       setLocalMemberOverlay(next);
     },
-    [setLocalMemberOverlay],
+    [role, setLocalMemberOverlay, setLocalStaffOverlay],
   );
 
   const scheduleNotificationFlush = useCallback(() => {

@@ -1,8 +1,66 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-08 — Randevu iptal 24s + personel/admin onay zinciri  
+> **Son güncelleme:** 2026-08-15 — Mobil ödemeler CTA → login’li web `/plans`  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-15 Mobil → web login’li `/plans` paket akışı
+
+| Madde | Durum |
+|-------|--------|
+| CTA: `/membership` yerine `/auth/callback?next=/plans&src=mobile` + hash JWT | ✅ |
+| Web AuthCallback `next=/plans` allowlist; handoff’ta claim/refresh skip | ✅ |
+| Hata: throw yok, oturum silinmez; token’sız `/plans` fallback | ✅ |
+| App resume: yalnız `members` satırı (`applyRemoteMember`) | ✅ |
+| LOCK / F15 / payments.md / copy / skills | ✅ |
+
+## 2026-08-13 Üye mesajlaşma — atama kalkınca ghost “Koçunuz/Diyetisyeniniz”
+
+| Madde | Durum |
+|-------|--------|
+| Web `getMemberChatContacts`: personel kadroda yoksa contact yok (`if (coach)`) | ✅ |
+| Mobil fallback satır (“Koçunuz”) kaldırıldı | ✅ |
+| `ensureMemberChatThreads` yalnız güncel contact rolleri döner | ✅ |
+| Thread ekranı `activeContact` yoksa eski thread açılmaz | ✅ |
+| Unread badge yalnız atanmış roller | ✅ |
+
+## 2026-08-10 Performans derin mimari (üye + personel)
+
+| Madde | Durum |
+|-------|--------|
+| `perfCounters` + realtime/chat/hydrate sayaçları | ✅ |
+| Chat ≠ full `refreshData` (`onChatChange` + `ChatUnreadContext`) | ✅ |
+| Realtime callback refs (channel churn yok) | ✅ |
+| Badge unread summary (mesaj body yok) | ✅ |
+| 8s chat polling kaldırıldı | ✅ |
+| Boot çift `refreshAuth` kesildi | ✅ |
+| Staff-scoped hydrate (assigned_* members + scoped programs) | ✅ |
+| Staff tickets/activities/payments/posts hydrate atlandı | ✅ |
+| Collab ensure parallel (N+1 yok) | ✅ |
+| Staff members + staff-row realtime | ✅ |
+| Member focus full refresh kaldırıldı (calendar/programs) | ✅ |
+| `persistPatch` skipRemoteRead + health-test/toggle hafif yazma | ✅ |
+| Calendar `dayMetaByDate` memo | ✅ |
+| FlatList: üye programs, staff clients/messages/programs/lists | ✅ |
+| Chat history pagination (`CHAT_MESSAGE_PAGE_SIZE`) | ✅ |
+| StaffVideoPanel `now` tick; health-test initial deps; mark-read skip | ✅ |
+
+## 2026-08-10 Staff panel web parity (RN uyarlama)
+
+| Madde | Durum |
+|-------|--------|
+| Nav: Bildirimler + doctor collab; doctor Programlar kapalı | ✅ |
+| Overview: KPI + StaffVideoPanel + join/toast/CTA | ✅ |
+| Clients: Bilgiler sheet + role CTA (list route) | ✅ |
+| Client health: StaffHealthBrief + yeniden analiz | ✅ |
+| Profile: 3 tab (profil / çalışma / güvenlik) | ✅ |
+| Messages: search + presence + ChatCollapsiblePrograms + doctor collab | ✅ |
+| Notifications: LOCK + route + `staff_set_notifications` | ✅ |
+| Payments: `staff_earnings` KPI + dönem geçmişi | ✅ |
+| Coach builder: dayCarts wizard + SendModal + `createProgram`/`updateProgram` | ✅ |
+| Dietitian: `clients/[id]/list` NutritionProgramBuilder + lists expand/edit | ✅ |
+| Library: ExerciseDetailModal + VideoPlayer + category/pagination | ✅ |
+| F10 force-password gate (`tempPasswordIssued`) | ✅ |
 
 ## 2026-08-09 Mobil giriş Turnstile bypass
 
@@ -32,7 +90,7 @@
 | Web `api/revenuecat-webhook.js` silindi → Vercel Hobby **12/12** | ✅ |
 | Stripe `ACTIVE_MOBILE_SUBSCRIPTION` guard kaldırıldı | ✅ |
 | Mobil SDK/deps (`react-native-purchases*`, `iap.ts`, Paywall, CustomerCenter) | ✅ |
-| `profile/payments` → Supabase status + web `/membership` CTA | ✅ |
+| `profile/payments` → Supabase status + login’li web `/plans` CTA | ✅ |
 | RC MCP: webhook silindi, offering/entitlement/51 ürün arşiv | ✅ |
 | LOCK / skills / contracts MOBILE DIFF | ✅ |
 | Mevcut `provider:revenuecat` üyelikler | dokunulmadı (süre bitene kadar) |
@@ -46,7 +104,8 @@
 | `ExerciseDetailModal` ortalanmış kart + açıklama/set-rep | ✅ |
 | Signed URL cache + press-in prefetch (`exerciseMedia`) | ✅ |
 | Member library / programs / calendar bağlandı | ✅ |
-| Staff/admin player | ⏸ ayrı sprint |
+| Staff library player | ✅ (2026-08-10) |
+| Admin player | ⏸ ayrı sprint |
 | Native rebuild (dev client) gerekir | 🔄 cihaz |
 
 ## 2026-08-06 sağlık testi 2 aşama + telefon
@@ -179,14 +238,20 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 | Ekran | Durum | Not |
 |-------|-------|-----|
-| Clients health | OK | gerçek healthTest + notes |
-| Profile | OK | availability RPC persist |
-| Payments | OK | Demo badge (LOCK mock); live clients rows |
-| Messages (member) | OK | DB threads |
+| Overview | OK | KPI + StaffVideoPanel + queues (2026-08-10) |
+| Clients + Bilgiler | OK | sheet + role CTA |
+| Clients health | OK | brief + yeniden analiz + notes |
+| Profile | OK | 3 tab full editor |
+| Notifications | OK | staff.data.notifications |
+| Messages (member) | OK | search + presence + programs panel |
 | Admin messages | OK | admin_staff_* |
-| Collab messages | OK | staff_collab_* inbox + thread |
-| Library / program builder | OK | DEMO_EXERCISES silent fallback kaldırıldı (UI_ONLY hariç) |
-| Overview / lists / programs | OK | useData |
+| Collab messages | OK | coach/dietitian/doctor |
+| Payments | OK | staff_earnings live |
+| Programs / coach builder | OK | createProgram + SendModal |
+| Lists / nutrition builder | OK | clients/[id]/list |
+| Library | OK | VideoPlayer + filters |
+| Video call | OK | join entry + call shell |
+| F10 force password | OK | layout overlay |
 
 ### Faz C — Admin
 

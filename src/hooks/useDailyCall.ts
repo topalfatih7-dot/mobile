@@ -1,6 +1,7 @@
 /**
  * Mobile Daily call lifecycle — web `useDailyCall.js` parity.
  * Singleton: aynı anda tek call object (orphan kamera yayını önlenir).
+ * Phases: idle → preview (startCamera) → loading → joined; leave → preview.
  */
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
@@ -36,9 +37,9 @@ export type DailyMediaViewProps = {
   style?: object;
 };
 
-type Phase = 'idle' | 'loading' | 'joined' | 'error';
+type Phase = 'idle' | 'preview' | 'loading' | 'joined' | 'error';
 
-/** Process-wide: leave sonrası kamera yayınının sürmesini engeller */
+/** Process-wide: exit sonrası kamera yayınının sürmesini engeller */
 let globalCall: DailyCallObject | null = null;
 let globalDestroying: Promise<void> | null = null;
 
@@ -105,6 +106,8 @@ export function useDailyCall() {
   const handlersRef = useRef<Array<{ event: string; handler: (...args: unknown[]) => void }>>(
     [],
   );
+  const mediaStateRef = useRef({ camOn: true, micOn: true });
+  const returningToPreviewRef = useRef(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<{
@@ -115,6 +118,10 @@ export function useDailyCall() {
   const [DailyMediaView, setDailyMediaView] = useState<ComponentType<DailyMediaViewProps> | null>(
     null,
   );
+
+  useEffect(() => {
+    mediaStateRef.current = mediaState;
+  }, [mediaState]);
 
   const refreshParticipants = useCallback(() => {
     const call = callRef.current;
@@ -143,13 +150,60 @@ export function useDailyCall() {
     handlersRef.current = [];
   }, []);
 
+  const applyLocalMedia = useCallback(async (call: DailyCallObject, camOn: boolean, micOn: boolean) => {
+    if (typeof call.startCamera === 'function') {
+      await call.startCamera({
+        startVideoOff: !camOn,
+        startAudioOff: !micOn,
+      });
+    }
+    try {
+      await call.setLocalVideo(camOn);
+    } catch {
+      /* ignore */
+    }
+    try {
+      await call.setLocalAudio(micOn);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const returnToPreview = useCallback(
+    async (call: DailyCallObject) => {
+      const { camOn, micOn } = mediaStateRef.current;
+      returningToPreviewRef.current = true;
+      try {
+        try {
+          await call.leave();
+        } catch {
+          /* already left */
+        }
+        await applyLocalMedia(call, camOn, micOn);
+        setPhase('preview');
+        refreshParticipants();
+      } catch {
+        setPhase('preview');
+        refreshParticipants();
+      } finally {
+        returningToPreviewRef.current = false;
+      }
+    },
+    [applyLocalMedia, refreshParticipants],
+  );
+
   const attachHandlers = useCallback(
     (call: DailyCallObject) => {
       detachHandlers(call);
       const onPart = () => refreshParticipants();
       const onLeft = () => {
-        setPhase('idle');
-        setParticipants({ local: null, remote: [] });
+        // leaveMeeting / returnToPreview leave() tetikler — çift işlem yok
+        if (returningToPreviewRef.current) {
+          refreshParticipants();
+          return;
+        }
+        // Beklenmeyen düşüş: web parity — preview'a dön (destroy yok)
+        void returnToPreview(call);
       };
       const onError = (ev: unknown) => {
         const msg =
@@ -173,8 +227,23 @@ export function useDailyCall() {
         return { event, handler };
       });
     },
-    [detachHandlers, refreshParticipants],
+    [detachHandlers, refreshParticipants, returnToPreview],
   );
+
+  const ensureCallObject = useCallback(async () => {
+    if (callRef.current) return callRef.current;
+
+    const DailyMod = await import('@daily-co/react-native-daily-js');
+    const Daily = DailyMod.default;
+    const MediaView = DailyMod.DailyMediaView as ComponentType<DailyMediaViewProps>;
+    if (MediaView) setDailyMediaView(() => MediaView);
+
+    const call = Daily.createCallObject() as unknown as DailyCallObject;
+    globalCall = call;
+    callRef.current = call;
+    attachHandlers(call);
+    return call;
+  }, [attachHandlers]);
 
   const destroy = useCallback(async () => {
     const call = callRef.current;
@@ -190,6 +259,33 @@ export function useDailyCall() {
     setParticipants({ local: null, remote: [] });
   }, [detachHandlers]);
 
+  const startPreview = useCallback(
+    async (opts?: { camOn?: boolean; micOn?: boolean }) => {
+      setError(null);
+      const camOn = opts?.camOn !== false;
+      const micOn = opts?.micOn !== false;
+      setMediaState({ camOn, micOn });
+      mediaStateRef.current = { camOn, micOn };
+
+      try {
+        const call = await ensureCallObject();
+        await applyLocalMedia(call, camOn, micOn);
+        setPhase('preview');
+        refreshParticipants();
+        return { ok: true as const };
+      } catch (e: unknown) {
+        const err = e as { errorMsg?: string; message?: string };
+        const message = String(
+          err?.errorMsg || err?.message || 'Kamera önizlemesi başlatılamadı.',
+        );
+        setError(message);
+        setPhase('error');
+        return { ok: false as const, error: message };
+      }
+    },
+    [applyLocalMedia, ensureCallObject, refreshParticipants],
+  );
+
   const join = useCallback(
     async (opts: {
       url: string;
@@ -202,30 +298,27 @@ export function useDailyCall() {
       const camOn = opts.camOn !== false;
       const micOn = opts.micOn !== false;
       setMediaState({ camOn, micOn });
+      mediaStateRef.current = { camOn, micOn };
 
       try {
-        // Önceki orphan instance’ı temizle
-        await destroy();
         setPhase('loading');
+        const hadPreview = Boolean(callRef.current);
+        const call = await ensureCallObject();
 
-        const DailyMod = await import('@daily-co/react-native-daily-js');
-        const Daily = DailyMod.default;
-        const MediaView = DailyMod.DailyMediaView as ComponentType<DailyMediaViewProps>;
-        if (MediaView) setDailyMediaView(() => MediaView);
-
-        // Daily: aynı anda tek call object
-        const call = Daily.createCallObject() as unknown as DailyCallObject;
-
-        globalCall = call;
-        callRef.current = call;
-        attachHandlers(call);
-
-        // Web parity: join öncesi yerel medya
-        if (typeof call.startCamera === 'function') {
-          await call.startCamera({
-            startVideoOff: !camOn,
-            startAudioOff: !micOn,
-          });
+        // Preview yoksa join öncesi medya (web parity)
+        if (!hadPreview) {
+          await applyLocalMedia(call, camOn, micOn);
+        } else {
+          try {
+            await call.setLocalVideo(camOn);
+          } catch {
+            /* ignore */
+          }
+          try {
+            await call.setLocalAudio(micOn);
+          } catch {
+            /* ignore */
+          }
         }
 
         await call.join({
@@ -254,17 +347,49 @@ export function useDailyCall() {
         const err = e as { errorMsg?: string; message?: string };
         const message = String(err?.errorMsg || err?.message || 'Görüşmeye bağlanılamadı.');
         setError(message);
-        setPhase('error');
-        await destroy();
+        // Preview call object'i koru — destroy yok
+        const call = callRef.current;
+        if (call) {
+          try {
+            await applyLocalMedia(call, camOn, micOn);
+          } catch {
+            /* ignore */
+          }
+          setPhase('preview');
+          refreshParticipants();
+        } else {
+          setPhase('error');
+        }
         return { ok: false as const, error: message };
       }
     },
-    [attachHandlers, destroy, refreshParticipants],
+    [applyLocalMedia, ensureCallObject, refreshParticipants],
   );
 
   const leaveMeeting = useCallback(async () => {
-    await destroy();
-  }, [destroy]);
+    const call = callRef.current;
+    if (!call) {
+      setPhase('preview');
+      return;
+    }
+    setError(null);
+    const { camOn, micOn } = mediaStateRef.current;
+    returningToPreviewRef.current = true;
+    try {
+      try {
+        await call.leave();
+      } catch {
+        /* ignore */
+      }
+      await applyLocalMedia(call, camOn, micOn);
+      setPhase('preview');
+      refreshParticipants();
+    } catch {
+      setPhase('preview');
+    } finally {
+      returningToPreviewRef.current = false;
+    }
+  }, [applyLocalMedia, refreshParticipants]);
 
   const toggleCam = useCallback(async () => {
     const call = callRef.current;
@@ -292,7 +417,7 @@ export function useDailyCall() {
     }
   }, [mediaState.micOn, refreshParticipants]);
 
-  // Unmount: orphan kamera yayını bırakma (destroy identity’sine bağlama)
+  // Unmount / exit: orphan kamera yayını bırakma
   useEffect(() => {
     return () => {
       const call = callRef.current;
@@ -306,7 +431,6 @@ export function useDailyCall() {
     };
   }, []);
 
-  // Öne gelince participant / track sync
   useEffect(() => {
     const onChange = (state: AppStateStatus) => {
       if (state === 'active' && callRef.current) refreshParticipants();
@@ -332,7 +456,9 @@ export function useDailyCall() {
     remoteVideoPlayable: isTrackPlayable(remote, 'video'),
     localVideoPlayable: isTrackPlayable(local, 'video') && mediaState.camOn,
     isJoined: phase === 'joined',
+    isPreview: phase === 'preview',
     isLoading: phase === 'loading',
+    startPreview,
     join,
     leaveMeeting,
     destroy,

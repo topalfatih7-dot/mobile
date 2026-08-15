@@ -46,6 +46,7 @@ app/
     _layout.tsx             → PanelTopBar + PanelDrawer + Stack
     index.tsx
     clients/...
+    notifications.tsx
     messages/...
     programs.tsx | lists.tsx
     library.tsx
@@ -77,10 +78,10 @@ Badge kaynakları: chatUnread, notificationUnread, openSupportTickets, healthTes
 
 ## Staff drawer (sıra — `src/data/staffNav.ts`)
 
-Base: Genel Bakış, Profilim, Danışanlarım, Mesajlar.  
-+ Collab (coach/dietitian): Ekip Mesajları.  
+Base: Genel Bakış, Profilim, Danışanlarım, Bildirimler, Mesajlar.  
++ Collab (coach / dietitian / doctor): Ekip Mesajları.  
 + Admin Mesajları.  
-Dietitian: Listeler + Ödeme. Coach: Programlar + Kütüphane + Ödeme. Doctor: Programlar + Ödeme.
+Dietitian: Listeler + Ödeme. Coach: Programlar + Kütüphane + Ödeme. Doctor: yalnızca Ödeme (Programlar / Kütüphane / Listeler yok).
 
 ## Admin drawer (sıra — `src/data/adminNav.ts`)
 

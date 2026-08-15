@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -12,7 +11,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { getExerciseThumbUrl, invalidateExerciseVideoUrl } from '@/services/exerciseMedia';
 import { colors, fonts, radius, spacing } from '@/theme';
 
@@ -23,6 +24,7 @@ type Props = {
   /** Storage path / ref — poster + retry invalidate. */
   videoRef?: unknown;
   title?: string;
+  /** Signed URL henüz çözülmedi. */
   loading?: boolean;
   emptyMessage?: string;
   style?: StyleProp<ViewStyle>;
@@ -31,7 +33,7 @@ type Props = {
 
 /**
  * Native egzersiz oynatıcı (expo-video).
- * Web parity: sessiz + loop + otomatik; poster = public webp thumb.
+ * Overlay, signed URL + ilk kare gelene kadar kalır — siyah kare yok.
  */
 export function VideoPlayer({
   url,
@@ -44,6 +46,7 @@ export function VideoPlayer({
   onRetry,
 }: Props) {
   const [loadError, setLoadError] = useState(false);
+  const [hasFrame, setHasFrame] = useState(false);
   const poster = getExerciseThumbUrl(videoRef);
 
   const player = useVideoPlayer(null, (p) => {
@@ -55,6 +58,7 @@ export function VideoPlayer({
 
   useEffect(() => {
     setLoadError(false);
+    setHasFrame(false);
     if (!url) return;
 
     let cancelled = false;
@@ -84,6 +88,20 @@ export function VideoPlayer({
     if (status === 'error') setLoadError(true);
   }, [status]);
 
+  useEffect(() => {
+    if (status !== 'readyToPlay' || hasFrame || loadError) return;
+    const t = setTimeout(() => setHasFrame(true), 600);
+    return () => clearTimeout(t);
+  }, [status, hasFrame, loadError]);
+
+  useEffect(() => {
+    if (!url || hasFrame || loadError) return;
+    const t = setTimeout(() => setHasFrame(true), 2800);
+    return () => clearTimeout(t);
+  }, [url, hasFrame, loadError]);
+
+  const waiting = (loading || (Boolean(url) && !hasFrame)) && !loadError && !videoPending;
+
   if (videoPending) {
     return (
       <View style={[styles.frame, style]} accessibilityLabel={title || 'Video'}>
@@ -91,22 +109,7 @@ export function VideoPlayer({
           <Image contentFit="cover" source={{ uri: poster }} style={StyleSheet.absoluteFill} />
         ) : null}
         <View style={styles.overlay}>
-          <ActivityIndicator color={colors.brand[600]} />
-          <Text style={styles.hint}>Video henüz yüklenmedi…</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View style={[styles.frame, style]}>
-        {poster ? (
-          <Image contentFit="cover" source={{ uri: poster }} style={StyleSheet.absoluteFill} />
-        ) : null}
-        <View style={styles.overlay}>
-          <ActivityIndicator color={colors.brand[600]} />
-          <Text style={styles.hint}>Video yükleniyor…</Text>
+          <BrandLoader label="Video henüz yüklenmedi…" size="sm" tone="onDark" />
         </View>
       </View>
     );
@@ -124,6 +127,7 @@ export function VideoPlayer({
             onPress={() => {
               invalidateExerciseVideoUrl(videoRef);
               setLoadError(false);
+              setHasFrame(false);
               onRetry?.();
             }}
             style={styles.retryBtn}>
@@ -134,7 +138,7 @@ export function VideoPlayer({
     );
   }
 
-  if (!url) {
+  if (!url && !loading) {
     return (
       <View style={[styles.frame, style]}>
         <View style={styles.overlay}>
@@ -147,13 +151,28 @@ export function VideoPlayer({
 
   return (
     <View style={[styles.frame, style]} accessibilityLabel={title || 'Video'}>
-      <VideoView
-        contentFit="contain"
-        fullscreenOptions={{ enable: true }}
-        nativeControls
-        player={player}
-        style={styles.video}
-      />
+      {poster ? (
+        <Image contentFit="cover" source={{ uri: poster }} style={StyleSheet.absoluteFill} />
+      ) : null}
+      {url ? (
+        <VideoView
+          contentFit="contain"
+          fullscreenOptions={{ enable: true }}
+          nativeControls
+          onFirstFrameRender={() => setHasFrame(true)}
+          player={player}
+          style={[styles.video, !hasFrame && styles.videoHidden]}
+        />
+      ) : null}
+      {waiting ? (
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          exiting={FadeOut.duration(220)}
+          pointerEvents="none"
+          style={styles.overlay}>
+          <BrandLoader label="Video yükleniyor…" size="md" tone="onDark" />
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -172,13 +191,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  videoHidden: {
+    opacity: 0,
+  },
   overlay: {
     position: 'absolute',
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(26,35,50,0.55)',
+    backgroundColor: 'rgba(26,35,50,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,

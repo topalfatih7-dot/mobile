@@ -81,8 +81,7 @@ export default function HealthTestSectionScreen() {
       ...EMPTY_HEALTH_TEST,
       ...((member?.healthTest as Record<string, unknown>) || {}),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sectionId],
+    [sectionId, member?.healthTest],
   );
 
   const [healthTest, setHealthTest] = useState<Record<string, unknown>>(initial);

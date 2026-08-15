@@ -1,11 +1,13 @@
 import { Stack, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
+import { useChatUnread } from '@/context/ChatUnreadContext';
 import { useData, useMember } from '@/context/DataContext';
+import { getMemberChatContacts } from '@/utils/chatContacts';
 import { buildMemberNavItems } from '@/data/memberNav';
 import {
   getCoreHealthTestKeySet,
@@ -13,11 +15,15 @@ import {
 } from '@/data/coreHealthTest';
 import { isDetailedHealthTestComplete } from '@/data/healthTest';
 import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
-import { loadMemberChat, subscribeMemberChat } from '@/services/chat';
+import {
+  fetchMemberChatUnreadSummary,
+  subscribeMemberChat,
+} from '@/services/chat';
 import {
   fetchMemberTickets,
   subscribeMemberTickets,
 } from '@/services/supportTickets';
+import { perfInc } from '@/utils/perfCounters';
 import {
   addForegroundNotificationListener,
   addNotificationReceivedListener,
@@ -34,7 +40,6 @@ import {
   setNotificationSoundEnabledGetter,
   unlockNotificationAudio,
 } from '@/services/notificationSound';
-import { getMemberChatContacts } from '@/utils/chatContacts';
 
 const PUSH_ASKED_KEY = 'push_permission_asked';
 
@@ -205,45 +210,68 @@ function MemberPushBootstrap() {
 export default function MemberLayout() {
   const member = useMember();
   const { staffById } = useData();
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const [openSupportTicketsCount, setOpenSupportTicketsCount] = useState(0);
-
-  const contacts = useMemo(
-    () => getMemberChatContacts(member, staffById),
-    [member, staffById],
-  );
+  const {
+    memberUnreadTotal,
+    supportOpenCount,
+    setFromSummary,
+    bumpGeneration,
+    subscribeBump,
+  } = useChatUnread();
 
   const reloadChatUnread = useCallback(async () => {
     if (!member?.id) {
-      setChatUnreadCount(0);
+      setFromSummary({ memberUnreadTotal: 0 });
       return;
     }
     try {
-      const snapshot = await loadMemberChat(
-        contacts,
-        String(member.id),
-        String(member.name || 'Üye'),
+      perfInc('badge_unread_summary');
+      const { threads } = await fetchMemberChatUnreadSummary(String(member.id));
+      const roles = new Set(
+        getMemberChatContacts(member, staffById).map((c) => c.staffRole),
       );
-      setChatUnreadCount(
-        snapshot.threads.reduce(
-          (sum, thread) => sum + Number(thread.memberUnread || 0),
-          0,
-        ),
-      );
+      const unreadTotal = threads
+        .filter((t) => roles.has(t.staffRole))
+        .reduce((sum, t) => sum + Number(t.memberUnread || 0), 0);
+      setFromSummary({ memberUnreadTotal: unreadTotal });
     } catch {
-      setChatUnreadCount(0);
+      setFromSummary({ memberUnreadTotal: 0 });
     }
-  }, [contacts, member?.id, member?.name]);
+  }, [member, staffById, setFromSummary]);
 
+  const reloadSupportBadge = useCallback(async () => {
+    if (!member?.id) {
+      setFromSummary({ supportOpenCount: 0 });
+      return;
+    }
+    const tickets = await fetchMemberTickets(String(member.id));
+    setFromSummary({
+      supportOpenCount: tickets.filter(
+        (ticket) => ticket.status === 'open' || ticket.status === 'pending',
+      ).length,
+    });
+  }, [member?.id, setFromSummary]);
+
+  // Single layout-level chat + tickets subscription (inbox/thread consume bump)
   useEffect(() => {
     void reloadChatUnread();
-    return subscribeMemberChat(
-      () => void reloadChatUnread(),
-      member?.id ? String(member.id) : undefined,
-    );
-  }, [member?.id, reloadChatUnread]);
+    void reloadSupportBadge();
+    if (!member?.id) return;
+    const mid = String(member.id);
+    const unsubChat = subscribeMemberChat(() => void reloadChatUnread(), mid);
+    const unsubTickets = subscribeMemberTickets(mid, () => {
+      void reloadSupportBadge();
+    });
+    const unsubBump = subscribeBump(() => {
+      void reloadChatUnread();
+      void reloadSupportBadge();
+    });
+    return () => {
+      unsubChat();
+      unsubTickets();
+      unsubBump();
+    };
+  }, [member?.id, reloadChatUnread, reloadSupportBadge, subscribeBump]);
 
-  // Drawer rozeti: sohbetten dönüşte / app öne gelince tazele
   useFocusEffect(
     useCallback(() => {
       void reloadChatUnread();
@@ -257,26 +285,8 @@ export default function MemberLayout() {
     return () => sub.remove();
   }, [reloadChatUnread]);
 
-  const reloadSupportBadge = useCallback(async () => {
-    if (!member?.id) {
-      setOpenSupportTicketsCount(0);
-      return;
-    }
-    const tickets = await fetchMemberTickets(String(member.id));
-    setOpenSupportTicketsCount(
-      tickets.filter(
-        (ticket) => ticket.status === 'open' || ticket.status === 'pending',
-      ).length,
-    );
-  }, [member?.id]);
-
-  useEffect(() => {
-    void reloadSupportBadge();
-    if (!member?.id) return;
-    return subscribeMemberTickets(String(member.id), () => {
-      void reloadSupportBadge();
-    });
-  }, [member?.id, reloadSupportBadge]);
+  // Keep bumpGeneration referenced so chat realtime bumps re-render nav when summary updates
+  void bumpGeneration;
 
   const notifications = (member?.notifications as { read?: boolean }[]) || [];
   const notificationUnreadCount = notifications.filter((n) => !n.read).length;
@@ -300,7 +310,6 @@ export default function MemberLayout() {
           ? String(ht.optionalCompletedAt)
           : null,
       });
-      // Kilitliyken rozet yok; retake açılınca tekrar göster
       return Boolean(lock.canRetake);
     }
     return true;
@@ -311,16 +320,16 @@ export default function MemberLayout() {
       buildMemberNavItems({
         membership: String(member?.membership || 'free'),
         notificationUnreadCount,
-        openSupportTicketsCount,
+        openSupportTicketsCount: supportOpenCount,
         healthTestIncomplete,
-        chatUnreadCount,
+        chatUnreadCount: memberUnreadTotal,
       }),
     [
       member?.membership,
       notificationUnreadCount,
-      openSupportTicketsCount,
+      supportOpenCount,
       healthTestIncomplete,
-      chatUnreadCount,
+      memberUnreadTotal,
     ],
   );
 

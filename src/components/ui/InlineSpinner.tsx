@@ -1,6 +1,6 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { colors } from '@/theme';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 
 type Props = {
   size?: 'sm' | 'md' | 'lg';
@@ -8,30 +8,20 @@ type Props = {
   fill?: boolean;
 };
 
-const RING = { sm: 24, md: 32, lg: 48 };
-
 /**
- * Ana proje RouteFallback — küçük dönen halka.
- * Veri çeken ekranlarda içerik yerine göster.
+ * Liste / sayfa içi yükleme — web RouteFallback.
+ * Veri gelince kaldır; tam ekran maske kullanma.
  */
 export function InlineSpinner({ size = 'md', fill = false }: Props) {
-  const dim = RING[size];
+  const loaderSize = size === 'lg' ? 'lg' : size === 'sm' ? 'sm' : 'md';
   return (
     <View style={[styles.wrap, fill && styles.fill]} accessibilityLabel="Yükleniyor">
-      <View style={[styles.ring, { width: dim, height: dim, borderRadius: dim / 2 }]}>
-        <ActivityIndicator color={colors.brand[600]} size={size === 'lg' ? 'large' : 'small'} />
-      </View>
+      <BrandLoader size={loaderSize} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', justifyContent: 'center', padding: 16 },
-  fill: { flex: 1 },
-  ring: {
-    borderWidth: 2,
-    borderColor: colors.brand[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  fill: { flex: 1, minHeight: 160 },
 });

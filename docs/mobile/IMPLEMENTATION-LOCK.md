@@ -28,9 +28,10 @@ Bu dosya, uygulayıcı yapay zeka / geliştirici için **zorunlu** kurallardır.
 
 ## 3. Ödeme
 
-- **MOBILE DIFF (2026-08-08):** Uygulama içi IAP / RevenueCat **yok**. Satın alma ve abonelik yönetimi yalnız **web Stripe** (`/membership`, `contracts/api-stripe.md`).
-- Mobil UX: plan/status Supabase’ten; CTA → `Linking.openURL(\`${apiBase}/membership\`)` (`screens/member/payments.md`).
-- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok.
+- **MOBILE DIFF (2026-08-15):** Uygulama içi IAP / RevenueCat **yok**. Satın alma ve abonelik yönetimi yalnız **web Stripe** (`contracts/api-stripe.md`).
+- Mobil UX: plan/status Supabase’ten; CTA → login’li web `/plans` (üye paneli paket seç / güncelle). `screens/member/payments.md`.
+- Handoff: aynı Supabase JWT (`/auth/callback?next=/plans&src=mobile#access_token&refresh_token`). Magic link / yeni session yok. Web tek-oturum claim+refresh bu akışta atlanır.
+- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok. Ödeme sonrası uygulamaya otomatik dönüş yok; ön plana gelişte yalnız `members` satırı yenilenir.
 
 ## 4. Auth
 

@@ -1,21 +1,20 @@
-import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { BrandLogo } from '@/components/ui/BrandLogo';
-import { BrandMark } from '@/components/brand/BrandMark';
-import { colors, fonts, spacing } from '@/theme';
+import { BrandLoader } from '@/components/ui/BrandLoader';
+import { colors, spacing } from '@/theme';
 
 type Props = {
   label?: string;
   /** Tam ekran (auth boot) — varsayılan */
   fullScreen?: boolean;
-  /** Modal overlay (blur arka plan) */
+  /** Modal overlay (yavaş işlem maskesi) — işlem bitince kaldır */
   overlay?: boolean;
 };
 
 /**
- * Ana proje LoadingScreen — logo + spinner.
- * fullScreen: auth hydrate; overlay: yavaş işlem maskesi.
+ * Web LoadingScreen parity — çift halka + marka.
+ * fullScreen: auth hydrate; overlay: gönder/çek maskesi; inline: liste boş hali.
  */
 export function LoadingScreen({
   label = 'Yükleniyor…',
@@ -24,9 +23,7 @@ export function LoadingScreen({
 }: Props) {
   const body = (
     <View style={styles.center}>
-      {overlay ? <BrandMark size={56} /> : <BrandLogo size="lg" variant="logo" />}
-      <ActivityIndicator color={colors.brand[600]} style={styles.spinner} />
-      <Text style={styles.label}>{label}</Text>
+      <BrandLoader label={label} size={overlay ? 'md' : 'lg'} />
     </View>
   );
 
@@ -64,12 +61,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
-    gap: spacing.md,
-  },
-  spinner: { marginTop: spacing.lg },
-  label: {
-    fontFamily: fonts.sans,
-    fontSize: 14,
-    color: colors.cream[800],
   },
 });

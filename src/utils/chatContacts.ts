@@ -1,5 +1,4 @@
 import {
-  getDefaultPackageForPlan,
   packageIncludesCoach,
   packageIncludesDietitian,
   packageIncludesDoctor,
@@ -13,7 +12,7 @@ export const CHAT_CONSENT_KEY = 'yeniform-chat-consent-v1';
 /** Web parity: chatAccess.js CHAT_CONSENT_TEXT */
 export const CHAT_CONSENT_TEXT = `Bu mesajlaşma alanı, atanmış koçunuz, diyetisyeniniz ve/veya doktorunuzla paketiniz kapsamında iletişim kurmanız içindir.
 
-Gönderdiğiniz ve aldığınız tüm mesajlar güvenli şekilde kaydedilir; hizmet kalitesi, uyumluluk ve olası süreç takipleri için saklanabilir.
+Gönderdiğiniz ve aldığınız tüm mesajlar güvenli şekilde saklanır; hizmet kalitesi, uyumluluk ve olası süreç takipleri için saklanabilir.
 
 Tıbbi acil durumlarda bu kanalı kullanmayın; 112 veya en yakın sağlık kuruluşuna başvurun.`;
 
@@ -24,9 +23,17 @@ export type ChatContact = {
   title: string;
 };
 
+function staffFromMap(
+  staffById: Record<string, Record<string, unknown>>,
+  id: string,
+): Record<string, unknown> | undefined {
+  return staffById[id];
+}
+
 /**
  * Web `getMemberChatContacts(member, staffList)` parity.
- * staffById/map boş olsa bile atanmış id varsa contact üretilir (fallback ad).
+ * Contact only if: package includes the role AND assignment id AND staff still in directory.
+ * Do not invent "Koçunuz" / "Diyetisyeniniz" rows when staff is missing.
  */
 export function getMemberChatContacts(
   member: Record<string, unknown> | null | undefined,
@@ -34,10 +41,7 @@ export function getMemberChatContacts(
 ): ChatContact[] {
   if (!member) return [];
 
-  const membership = String(member.membership || 'free');
-  const packageConfig =
-    (member.packageConfig as Record<string, unknown> | undefined) ||
-    getDefaultPackageForPlan(membership);
+  const packageConfig = (member.packageConfig as Record<string, unknown> | undefined) || {};
 
   const pairs: {
     key: string;
@@ -70,13 +74,26 @@ export function getMemberChatContacts(
     if (!included) continue;
     const id = member[key] ? String(member[key]) : '';
     if (!id) continue;
-    const staff = staffById[id];
+    const staff = staffFromMap(staffById, id);
+    if (!staff) continue;
     out.push({
       staffId: id,
       staffRole: role,
-      name: String(staff?.name || fallbackTitle),
-      title: String(staff?.title || fallbackTitle),
+      name: String(staff.name || fallbackTitle),
+      title: String(staff.title || fallbackTitle),
     });
   }
   return out;
+}
+
+/** Web `memberHasChatAccess` — atama + paket yoksa mesajlaşma kapalı */
+export function memberHasChatAccess(
+  member: Record<string, unknown> | null | undefined,
+): boolean {
+  const pkg = (member?.packageConfig as Record<string, unknown> | undefined) || {};
+  return Boolean(
+    (packageIncludesCoach(pkg) && member?.assignedCoachId) ||
+      (packageIncludesDietitian(pkg) && member?.assignedDietitianId) ||
+      (packageIncludesDoctor(pkg) && member?.assignedDoctorId),
+  );
 }

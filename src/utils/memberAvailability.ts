@@ -1,13 +1,16 @@
 // @ts-nocheck
 import { addDays, differenceInCalendarDays, format, getDay, isValid, parseISO, startOfDay } from 'date-fns'
+import { tr } from 'date-fns/locale'
+
+/** Web `services/availability.AVAILABILITY_WEEKDAYS` parity (Pzt→Paz sırası editor’da filtrelenir). */
 export const AVAILABILITY_WEEKDAYS = [
-  { value: 0, label: 'Pazar' },
-  { value: 1, label: 'Pazartesi' },
-  { value: 2, label: 'Salı' },
-  { value: 3, label: 'Çarşamba' },
-  { value: 4, label: 'Perşembe' },
-  { value: 5, label: 'Cuma' },
-  { value: 6, label: 'Cumartesi' },
+  { value: 0, label: 'Pazar', short: 'Paz' },
+  { value: 1, label: 'Pazartesi', short: 'Pzt' },
+  { value: 2, label: 'Salı', short: 'Sal' },
+  { value: 3, label: 'Çarşamba', short: 'Çar' },
+  { value: 4, label: 'Perşembe', short: 'Per' },
+  { value: 5, label: 'Cuma', short: 'Cum' },
+  { value: 6, label: 'Cumartesi', short: 'Cmt' },
 ] as const
 
 /** Üyenin antrenman için işaretlediği haftanın günleri (0=Pazar … 6=Cumartesi). */

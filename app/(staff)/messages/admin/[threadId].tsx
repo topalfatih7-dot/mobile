@@ -80,11 +80,6 @@ export default function StaffAdminMessages() {
   useEffect(() => subscribeAdminStaffChat(() => void reload()), [reload]);
 
   useEffect(() => {
-    const id = setInterval(() => void reload(), 8000);
-    return () => clearInterval(id);
-  }, [reload]);
-
-  useEffect(() => {
     if (thread?.id) {
       setActiveChatThreadId(thread.id);
       return () => setActiveChatThreadId(null);

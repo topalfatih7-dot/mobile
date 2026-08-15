@@ -1,25 +1,26 @@
 /**
  * LOCK: docs/mobile/screens/staff/messages.md
  * Member↔staff threads + admin channel (real admin_staff_threads).
+ * Web: StaffMessagesPage.jsx — search + presence + inbox→thread push (MOBILE DIFF).
  */
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { PresenceIndicator } from '@/components/chat/PresenceIndicator';
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
-import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useAuth } from '@/context/AuthContext';
+import { useChatUnread } from '@/context/ChatUnreadContext';
 import { useData } from '@/context/DataContext';
+import { useChatPresence } from '@/hooks/useChatPresence';
 import {
   fetchStaffChatThreads,
-  subscribeStaffClientChat,
   type ChatThread,
 } from '@/services/chat';
 import {
   getOrCreateAdminStaffThread,
-  subscribeAdminStaffChat,
   type AdminStaffThread,
 } from '@/services/adminStaffChat';
 import { formatRelativeTimeTr } from '@/utils/relativeTime';
@@ -34,9 +35,11 @@ const PLAN_AVATAR_COLORS: Record<string, string> = {
 export default function StaffMessagesIndex() {
   const { loading, staffClients } = useData();
   const { staff } = useAuth();
+  const { subscribeBump } = useChatUnread();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [adminThread, setAdminThread] = useState<AdminStaffThread | null>(null);
   const [busy, setBusy] = useState(true);
+  const [query, setQuery] = useState('');
 
   const reload = useCallback(async () => {
     if (!staff?.id) {
@@ -66,14 +69,8 @@ export default function StaffMessagesIndex() {
     void reload();
   }, [reload]);
 
-  useEffect(() => {
-    if (!staff?.id) return;
-    const unsubs = [
-      subscribeStaffClientChat(() => void reload(), String(staff.id)),
-      subscribeAdminStaffChat(() => void reload()),
-    ];
-    return () => unsubs.forEach((u) => u());
-  }, [staff?.id, reload]);
+  // Layout owns chat subscriptions; inbox listens to shared bump
+  useEffect(() => subscribeBump(() => void reload()), [subscribeBump, reload]);
 
   const sortedClients = useMemo(() => {
     return staffClients.slice().sort((a, b) => {
@@ -88,88 +85,155 @@ export default function StaffMessagesIndex() {
     });
   }, [staffClients, threads]);
 
+  const filteredClients = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sortedClients;
+    return sortedClients.filter((c) =>
+      String(c.name || '')
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [sortedClients, query]);
+
+  const peerIds = useMemo(
+    () => filteredClients.map((c) => String(c.id)),
+    [filteredClients],
+  );
+  const { isOnline, lastSeenAt } = useChatPresence(peerIds);
+
+  const renderClientRow = useCallback(
+    ({ item: c }: { item: (typeof filteredClients)[number] }) => {
+      const thread = threads.find((t) => t.memberId === String(c.id));
+      const memberId = String(c.id);
+      const avatarColor =
+        PLAN_AVATAR_COLORS[String(c.membership)] || colors.cream[300];
+      return (
+        <Pressable
+          onPress={() => router.push(`/(staff)/messages/${memberId}` as Href)}
+          style={styles.row}>
+          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+            <Text style={styles.avatarText}>
+              {String(c.name || '?').charAt(0).toUpperCase()}
+            </Text>
+            <View style={styles.presenceDot}>
+              <PresenceIndicator
+                lastSeenAt={lastSeenAt(memberId)}
+                online={isOnline(memberId)}
+              />
+            </View>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{String(c.name)}</Text>
+            {thread?.lastPreview ? (
+              <Text numberOfLines={1} style={styles.preview}>
+                {thread.lastPreview}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.rowRight}>
+            {thread?.lastMessageAt ? (
+              <Text style={styles.time}>
+                {formatRelativeTimeTr(thread.lastMessageAt)}
+              </Text>
+            ) : null}
+            {thread && thread.staffUnread > 0 ? (
+              <View style={styles.unread}>
+                <Text style={styles.unreadText}>{thread.staffUnread}</Text>
+              </View>
+            ) : (
+              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
+            )}
+          </View>
+        </Pressable>
+      );
+    },
+    [threads, isOnline, lastSeenAt],
+  );
+
   return (
-    <PanelScaffold subtitle="Danışan sohbetleri" title="Mesajlar">
+    <PanelScaffold scroll={false} subtitle="Danışan sohbetleri" title="Mesajlar">
       {(loading || busy) && staffClients.length === 0 ? (
         <InlineSpinner fill />
       ) : (
-        <>
-          {adminThread ? (
-            <FadeIn delay={40}>
-              <Pressable
-                onPress={() =>
-                  router.push(`/(staff)/messages/admin/${adminThread.id}` as Href)
-                }
-                style={styles.row}>
-                <View style={[styles.channelIcon, { backgroundColor: colors.brand[600] }]}>
-                  <Ionicons color={colors.white} name="shield" size={18} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>Admin</Text>
-                  <Text numberOfLines={1} style={styles.preview}>
-                    {adminThread.lastPreview || 'Yönetim ile yazışma'}
-                  </Text>
-                </View>
-                {adminThread.staffUnread > 0 ? (
-                  <View style={styles.unread}>
-                    <Text style={styles.unreadText}>{adminThread.staffUnread}</Text>
-                  </View>
-                ) : (
-                  <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
-                )}
-              </Pressable>
-            </FadeIn>
-          ) : null}
-
-          {sortedClients.map((c, i) => {
-            const thread = threads.find((t) => t.memberId === String(c.id));
-            const avatarColor =
-              PLAN_AVATAR_COLORS[String(c.membership)] || colors.cream[300];
-            return (
-              <FadeIn key={String(c.id)} delay={40 + i * 30}>
+        <FlatList
+          contentContainerStyle={{ gap: spacing.sm, paddingBottom: 16, flexGrow: 1 }}
+          data={filteredClients}
+          initialNumToRender={12}
+          keyExtractor={(c) => String(c.id)}
+          ListHeaderComponent={
+            <>
+              <View style={styles.searchWrap}>
+                <Ionicons
+                  color={colors.cream[800]}
+                  name="search"
+                  size={18}
+                  style={{ opacity: 0.4 }}
+                />
+                <TextInput
+                  onChangeText={setQuery}
+                  placeholder="Danışan ara…"
+                  placeholderTextColor={colors.cream[300]}
+                  style={styles.searchInput}
+                  value={query}
+                />
+              </View>
+              {adminThread ? (
                 <Pressable
                   onPress={() =>
-                    router.push(`/(staff)/messages/${c.id}` as Href)
+                    router.push(`/(staff)/messages/admin/${adminThread.id}` as Href)
                   }
                   style={styles.row}>
-                  <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                    <Text style={styles.avatarText}>
-                      {String(c.name || '?').charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={[styles.channelIcon, { backgroundColor: colors.brand[600] }]}>
+                    <Ionicons color={colors.white} name="shield" size={18} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{String(c.name)}</Text>
-                    {thread?.lastPreview ? (
-                      <Text numberOfLines={1} style={styles.preview}>
-                        {thread.lastPreview}
-                      </Text>
-                    ) : null}
+                    <Text style={styles.name}>Admin</Text>
+                    <Text numberOfLines={1} style={styles.preview}>
+                      {adminThread.lastPreview || 'Yönetim ile yazışma'}
+                    </Text>
                   </View>
-                  <View style={styles.rowRight}>
-                    {thread?.lastMessageAt ? (
-                      <Text style={styles.time}>
-                        {formatRelativeTimeTr(thread.lastMessageAt)}
-                      </Text>
-                    ) : null}
-                    {thread && thread.staffUnread > 0 ? (
-                      <View style={styles.unread}>
-                        <Text style={styles.unreadText}>{thread.staffUnread}</Text>
-                      </View>
-                    ) : (
-                      <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
-                    )}
-                  </View>
+                  {adminThread.staffUnread > 0 ? (
+                    <View style={styles.unread}>
+                      <Text style={styles.unreadText}>{adminThread.staffUnread}</Text>
+                    </View>
+                  ) : (
+                    <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} />
+                  )}
                 </Pressable>
-              </FadeIn>
-            );
-          })}
-        </>
+              ) : null}
+            </>
+          }
+          maxToRenderPerBatch={10}
+          removeClippedSubviews
+          renderItem={renderClientRow}
+          style={{ flex: 1 }}
+          windowSize={9}
+        />
       )}
     </PanelScaffold>
   );
 }
 
 const styles = StyleSheet.create({
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 48,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.cream[200],
+    paddingHorizontal: 14,
+    marginBottom: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: fonts.sans,
+    fontSize: 15,
+    color: colors.cream[900],
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,6 +258,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  presenceDot: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    padding: 2,
   },
   avatarText: { fontFamily: fonts.sansSemi, fontSize: 16, color: colors.white },
   name: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },

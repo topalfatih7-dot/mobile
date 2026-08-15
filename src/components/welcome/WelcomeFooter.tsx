@@ -56,15 +56,14 @@ export function WelcomeFooter({
 
       <View style={[styles.actions, isLandscape && styles.actionsLandscape]}>
         <Button
-          label="Başla"
-          onPress={onRegister}
-          rightIcon="arrow-forward"
+          label="Giriş Yap"
+          onPress={onLogin}
           size={isLandscape ? 'md' : 'lg'}
           style={isLandscape ? styles.actionHalf : undefined}
         />
         <Button
-          label="Zaten hesabım var"
-          onPress={onLogin}
+          label="Kaydol"
+          onPress={onRegister}
           size={isLandscape ? 'md' : 'lg'}
           style={isLandscape ? styles.actionHalf : styles.secondary}
           variant="glass"

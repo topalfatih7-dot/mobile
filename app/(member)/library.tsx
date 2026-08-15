@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -17,6 +16,7 @@ import { ExerciseDetailModal } from '@/components/library/ExerciseDetailModal';
 import { ExerciseVideoThumbnail } from '@/components/library/ExerciseVideoThumbnail';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useData, useMember } from '@/context/DataContext';
@@ -302,7 +302,7 @@ export default function LibraryScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={colors.brand[600]} style={{ marginTop: 40 }} />
+            <InlineSpinner fill />
           ) : programExerciseIds.length === 0 ? (
             <EmptyState
               description="Koçunuzun veya yapay zekanın oluşturduğu antrenman programındaki hareketler burada görünür."
@@ -313,13 +313,7 @@ export default function LibraryScreen() {
           )
         }
         ListFooterComponent={
-          loading && page > 1 ? (
-            <ActivityIndicator
-              color={colors.brand[600]}
-              size="small"
-              style={styles.footerSpinner}
-            />
-          ) : null
+          loading && page > 1 ? <InlineSpinner size="sm" /> : null
         }
         onEndReached={() => {
           if (!loading && page < totalPages) void load(page + 1, true);
@@ -414,5 +408,4 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
   rowMeta: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[800], opacity: 0.65 },
-  footerSpinner: { marginVertical: spacing.md },
 });

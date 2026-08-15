@@ -100,7 +100,8 @@ export function useChatPresence(
       )
       .subscribe();
 
-    const poll = setInterval(() => void load(), 30_000);
+    // Layout+inbox may both mount; keep poll light (realtime handles most updates)
+    const poll = setInterval(() => void load(), 60_000);
 
     return () => {
       active = false;

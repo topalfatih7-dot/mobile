@@ -14,14 +14,53 @@ export function PanelScaffold({
   children,
   showBack,
   titleBadge,
+  scroll = true,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   showBack?: boolean;
   titleBadge?: string;
+  /** false → View (FlatList vb. için; ScrollView içine VirtualizedList koyma) */
+  scroll?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const header = (
+    <FadeIn>
+      {showBack ? (
+        <Pressable hitSlop={10} onPress={() => router.back()} style={styles.back}>
+          <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+          <Text style={styles.backText}>Geri</Text>
+        </Pressable>
+      ) : null}
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{title}</Text>
+        {titleBadge ? (
+          <View style={styles.titleBadge}>
+            <Text style={styles.titleBadgeText}>{titleBadge}</Text>
+          </View>
+        ) : null}
+      </View>
+      {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+    </FadeIn>
+  );
+
+  if (!scroll) {
+    return (
+      <MeshBackground style={styles.root}>
+        <View
+          style={[
+            styles.content,
+            styles.contentFill,
+            { paddingTop: 12, paddingBottom: insets.bottom + 16 },
+          ]}>
+          {header}
+          {children}
+        </View>
+      </MeshBackground>
+    );
+  }
+
   return (
     <MeshBackground style={styles.root}>
       <ScrollView
@@ -29,23 +68,7 @@ export function PanelScaffold({
           styles.content,
           { paddingTop: 12, paddingBottom: insets.bottom + 32 },
         ]}>
-        <FadeIn>
-          {showBack ? (
-            <Pressable hitSlop={10} onPress={() => router.back()} style={styles.back}>
-              <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
-              <Text style={styles.backText}>Geri</Text>
-            </Pressable>
-          ) : null}
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{title}</Text>
-            {titleBadge ? (
-              <View style={styles.titleBadge}>
-                <Text style={styles.titleBadgeText}>{titleBadge}</Text>
-              </View>
-            ) : null}
-          </View>
-          {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
-        </FadeIn>
+        {header}
         {children}
       </ScrollView>
     </MeshBackground>
@@ -55,6 +78,7 @@ export function PanelScaffold({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  contentFill: { flex: 1 },
   back: { flexDirection: 'row', alignItems: 'center' },
   backText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.brand[600] },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

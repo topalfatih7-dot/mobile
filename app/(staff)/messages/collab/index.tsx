@@ -1,9 +1,10 @@
 /**
  * LOCK: docs/mobile/screens/staff/collab-messages.md — inbox
+ * Web: StaffCollabMessagesPage.jsx — coach | dietitian | doctor
  */
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PanelScaffold } from '@/components/panel/PanelScaffold';
@@ -13,8 +14,10 @@ import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import {
+  collabPeerName,
   collabUnreadForStaff,
   ensureStaffCollabThreads,
+  fetchStaffCollabThreadsForStaff,
   getStaffCollabMembers,
   subscribeStaffCollabChat,
   type StaffCollabThread,
@@ -27,42 +30,80 @@ export default function StaffCollabInbox() {
   const { staff } = useAuth();
   const { loading, platform } = useData();
   const role = normalizeStaffRole(staff?.role as string);
+  const isAllowed = role === 'coach' || role === 'dietitian' || role === 'doctor';
+  const staffId = staff?.id ? String(staff.id) : '';
   const [threads, setThreads] = useState<StaffCollabThread[]>([]);
   const [busy, setBusy] = useState(true);
+  const ensuredRef = useRef(false);
+  const reloadGen = useRef(0);
 
   const clients = useMemo(
     () => getStaffCollabMembers(platform.members, staff),
     [platform.members, staff],
   );
 
-  const reload = useCallback(async () => {
-    if (!staff?.id || (role !== 'coach' && role !== 'dietitian')) {
-      setBusy(false);
-      return;
-    }
-    setBusy(true);
-    try {
-      const list = await ensureStaffCollabThreads(
-        staff,
-        platform.members,
-        platform.staffList.length ? platform.staffList : Object.values(platform.staffById),
-      );
-      setThreads(list);
-    } catch {
-      setThreads([]);
-    } finally {
-      setBusy(false);
-    }
-  }, [staff, role, platform.members, platform.staffList, platform.staffById]);
+  const staffList = useMemo(
+    () =>
+      platform.staffList.length
+        ? platform.staffList
+        : Object.values(platform.staffById),
+    [platform.staffList, platform.staffById],
+  );
+
+  /** Soft refresh: fetch only. Hard ensure once (creates missing threads). */
+  const reload = useCallback(
+    async (mode: 'ensure' | 'fetch' = 'fetch') => {
+      if (!staffId || !isAllowed || !staff) {
+        setBusy(false);
+        return;
+      }
+      const gen = ++reloadGen.current;
+      const showSpinner = mode === 'ensure' && !ensuredRef.current;
+      if (showSpinner) setBusy(true);
+      try {
+        const list =
+          mode === 'ensure' || !ensuredRef.current
+            ? await ensureStaffCollabThreads(staff, platform.members, staffList)
+            : await fetchStaffCollabThreadsForStaff(staff);
+        if (gen !== reloadGen.current) return;
+        if (mode === 'ensure' || !ensuredRef.current) ensuredRef.current = true;
+        setThreads(list);
+      } catch {
+        if (gen !== reloadGen.current) return;
+        // Keep previous threads on error — avoid empty flicker
+      } finally {
+        if (gen === reloadGen.current) setBusy(false);
+      }
+    },
+    [staff, staffId, isAllowed, platform.members, staffList],
+  );
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    ensuredRef.current = false;
+    void reload('ensure');
+  }, [staffId, isAllowed]); // eslint-disable-line react-hooks/exhaustive-deps -- mount / staff change only
+
+  // When members hydrate after mount, ensure once more if we had zero clients
+  useEffect(() => {
+    if (!staffId || !isAllowed) return;
+    if (clients.length === 0) return;
+    if (ensuredRef.current && threads.length > 0) return;
+    void reload('ensure');
+  }, [clients.length, staffId, isAllowed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!staff) return;
-    return subscribeStaffCollabChat(() => void reload(), staff);
-  }, [staff, reload]);
+    if (!staffId || !staff) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const unsub = subscribeStaffCollabChat(() => {
+      if (t) clearTimeout(t);
+      // Debounce realtime — avoid ensure/create storms
+      t = setTimeout(() => void reload('fetch'), 400);
+    }, staff);
+    return () => {
+      if (t) clearTimeout(t);
+      unsub();
+    };
+  }, [staffId, staff, reload]);
 
   const sortedClients = useMemo(() => {
     return clients.slice().sort((a, b) => {
@@ -77,27 +118,27 @@ export default function StaffCollabInbox() {
     });
   }, [clients, threads, role]);
 
-  if (role !== 'coach' && role !== 'dietitian') {
+  if (!isAllowed) {
     return (
-      <PanelScaffold showBack subtitle="Koç ↔ Diyetisyen" title="Ekip Mesajları">
+      <PanelScaffold showBack subtitle="Koç ↔ Diyetisyen ↔ Doktor" title="Ekip Mesajları">
         <EmptyState title="Bu rol için ekip sohbeti yok." />
       </PanelScaffold>
     );
   }
 
+  const showInitialSpinner = (loading || busy) && clients.length === 0 && threads.length === 0;
+  const showEmpty = !loading && !busy && clients.length === 0;
+
   return (
-    <PanelScaffold showBack subtitle="Koç ↔ Diyetisyen" title="Ekip Mesajları">
-      {(loading || busy) && clients.length === 0 ? (
+    <PanelScaffold showBack subtitle="Koç ↔ Diyetisyen ↔ Doktor" title="Ekip Mesajları">
+      {showInitialSpinner ? (
         <InlineSpinner fill />
-      ) : clients.length === 0 ? (
+      ) : showEmpty ? (
         <EmptyState title="Ortak danışan yok." />
       ) : (
         sortedClients.map((m, i) => {
           const thread = threads.find((t) => t.memberId === String(m.id));
-          const peerName =
-            role === 'coach'
-              ? thread?.dietitianName || 'Diyetisyen'
-              : thread?.coachName || 'Koç';
+          const peerName = collabPeerName(thread, role);
           const unread = thread ? collabUnreadForStaff(thread, role) : 0;
           return (
             <FadeIn delay={i * 40} key={String(m.id)}>

@@ -136,19 +136,69 @@ export async function fetchMemberChatThreads(
   );
 }
 
-export async function loadMemberChat(
+/** Badge-only: threads + unread totals — no message bodies. */
+export async function fetchMemberChatUnreadSummary(
+  memberId: string,
+): Promise<{ threads: ChatThread[]; unreadTotal: number }> {
+  const threads = await fetchMemberChatThreads(memberId);
+  const unreadTotal = threads.reduce(
+    (sum, t) => sum + Number(t.memberUnread || 0),
+    0,
+  );
+  return { threads, unreadTotal };
+}
+
+/** Badge-only for staff client chat. */
+export async function fetchStaffChatUnreadSummary(
+  staffId: string,
+): Promise<{ threads: ChatThread[]; unreadTotal: number }> {
+  const threads = await fetchStaffChatThreads(staffId);
+  const unreadTotal = threads.reduce(
+    (sum, t) => sum + Number(t.staffUnread || 0),
+    0,
+  );
+  return { threads, unreadTotal };
+}
+
+export const CHAT_MESSAGE_PAGE_SIZE = 80;
+
+/** Paginated thread messages (newest page first via before cursor). */
+export async function fetchThreadMessagesPage(
+  threadId: string,
+  opts?: { limit?: number; before?: string | null },
+): Promise<ChatMessage[]> {
+  if (isUiOnly() || !threadId) return [];
+  const sb = requireSupabase();
+  const limit = opts?.limit ?? CHAT_MESSAGE_PAGE_SIZE;
+  let q = sb
+    .from('chat_messages')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (opts?.before) {
+    q = q.lt('created_at', opts.before);
+  }
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || [])
+    .map((r) => rowToChatMessage(r as Record<string, unknown>))
+    .reverse();
+}
+
+/** Ensure threads for contacts — no message bodies (inbox / badge). */
+export async function ensureMemberChatThreads(
   contacts: ChatContact[],
   memberId: string,
   memberName: string,
-): Promise<{ threads: ChatThread[]; messages: Record<string, ChatMessage[]> }> {
+): Promise<ChatThread[]> {
   if (isUiOnly()) {
-    return getChatSnapshot(contacts, memberName, memberId);
+    return getChatSnapshot(contacts, memberName, memberId).threads;
   }
 
   const sb = requireSupabase();
   let threads = await fetchMemberChatThreads(memberId);
 
-  // Ensure a thread per assigned contact (getOrCreate parity — web chatDb.js)
   for (const c of contacts) {
     if (threads.some((t) => t.staffRole === c.staffRole)) continue;
     const seed = {
@@ -171,28 +221,34 @@ export async function loadMemberChat(
       threads = [...threads, rowToChatThread(created as Record<string, unknown>)];
       continue;
     }
-    // Unique race / RLS: yeniden çek — sessizce yok sayma
     threads = await fetchMemberChatThreads(memberId);
     if (!threads.some((t) => t.staffRole === c.staffRole) && insErr) {
       throw new Error(insErr.message || 'Sohbet oluşturulamadı.');
     }
   }
+  // Web ensureMemberChatThreads: yalnız güncel contact rolleri (eski atama thread'leri inbox'ta yok)
+  const roles = new Set(contacts.map((c) => c.staffRole));
+  return threads.filter((t) => roles.has(t.staffRole));
+}
 
-  const messages: Record<string, ChatMessage[]> = {};
-  if (threads.length) {
-    const ids = threads.map((t) => t.id);
-    const { data: msgRows, error: msgErr } = await sb
-      .from('chat_messages')
-      .select('*')
-      .in('thread_id', ids)
-      .order('created_at', { ascending: true });
-    if (msgErr) throw msgErr;
-    for (const row of msgRows || []) {
-      const m = rowToChatMessage(row as Record<string, unknown>);
-      if (!messages[m.threadId]) messages[m.threadId] = [];
-      messages[m.threadId].push(m);
-    }
+export async function loadMemberChat(
+  contacts: ChatContact[],
+  memberId: string,
+  memberName: string,
+): Promise<{ threads: ChatThread[]; messages: Record<string, ChatMessage[]> }> {
+  if (isUiOnly()) {
+    return getChatSnapshot(contacts, memberName, memberId);
   }
+
+  const threads = await ensureMemberChatThreads(contacts, memberId, memberName);
+  const messages: Record<string, ChatMessage[]> = {};
+  await Promise.all(
+    threads.map(async (t) => {
+      messages[t.id] = await fetchThreadMessagesPage(t.id, {
+        limit: CHAT_MESSAGE_PAGE_SIZE,
+      });
+    }),
+  );
 
   return { threads, messages };
 }
@@ -368,14 +424,9 @@ export async function loadStaffClientThread(
 
   if (!row) return { thread: null, messages: [] };
   const thread = rowToChatThread(row as Record<string, unknown>);
-  const { data: msgRows } = await sb
-    .from('chat_messages')
-    .select('*')
-    .eq('thread_id', thread.id)
-    .order('created_at', { ascending: true });
-  const messages = (msgRows || []).map((r) =>
-    rowToChatMessage(r as Record<string, unknown>),
-  );
+  const messages = await fetchThreadMessagesPage(thread.id, {
+    limit: CHAT_MESSAGE_PAGE_SIZE,
+  });
   return { thread, messages };
 }
 
@@ -456,6 +507,11 @@ export async function markStaffChatThreadRead(threadId: string): Promise<void> {
     .eq('id', threadId)
     .maybeSingle();
   if (!row) return;
-  const data = { ...((row?.data as object) || {}), staffUnread: 0 };
+  const prev =
+    row.data && typeof row.data === 'object'
+      ? (row.data as Record<string, unknown>)
+      : {};
+  if (Number(prev.staffUnread || 0) === 0) return;
+  const data = { ...prev, staffUnread: 0 };
   await sb.from('chat_threads').update({ data }).eq('id', threadId);
 }
