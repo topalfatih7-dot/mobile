@@ -1,6 +1,6 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-15 — Android preview: FCM `googleServicesFile` + Expo 56 paket hizası + EAS APK  
+> **Son güncelleme:** 2026-08-15 — Android preview APK hazır (`21be2b73`)  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
 
@@ -9,12 +9,10 @@
 | Madde | Durum |
 |-------|--------|
 | `google-services.json` (`com.yeniform.app`) yerelde; gitignore | ✅ |
-| `app.json` `android.googleServicesFile` | ✅ |
+| `app.json` `android.googleServicesFile` + `.easignore` upload | ✅ |
 | `npx expo install --fix` + `expo-asset` | ✅ |
 | `pickLabFile` + `memberRowRefresh` tsc | ✅ |
-| EAS `build:preview:android` | 🔄 bu tur |  
-> **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
-> **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+| EAS `build:preview:android` APK | ✅ [21be2b73](https://expo.dev/accounts/yeniform/projects/yeniform/builds/21be2b73-8a77-4516-9c06-e0345cb29797) |
 
 ## 2026-08-15 Preview “Oturum açılamadı”
 
