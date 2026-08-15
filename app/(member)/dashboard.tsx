@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { WeeklyAdherenceCard } from '@/components/dashboard/WeeklyAdherenceCard';
 import { WeightChart } from '@/components/dashboard/WeightChart';
+import { ActivationChecklist } from '@/components/dashboard/ActivationChecklist';
 import { HealthScoreCard } from '@/components/dashboard/HealthScoreCard';
 import { MembershipBadge } from '@/components/home/MembershipBadge';
 import { QuickLinkTile } from '@/components/home/QuickLinkTile';
@@ -31,7 +32,7 @@ import { useActions } from '@/context/ActionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
-import { getPlanLabel, isPaidMembership } from '@/data/membershipPlans';
+import { getPlanLabel, isPaidMembership, packageIncludesDoctor } from '@/data/membershipPlans';
 import { useDailyTip } from '@/hooks/useDailyTip';
 import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
 import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
@@ -51,7 +52,7 @@ export default function MemberDashboard() {
   const isNarrow = width < 360;
   const { email } = useAuth();
   const member = useMember();
-  const { myPrograms, isFreeTrialExpired, posts } = useData();
+  const { myPrograms, isFreeTrialExpired, isUnpaidMember, posts } = useData();
   const { tip: dailyTip, loading: tipLoading } = useDailyTip();
   const {
     analysis: healthAnalysis,
@@ -123,12 +124,23 @@ export default function MemberDashboard() {
     (member?.coachSessions as { status?: string; date?: string; title?: string }[]) || [];
   const dietitianSessions =
     (member?.dietitianSessions as { status?: string; date?: string; title?: string }[]) || [];
+  const doctorSessions =
+    (member?.doctorSessions as { status?: string; date?: string; title?: string }[]) || [];
   const nextCoach = coachSessions.find(
     (s) => s.status === 'scheduled' && s.date && new Date(s.date) > new Date(),
   );
   const nextDietitian = dietitianSessions.find(
     (s) => s.status === 'scheduled' && s.date && new Date(s.date) > new Date(),
   );
+  const nextDoctor = doctorSessions.find(
+    (s) => s.status === 'scheduled' && s.date && new Date(s.date) > new Date(),
+  );
+  const packageConfig =
+    (member?.packageConfig as Record<string, unknown>) || {};
+  const showDoctorStat =
+    packageIncludesDoctor(packageConfig) ||
+    (Number(packageConfig.doctorSessionsTotal) || 0) > 0 ||
+    Boolean(member?.assignedDoctorId);
 
   const progress =
     (member?.progress as { weight?: { date?: string; value?: number }[] }) || {};
@@ -191,6 +203,20 @@ export default function MemberDashboard() {
           { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
         ]}
         showsVerticalScrollIndicator={false}>
+        <ActivationChecklist
+          userId={member?.id ? String(member.id) : null}
+          membership={membership}
+          packageConfig={packageConfig}
+          healthAck={member?.healthAck}
+          disclaimer={member?.disclaimer}
+          healthTest={(member?.healthTest as Record<string, unknown>) || null}
+          gender={member?.gender ? String(member.gender) : null}
+          myPrograms={isUnpaidMember ? [] : myPrograms}
+          coachSessions={coachSessions}
+          dietitianSessions={dietitianSessions}
+          doctorSessions={doctorSessions}
+        />
+
         <FadeIn>
           <View style={styles.hero}>
             <Image
@@ -243,6 +269,7 @@ export default function MemberDashboard() {
             history={healthScoreHistory}
             loading={healthScoreLoading}
             lockState={healthLockState}
+            scoresOnly={isUnpaidMember}
           />
         </FadeIn>
 
@@ -396,6 +423,20 @@ export default function MemberDashboard() {
                   : '—'
               }
             />
+            {showDoctorStat ? (
+              <StatCard
+                accent="brand"
+                icon="medkit"
+                label="Sonraki Doktor"
+                onPress={() => router.push('/(member)/schedule?tab=doctor' as Href)}
+                sub={nextDoctor?.title || 'Planlanmadı'}
+                value={
+                  nextDoctor?.date
+                    ? format(new Date(nextDoctor.date), 'd MMM', { locale: tr })
+                    : '—'
+                }
+              />
+            ) : null}
             <StatCard
               accent="gold"
               icon="flame"

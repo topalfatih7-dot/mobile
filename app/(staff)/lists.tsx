@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { router, type Href } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -184,6 +184,14 @@ export default function StaffLists() {
     },
     [expanded],
   );
+
+  const role = String(staff?.role || '');
+  if (role === 'coach') {
+    return <Redirect href={'/(staff)/programs' as Href} />;
+  }
+  if (role !== 'dietitian') {
+    return <Redirect href={'/(staff)' as Href} />;
+  }
 
   return (
     <PanelScaffold

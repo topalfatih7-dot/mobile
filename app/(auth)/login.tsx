@@ -67,6 +67,8 @@ export default function LoginScreen() {
       }
       toast('Hoş geldiniz!', 'success');
       router.replace((result.route || '/(member)/profile') as Href);
+    } catch {
+      Alert.alert('Giriş', 'Oturum açılamadı. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }

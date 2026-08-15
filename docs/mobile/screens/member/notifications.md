@@ -36,6 +36,12 @@ Default filter web: `all`.
 | `type === 'program'` | `/programs` |
 | `type === 'availability' \|\| action === 'availability'` | `/calendar?avail=1` |
 | `type === 'support-reply' \|\| type === 'support'` | `/support` |
+| `type === 'appointment'` | `/schedule` |
+| `type === 'assignment'` | `/profile` |
+| `type === 'reminder'` ve `action` habit_meal / habit_workout / habit_streak | `/calendar` |
+| `type === 'reminder'` ve `action === 'habit_health'` | `/health-test` |
+| `type === 'reminder'` ve `action === 'habit_upsell'` | `/profile/payments` |
+| `type === 'reminder'` (hoş geldin veya diğer habit_*) | `/dashboard` |
 
 Always `markNotificationRead(n.id)` first.
 
@@ -47,6 +53,7 @@ Unmount: `flushNotificationReads()`.
 
 - Expo Push tap uses same navigate map
 - In-app list still required
+- Günlük habit hatırlatmaları listeye düşmez; tap haritası yine bu tablo (`domains/engagement-reminders.md`)
 
 ## Acceptance
 

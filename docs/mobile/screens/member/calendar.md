@@ -8,6 +8,10 @@
 
 ---
 
+## Unpaid
+
+`isUnpaidMember` → header + UnpaidMemberGate (takvim paket). Tamamlama yok.
+
 ## Purpose
 
 Aylık takvimde programlı günler; seçili günde antrenman + öğün tamamlama; video önizleme; müsaitlik düzenleme.

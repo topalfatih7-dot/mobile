@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { Redirect, router, type Href } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -112,6 +112,14 @@ export default function StaffPrograms() {
     ),
     [],
   );
+
+  const role = String(staff?.role || '');
+  if (role === 'dietitian') {
+    return <Redirect href={'/(staff)/lists' as Href} />;
+  }
+  if (role !== 'coach') {
+    return <Redirect href={'/(staff)' as Href} />;
+  }
 
   return (
     <PanelScaffold scroll={false} subtitle="Gönderilen antrenman programları" title="Programlar">

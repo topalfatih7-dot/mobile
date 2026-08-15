@@ -58,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const authRef = useRef<HydratedAuth | null>(null);
   authRef.current = auth;
+  const authEventGenRef = useRef(0);
+  const loginLockRef = useRef(false);
+  const loginEpochRef = useRef(0);
 
   const refreshAuth = useCallback(async () => {
     if (isUiOnly()) {
@@ -121,8 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      const my = ++authEventGenRef.current;
+      if (loginLockRef.current) return;
       void hydrateAuth().then((next) => {
-        if (alive) setAuth(next);
+        if (!alive || my !== authEventGenRef.current) return;
+        if (my <= loginEpochRef.current) return;
+        setAuth(next);
       });
     });
     return () => {
@@ -149,17 +156,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true as const, route: routeForHydrated(demo) };
       }
 
-      const result = await passwordLogin({
-        email: opts.email,
-        password: opts.password,
-        remember: opts.remember,
-        turnstileToken: opts.turnstileToken || '',
-      });
-      if (!result.success) return { success: false as const, error: result.error };
-      const next = await hydrateAuth();
-      setAuth(next);
-      if (!next) return { success: false as const, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
-      return { success: true as const, route: routeForHydrated(next) };
+      loginLockRef.current = true;
+      try {
+        const result = await passwordLogin({
+          email: opts.email,
+          password: opts.password,
+          remember: opts.remember,
+          turnstileToken: opts.turnstileToken || '',
+        });
+        if (!result.success) return { success: false as const, error: result.error };
+        const next = await hydrateAuth();
+        setAuth(next);
+        loginEpochRef.current = authEventGenRef.current;
+        if (!next) {
+          return { success: false as const, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
+        }
+        return { success: true as const, route: routeForHydrated(next) };
+      } catch {
+        return { success: false as const, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
+      } finally {
+        loginLockRef.current = false;
+      }
     },
     [],
   );

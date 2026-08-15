@@ -22,6 +22,8 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 
 ## Layout order (zorunlu)
 
+0. **ActivationChecklist** (web `ActivationChecklist.jsx`) — kapatılmadıysa ve adımlar bitmediyse, welcome’dan önce. Ücretsizde `myPrograms=[]`. MOBILE DIFF: paket CTA `/(member)/profile/payments`.
+
 1. **Welcome banner**
    - Date: `format(today, 'd MMMM yyyy, EEEE', { locale: tr })`
    - H1: `{firstName}, bugün harika bir gün olabilir` (`resolveFirstName`)
@@ -33,6 +35,7 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 2. **YeniForm Sağlık Skoru** — `HealthScoreCard` + `useHealthAnalysisSync`
    - Incomplete: “Kişisel sağlık analizinizi tamamlayın” + **Analize git**
    - Complete: overall /100, 8 boyut mini-kartları, AI `summary`, opsiyonel skor trendi (`healthScoreHistory`)
+   - `scoresOnly={isUnpaidMember}` — ücretsizde özet metin yok
    - StatsCard setine eklenmez; welcome ile günün ipucu arasında ayrı blok
 
 3. **Günün ipucu**
@@ -60,10 +63,11 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 
 8. MembershipBadge + link **Destek Alanı** → `/support`
 
-9. **StatsCard x4**
+9. **StatsCard** (4, doktor paketinde 5)
    - Aktif Plan → planLabel; sub free:`Sağlık testi` else `Koç & Diyetisyen destekli`; tap membership
    - Sonraki Koç → date `d MMM` or `—`; sub title or `Planlanmadı`; tap `schedule?tab=coach`
    - Sonraki Diyetisyen → same; tap `schedule?tab=dietitian`
+   - Sonraki Doktor — `showDoctorStat` (`packageIncludesDoctor` veya doctorSessionsTotal>0 veya `assignedDoctorId`)
    - Seri → `{user.streak ?? 0} gün` / `Kesintisiz gün`
 
 10. Charts grid
@@ -87,6 +91,7 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 - [ ] FreeTrialExpiredGate short-circuit  
 - [ ] Banner koşulları birebir  
 - [ ] String’ler birebir  
-- [ ] StatsCard seti 4; ekstra StatsCard yok (HealthScoreCard ayrı blok)  
+- [ ] StatsCard 4 veya doktor kartıyla 5; HealthScoreCard ayrı blok
+- [ ] ActivationChecklist + scoresOnly unpaid  
 - [ ] HealthScoreCard welcome → tip arasında  
 - [ ] firstName resolver parity  

@@ -30,7 +30,6 @@ Happy path:
 |---------|----|----------|
 | UI_ONLY / no supabase | toast demo kapalı | unchanged |
 | No access+refresh token | `Oturum bulunamadı. Lütfen tekrar giriş yapın.` | unchanged |
-| `refreshSession` timeout/fail | use existing `getSession` if tokens present | unchanged |
 | Handoff URL longer than ~1800 | open `${apiBase}/plans` (no tokens) + `Tarayıcıda giriş yapmanız gerekebilir.` | unchanged |
 | `openURL` throw | `Web sayfası açılamadı.` | unchanged |
 | `canOpenURL === false` | still try `openURL` | unchanged |

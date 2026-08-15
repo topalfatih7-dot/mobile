@@ -42,6 +42,7 @@ import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { SelectSheet } from '@/components/ui/SelectSheet';
 import { PANEL_IMAGES } from '@/constants/panelImages';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { useActions } from '@/context/ActionsContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
@@ -112,7 +113,7 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ avail?: string }>();
   const member = useMember();
-  const { myPrograms, refreshData } = useData();
+  const { myPrograms, refreshData, isUnpaidMember } = useData();
   const { toggleActivityCompletion, toggleMealCompletion, updateProfile } = useActions();
   const { toast } = useToast();
 
@@ -363,6 +364,41 @@ export default function CalendarScreen() {
     (total, hours) => total + (hours?.length || 0),
     0,
   );
+
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <FadeIn>
+            <View style={styles.header}>
+              <Image
+                contentFit="cover"
+                source={{ uri: PANEL_IMAGES.calendar.url }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={['rgba(26,69,92,0.15)', 'rgba(26,69,92,0.8)']}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={styles.title}>Program Takvimi</Text>
+              <Text style={styles.sub}>
+                Koçunuz ve diyetisyeninizin hazırladığı günlük programlar
+              </Text>
+            </View>
+          </FadeIn>
+          <UnpaidMemberGate
+            description="Bu sayfayı gezebilirsiniz. Program takvimi ve tamamlamalar ücretli paketle açılır."
+            title="Takvim paket gerektirir"
+          />
+        </ScrollView>
+      </MeshBackground>
+    );
+  }
 
   return (
     <MeshBackground style={styles.root}>

@@ -27,8 +27,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { useActions } from '@/context/ActionsContext';
-import { useMember } from '@/context/DataContext';
+import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { analyzeFoodText, analyzeFoodVision, isCalorieAiEnabled } from '@/services/calorieAi';
 import {
@@ -163,6 +164,7 @@ function TypingDot({ delay }: { delay: number }) {
 export default function CalorieScreen() {
   const insets = useSafeAreaInsets();
   const member = useMember();
+  const { isUnpaidMember } = useData();
   const { updateProfile } = useActions();
   const { toast } = useToast();
   const [text, setText] = useState('');
@@ -305,6 +307,19 @@ export default function CalorieScreen() {
     }
     return arr;
   }, [messages, busy]);
+
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <View style={[styles.lock, { paddingTop: insets.top + 24 }]}>
+          <UnpaidMemberGate
+            description="Sayfayı gezebilirsiniz. Yazılı veya fotoğraflı kalori AI için uygun bir plan seçin."
+            title="Kalori analizi paket gerektirir"
+          />
+        </View>
+      </MeshBackground>
+    );
+  }
 
   if (!canManual) {
     return (

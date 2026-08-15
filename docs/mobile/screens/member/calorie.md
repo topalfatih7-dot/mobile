@@ -9,6 +9,8 @@
 
 ## Gates (önce kontrol — UI’dan önce)
 
+`isUnpaidMember` → UnpaidMemberGate (kalori paket). Web sırası: unpaid, sonra plan.
+
 ```
 hasManualCalorieAccess(membership)  // text
 hasPhotoCalorieAccess(membership)   // vision

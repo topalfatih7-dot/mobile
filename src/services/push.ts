@@ -7,6 +7,7 @@ import { AppState, Platform } from 'react-native';
 
 import { isUiOnly } from '@/config/runtime';
 import { getActiveChatThreadId } from '@/services/activeChatThread';
+import { isHabitAction } from '@/data/engagementReminderCopy';
 import { playNotificationSoundThrottled } from '@/services/notificationSound';
 import { requireSupabase, supabase } from '@/services/supabase';
 
@@ -35,14 +36,27 @@ async function loadNotifications(): Promise<NotificationsMod | null> {
     if (!handlerWired && notificationsMod) {
       handlerWired = true;
       notificationsMod.setNotificationHandler({
-        handleNotification: async () => ({
-          // Uygulama açıkken de banner + ses (WhatsApp/Telegram benzeri).
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
+        handleNotification: async (notification) => {
+          const data = (notification.request.content.data || {}) as PushNavigatePayload;
+          const hideHabit =
+            isHabitAction(data.action) && AppState.currentState === 'active';
+          if (hideHabit) {
+            return {
+              shouldShowAlert: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+            };
+          }
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          };
+        },
       });
     }
     return notificationsMod;
@@ -190,17 +204,40 @@ export type PushNavigatePayload = {
 /** Navigate map — screens/member/notifications.md */
 export function routeFromPushData(data: PushNavigatePayload): string | null {
   const type = String(data.type || '');
+  const action = String(data.action || '');
   if (type === 'chat' && data.staffRole) {
     return `/(member)/messages/${data.staffRole}`;
   }
   if (type === 'program') {
     return '/(member)/programs';
   }
-  if (type === 'availability' || data.action === 'availability') {
+  if (type === 'availability' || action === 'availability') {
     return '/(member)/calendar?avail=1';
   }
   if (type === 'support' || type === 'support-reply') {
     return '/(member)/support';
+  }
+  if (type === 'appointment') {
+    return '/(member)/schedule';
+  }
+  if (type === 'assignment') {
+    return '/(member)/profile';
+  }
+  if (
+    action === 'habit_meal' ||
+    action === 'habit_workout' ||
+    action === 'habit_streak'
+  ) {
+    return '/(member)/calendar';
+  }
+  if (action === 'habit_health') {
+    return '/(member)/health-test';
+  }
+  if (action === 'habit_upsell') {
+    return '/(member)/profile/payments';
+  }
+  if (type === 'reminder' || isHabitAction(action)) {
+    return '/(member)/dashboard';
   }
   return '/(member)/notifications';
 }
@@ -292,8 +329,12 @@ export function addForegroundNotificationListener(
   void loadNotifications().then((Notifications) => {
     if (!Notifications || cancelled) return;
     sub = Notifications.addNotificationReceivedListener((notification) => {
-      void playNotificationSoundThrottled();
       const data = (notification.request.content.data || {}) as PushNavigatePayload;
+      if (isHabitAction(data.action) && AppState.currentState === 'active') {
+        onReceive?.(data);
+        return;
+      }
+      void playNotificationSoundThrottled();
       onReceive?.(data);
     });
   });

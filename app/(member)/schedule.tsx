@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SessionBooker } from '@/components/schedule/SessionBooker';
 import { FreeTrialExpiredGate } from '@/components/membership/FreeTrialExpiredGate';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -63,7 +64,7 @@ export default function ScheduleScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const tab = parseTabParam(params.tab);
   const member = useMember();
-  const { staffById, isFreeTrialExpired } = useData();
+  const { staffById, isFreeTrialExpired, isUnpaidMember } = useData();
   const { bookStaffSession, cancelStaffSession, rescheduleStaffSession } = useActions();
   const [bookOpen, setBookOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<MemberSession | null>(null);
@@ -136,6 +137,23 @@ export default function ScheduleScreen() {
 
   if (isFreeTrialExpired) {
     return <FreeTrialExpiredGate />;
+  }
+
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 },
+          ]}>
+          <UnpaidMemberGate
+            description="Bu sayfayı gezebilirsiniz. Koç, diyetisyen veya doktor randevusu almak için bir plan seçin."
+            title="Randevular paket gerektirir"
+          />
+        </ScrollView>
+      </MeshBackground>
+    );
   }
 
   return (

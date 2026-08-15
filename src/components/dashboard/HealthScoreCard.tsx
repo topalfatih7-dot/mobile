@@ -238,6 +238,7 @@ type Props = {
   complete?: boolean;
   error?: string | null;
   lockState?: HealthTestLockState | null;
+  scoresOnly?: boolean;
 };
 
 export function HealthScoreCard({
@@ -247,6 +248,7 @@ export function HealthScoreCard({
   complete = false,
   error = null,
   lockState = null,
+  scoresOnly = false,
 }: Props) {
   if (!complete) {
     return (
@@ -298,13 +300,13 @@ export function HealthScoreCard({
             <Text style={styles.kicker}>YeniForm Sağlık Skoru</Text>
           </View>
           <Text style={styles.title}>Kişisel sağlık profiliniz</Text>
-          {analysis?.summary ? (
+          {analysis?.summary && !scoresOnly ? (
             <Text style={styles.summary}>{analysis.summary}</Text>
-          ) : (
+          ) : !scoresOnly ? (
             <Text style={styles.summaryMuted}>
               Cevaplarınıza göre 8 boyutta değerlendirildiniz.
             </Text>
-          )}
+          ) : null}
           {lockState?.locked && lockState?.lockedUntil ? (
             <View style={styles.lockBadge}>
               <Ionicons color={colors.warm[500]} name="time-outline" size={12} />

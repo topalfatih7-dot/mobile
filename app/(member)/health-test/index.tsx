@@ -118,7 +118,7 @@ function formatLockedUntil(date: Date | null): string {
 export default function HealthTestHubScreen() {
   const insets = useSafeAreaInsets();
   const member = useMember();
-  const { isFreeTrialExpired } = useData();
+  const { isFreeTrialExpired, isUnpaidMember } = useData();
   const { updateProfile } = useActions();
   const { toast } = useToast();
   const {
@@ -278,7 +278,9 @@ export default function HealthTestHubScreen() {
       ? 'Boy, kilo ve yaş bilgilerinizi tamamlayın'
       : !isCoreHealthTestComplete(healthTest, gender)
         ? '1. aşama: Genel Sağlık Testini tamamlayın'
-        : 'İsterseniz opsiyonel kategorilerle analizi derinleştirin';
+        : isUnpaidMember && analysisReady
+          ? 'Opsiyonel kategorilerle analizi derinleştirin — uzman raporu paketle açılır'
+          : 'İsterseniz opsiyonel kategorilerle analizi derinleştirin';
 
   return (
     <View style={styles.root}>
@@ -453,8 +455,9 @@ export default function HealthTestHubScreen() {
                   history={history}
                   loading={analysisLoading}
                   lockState={lockState}
+                  scoresOnly={isUnpaidMember}
                 />
-                {memberBrief ? (
+                {memberBrief && !isUnpaidMember ? (
                   <View style={styles.briefCard}>
                     <Text style={styles.briefTitle}>Size özel özet</Text>
                     <Text style={styles.briefBody}>{memberBrief.strengths}</Text>
@@ -462,6 +465,13 @@ export default function HealthTestHubScreen() {
                       {memberBrief.focus}
                     </Text>
                   </View>
+                ) : null}
+                {isUnpaidMember && analysisReady ? (
+                  <Pressable
+                    onPress={() => router.push('/(member)/profile/payments' as Href)}
+                    style={{ marginTop: spacing.sm }}>
+                    <Text style={styles.briefTitle}>Plan seç ve uzman raporunu aç</Text>
+                  </Pressable>
                 ) : null}
               </>
             ) : null}

@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { useChatUnread } from '@/context/ChatUnreadContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
@@ -42,7 +43,7 @@ const ROLE_AVATAR: Record<string, string> = {
 export default function MessagesIndex() {
   const insets = useSafeAreaInsets();
   const member = useMember();
-  const { staffById, loading: dataLoading } = useData();
+  const { staffById, loading: dataLoading, isUnpaidMember } = useData();
   const { subscribeBump } = useChatUnread();
   const { toast } = useToast();
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -155,6 +156,36 @@ export default function MessagesIndex() {
     dataLoading &&
     contacts.length === 0 &&
     memberHasChatAccess(member);
+
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 },
+          ]}>
+          <FadeIn>
+            <Pressable
+              accessibilityLabel="Geri"
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={() => router.back()}
+              style={styles.back}>
+              <Ionicons color={colors.brand[600]} name="chevron-back" size={22} />
+              <Text style={styles.backText}>Geri</Text>
+            </Pressable>
+            <Text style={styles.title}>Mesajlar</Text>
+            <Text style={styles.sub}>Uzmanlarınızla iletişim</Text>
+          </FadeIn>
+          <UnpaidMemberGate
+            description="Geçmiş sohbetleriniz saklanır; yeni mesaj göndermek ve uzmanlarla görüşmek için bir plan seçin."
+            title="Mesajlaşma paket gerektirir"
+          />
+        </ScrollView>
+      </MeshBackground>
+    );
+  }
 
   return (
     <MeshBackground style={styles.root}>

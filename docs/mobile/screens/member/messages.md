@@ -12,6 +12,10 @@
 
 Atanmış koç / diyetisyen / doktor ile mesajlaşma.
 
+## Unpaid
+
+`isUnpaidMember` → header + UnpaidMemberGate (mesajlaşma paket). Thread açılmaz.
+
 ## Preconditions
 
 Registered member. Contacts from `getMemberChatContacts(member, staffList)` — uydurma contact yok.

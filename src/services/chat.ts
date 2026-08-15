@@ -13,7 +13,7 @@ import {
   type UiChatThread,
 } from '@/data/uiChat';
 import { requireSupabase } from '@/services/supabase';
-import { notifyMemberChatMessage } from '@/services/memberNotifications';
+import { notifyMemberChatMessage, notifyWhatsAppEvent } from '@/services/memberNotifications';
 import type { ChatContact } from '@/utils/chatContacts';
 import {
   CONTACT_INFO_BLOCK_MESSAGE,
@@ -368,6 +368,12 @@ export async function sendChatMessage(
   } catch {
     /* ignore meta update */
   }
+
+  void notifyWhatsAppEvent('new_chat_message', {
+    threadId,
+    senderType: 'member',
+    memberId,
+  });
 
   return { success: true };
 }

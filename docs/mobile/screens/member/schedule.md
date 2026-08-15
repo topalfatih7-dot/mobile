@@ -7,6 +7,10 @@
 
 ---
 
+## Unpaid
+
+`isUnpaidMember` (FreeTrialExpiredGate sonrası) → UnpaidMemberGate (randevular paket). Tab/booker yok.
+
 ## Tabs (yalnızca bunlar)
 
 | id | label | icon meaning |

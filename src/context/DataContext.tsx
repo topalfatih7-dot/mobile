@@ -37,6 +37,7 @@ import { isMemberWriteInFlight } from '@/services/memberWriteGate';
 import { fetchMemberRowQuiet } from '@/services/memberRowRefresh';
 import { fetchStaffDirectory } from '@/services/staffDirectory';
 import { requireSupabase, supabase } from '@/services/supabase';
+import { isPaidMembership } from '@/data/membershipPlans';
 import { getStaffClients } from '@/utils/staffClients';
 import { isProgramListedForMember } from '@/utils/programPackageScope';
 import { perfInc } from '@/utils/perfCounters';
@@ -70,6 +71,7 @@ export type DataContextValue = {
   posts: PostRecord[];
   staffById: Record<string, Record<string, unknown>>;
   isFreeTrialExpired: boolean;
+  isUnpaidMember: boolean;
   refreshData: (opts?: RefreshDataOptions) => Promise<void>;
   setLocalMemberOverlay: (member: MemberRecord | null) => void;
   memberOverride: MemberRecord | null;
@@ -407,6 +409,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [effectiveMember],
   );
 
+  const isUnpaidMember = useMemo(
+    () => !isPaidMembership(String(effectiveMember?.membership || 'free')),
+    [effectiveMember?.membership],
+  );
+
   const value = useMemo<DataContextValue>(
     () => ({
       loading,
@@ -415,6 +422,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       posts,
       staffById,
       isFreeTrialExpired,
+      isUnpaidMember,
       refreshData,
       setLocalMemberOverlay: setMemberOverride,
       memberOverride,
@@ -428,6 +436,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       posts,
       staffById,
       isFreeTrialExpired,
+      isUnpaidMember,
       refreshData,
       memberOverride,
       platform,

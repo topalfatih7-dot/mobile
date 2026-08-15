@@ -7,18 +7,20 @@
 ```ts
 {
   id: string
-  type: string   // 'chat' | 'program' | 'availability' | 'support-reply' | 'support' | ...
+  type: string   // 'chat' | 'program' | 'availability' | 'support-reply' | 'support' | 'reminder' | 'appointment' | 'assignment' | ...
   title: string
   message?: string
   read: boolean
   createdAt?: string
   staffRole?: 'coach' | 'dietitian' | 'doctor'  // for chat
-  action?: string  // e.g. 'availability'
+  action?: string  // e.g. 'availability' | habit_*
   ticketId?: string
 }
 ```
 
 Builders: `src/data/memberNotificationTemplates.js` + `buildMemberNotification` — **port templates; do not invent new types without updating navigate map**.
+
+Günlük alışkanlık (su / motivasyon / öğün): OS-only `type: reminder` + `action: habit_*`. Listeye yazılmaz. Ayrıntı: [`engagement-reminders.md`](engagement-reminders.md).
 
 ## Client APIs
 

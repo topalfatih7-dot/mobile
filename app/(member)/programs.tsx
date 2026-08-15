@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
+  ScrollView,
   RefreshControl,
   StyleSheet,
   Text,
@@ -19,7 +20,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { PANEL_IMAGES } from '@/constants/panelImages';
-import { useData } from '@/context/DataContext';
+import { useData, useMember } from '@/context/DataContext';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
+import {
+  packageIncludesCoach,
+  packageIncludesDietitian,
+} from '@/data/membershipPlans';
 import { prefetchExerciseVideo } from '@/services/exerciseMedia';
 import { amountText, groupBySchedule } from '@/utils/programGroups';
 import { CYCLE_PLAN_LENGTH } from '@/utils/programSchedule';
@@ -34,7 +40,8 @@ const FILTERS = [
 /** LOCK: docs/mobile/screens/member/programs.md */
 export default function ProgramsScreen() {
   const insets = useSafeAreaInsets();
-  const { myPrograms, refreshData } = useData();
+  const member = useMember();
+  const { myPrograms, refreshData, isUnpaidMember } = useData();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [active, setActive] = useState<Record<string, unknown> | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +63,20 @@ export default function ProgramsScreen() {
       filter === 'all' ? myPrograms : myPrograms.filter((p) => p.type === filter),
     [filter, myPrograms],
   );
+
+  const needsProgramStaff = useMemo(() => {
+    const pkg = (member?.packageConfig as Record<string, unknown>) || {};
+    const needCoach = packageIncludesCoach(pkg) && !member?.assignedCoachId;
+    const needDiet = packageIncludesDietitian(pkg) && !member?.assignedDietitianId;
+    return needCoach || needDiet;
+  }, [member]);
+
+  const emptyTitle = needsProgramStaff
+    ? 'Uzmanınız atanıyor'
+    : 'Uzmanınız program hazırlıyor';
+  const emptyDescription = needsProgramStaff
+    ? 'Paketinizdeki koç veya diyetisyen ataması tamamlanınca programlar burada görünecek.'
+    : 'Koçunuz veya diyetisyeniniz program gönderdiğinde burada görünecek ve bildirim alacaksınız.';
 
   const openEntry = (entry: Record<string, unknown>) => {
     if (entry.videoUrl && !entry.videoPending) {
@@ -205,6 +226,41 @@ export default function ProgramsScreen() {
     [],
   );
 
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <FadeIn>
+            <View style={styles.header}>
+              <Image
+                contentFit="cover"
+                source={{ uri: PANEL_IMAGES.programs.url }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={['rgba(26,69,92,0.2)', 'rgba(26,69,92,0.82)']}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={styles.title}>Programlarım</Text>
+              <Text style={styles.sub}>
+                Koçunuz ve diyetisyeniniz tarafından hazırlanan programlar
+              </Text>
+            </View>
+          </FadeIn>
+          <UnpaidMemberGate
+            description="Ücretsiz hesapla bu sayfayı gezebilirsiniz. Size özel antrenman ve beslenme programları ücretli paketle açılır."
+            title="Programlar paket gerektirir"
+          />
+        </ScrollView>
+      </MeshBackground>
+    );
+  }
+
   return (
     <MeshBackground style={styles.root}>
       <FlatList
@@ -217,8 +273,8 @@ export default function ProgramsScreen() {
         keyExtractor={(p) => String(p.id)}
         ListEmptyComponent={
           <EmptyState
-            description="Koçunuz veya diyetisyeniniz size bir program oluşturduğunda burada görünecek ve bildirim alacaksınız."
-            title="Henüz program yok"
+            description={emptyDescription}
+            title={emptyTitle}
           />
         }
         ListHeaderComponent={

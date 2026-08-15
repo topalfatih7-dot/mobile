@@ -84,6 +84,35 @@ export default function NotificationsScreen() {
     }
     if (n.type === 'support-reply' || n.type === 'support') {
       router.push('/(member)/support' as Href);
+      return;
+    }
+    if (n.type === 'appointment') {
+      router.push('/(member)/schedule' as Href);
+      return;
+    }
+    if (n.type === 'assignment') {
+      router.push('/(member)/profile' as Href);
+      return;
+    }
+    const action = String(n.action || '');
+    if (
+      action === 'habit_meal' ||
+      action === 'habit_workout' ||
+      action === 'habit_streak'
+    ) {
+      router.push('/(member)/calendar' as Href);
+      return;
+    }
+    if (action === 'habit_health') {
+      router.push('/(member)/health-test' as Href);
+      return;
+    }
+    if (action === 'habit_upsell') {
+      router.push('/(member)/profile/payments' as Href);
+      return;
+    }
+    if (n.type === 'reminder' || action.startsWith('habit_')) {
+      router.push('/(member)/dashboard' as Href);
     }
   };
 

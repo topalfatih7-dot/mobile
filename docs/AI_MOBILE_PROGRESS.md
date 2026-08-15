@@ -1,8 +1,25 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-15 — Mobil ödemeler CTA → login’li web `/plans`  
+> **Son güncelleme:** 2026-08-15 — Mobil giriş: refresh-token claim + Expo web CORS + login hydrate lock  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-15 Mobil giriş hâlâ düşüyor (doğrulama)
+
+| Madde | Durum |
+|-------|--------|
+| Prod `/api/auth` 11:24 200 sonra oturum düşmesi — claim `refresh_token` rotation | ✅ web `ed22848f` production |
+| Expo web `localhost:8081` CORS: OPTIONS var, POST yok → ağ hatası | 🔄 `_guards.js` (web deploy gerekir) |
+| Login `signOut` → `SIGNED_OUT` hydrate yeni oturumu siliyor | ✅ AuthContext login lock |
+
+## 2026-08-15 Giriş yapılamıyor (ödeme yönlendirmesi + tek-oturum)
+
+| Madde | Durum |
+|-------|--------|
+| Kök neden: login claim fire-and-forget `refresh_token` grant istemci token’ını yakıyordu | ✅ |
+| Ödeme CTA `refreshSession` geçersiz token’da SIGNED_OUT üretiyordu — kaldırıldı | ✅ |
+| Web handoff: claim/auto-refresh skip; hash JWT stale session’dan önce | ✅ |
+| Mobil login: local signOut + auth event race guard + try/catch | ✅ |
 
 ## 2026-08-15 Mobil → web login’li `/plans` paket akışı
 

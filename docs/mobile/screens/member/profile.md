@@ -19,7 +19,8 @@
 5. Quick links 2×2: **Programlarım**, **Takvim**, **Kalori**, **Destek**
 6. `PersonalInfoSection` — full field grid + “Düzenle” modal (see fields)
 7. Üyelik Planınız card — `migrateLegacyToPackages` + `isPackageEntryActive`; multi-package chip picker; remaining days / one-time doctor session counter (`isOneTimePlan`, `countUsedDoctorSessions`, `getRemainingDays`)
-8. Bildirimler — settings keys: `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`
+8. Bildirimler — settings keys: `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`  
+   `reminderNotifs` ayrıca günlük habit OS hatırlatmalarını keser (`domains/engagement-reminders.md`). Yeni anahtar yok.
 9. `VerificationSection` — email verify actions; phone only if `EXPO_PUBLIC_PHONE_VERIFY_ENABLED=true`
 10. Logout (`loggingOut` spinner) → `/(public)/landing` + toast **Çıkış yapıldı**
 

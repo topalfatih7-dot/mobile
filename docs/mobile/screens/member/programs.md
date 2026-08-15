@@ -19,10 +19,15 @@
 | workout | Antrenman |
 | nutrition | Beslenme |
 
-## Empty
+## Unpaid
 
-- title: **Henüz program yok**
-- description: **Koçunuz veya diyetisyeniniz size bir program oluşturduğunda burada görünecek ve bildirim alacaksınız.**
+`isUnpaidMember` → header + `UnpaidMemberGate` (title/desc C-copy-strings unpaid programs). Liste yok.
+
+## Empty (ücretli)
+
+- Atama bekleniyorsa: **Uzmanınız atanıyor** / paket ataması cümlesi
+- Değilse: **Uzmanınız program hazırlıyor** / gönderince görünecek cümlesi
+- Eski tek cümle yalnızca LOCK öncesi; web `needsProgramStaff` kazanır
 
 ## List item
 

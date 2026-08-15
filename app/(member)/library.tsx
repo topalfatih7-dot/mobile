@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +19,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { InlineSpinner } from '@/components/ui/InlineSpinner';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useData, useMember } from '@/context/DataContext';
 import { DIFFICULTY_LABELS } from '@/data/exerciseLabels';
@@ -46,7 +48,7 @@ const ITEM_MARGIN = 8; // marginBottom spacing.sm
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const member = useMember();
-  const { myPrograms } = useData();
+  const { myPrograms, isUnpaidMember } = useData();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -155,6 +157,41 @@ export default function LibraryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [fullAccess],
   );
+
+  if (isUnpaidMember) {
+    return (
+      <MeshBackground style={styles.root}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <FadeIn>
+            <View style={styles.header}>
+              <Image
+                contentFit="cover"
+                source={{ uri: PANEL_IMAGES.library.url }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={['rgba(26,69,92,0.2)', 'rgba(26,69,92,0.85)']}
+                style={StyleSheet.absoluteFill}
+              />
+              <Text style={styles.title}>Hareket Kütüphanesi</Text>
+              <Text style={styles.sub}>
+                Programınızdaki hareket videolarını doğru formla izleyin
+              </Text>
+            </View>
+          </FadeIn>
+          <UnpaidMemberGate
+            description="Sayfayı gezebilirsiniz. Hareket videolarını izlemek için bir plan seçin."
+            title="Video kütüphanesi paket gerektirir"
+          />
+        </ScrollView>
+      </MeshBackground>
+    );
+  }
 
   return (
     <MeshBackground style={styles.root}>

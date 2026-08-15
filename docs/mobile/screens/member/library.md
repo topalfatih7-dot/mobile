@@ -7,6 +7,10 @@
 
 ---
 
+## Unpaid
+
+`isUnpaidMember` (üye, staffMode değil) → header + UnpaidMemberGate (video kütüphanesi paket).
+
 ## Access
 
 - List metadata: available per plan (limited vs full via `hasFullVideoAccess`)

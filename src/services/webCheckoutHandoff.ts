@@ -19,17 +19,7 @@ export type WebCheckoutHandoffResult =
   | { ok: true }
   | { ok: false; error: string; fallback?: 'plans-login' };
 
-const REFRESH_TIMEOUT_MS = 8000;
 const MAX_HANDOFF_URL_LEN = 1800;
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    promise.then((value) => value).catch(() => null),
-    new Promise<null>((resolve) => {
-      setTimeout(() => resolve(null), ms);
-    }),
-  ]);
-}
 
 async function openBrowser(url: string): Promise<WebCheckoutHandoffResult> {
   try {
@@ -42,9 +32,10 @@ async function openBrowser(url: string): Promise<WebCheckoutHandoffResult> {
 
 async function sessionForHandoff() {
   if (!supabase) return null;
-  const refreshed = await withTimeout(supabase.auth.refreshSession(), REFRESH_TIMEOUT_MS);
-  const fresh = refreshed?.data?.session;
-  if (fresh?.access_token && fresh?.refresh_token) return fresh;
+  /*
+   * refreshSession() çağırma — geçersiz/paylaşılan refresh token SIGNED_OUT üretir
+   * (ödeme CTA sonrası uygulama içi giriş düşer). LOCK: hata oturumu silmez.
+   */
   try {
     const { data } = await supabase.auth.getSession();
     const existing = data?.session;

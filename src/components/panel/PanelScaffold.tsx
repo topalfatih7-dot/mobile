@@ -1,7 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FadeIn } from '@/components/ui/FadeIn';
@@ -15,6 +23,7 @@ export function PanelScaffold({
   showBack,
   titleBadge,
   scroll = true,
+  keyboard = false,
 }: {
   title: string;
   subtitle?: string;
@@ -23,6 +32,7 @@ export function PanelScaffold({
   titleBadge?: string;
   /** false → View (FlatList vb. için; ScrollView içine VirtualizedList koyma) */
   scroll?: boolean;
+  keyboard?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const header = (
@@ -46,31 +56,57 @@ export function PanelScaffold({
   );
 
   if (!scroll) {
+    const fill = (
+      <View
+        style={[
+          styles.content,
+          styles.contentFill,
+          { paddingTop: 12, paddingBottom: insets.bottom + 16 },
+        ]}>
+        {header}
+        {children}
+      </View>
+    );
     return (
       <MeshBackground style={styles.root}>
-        <View
-          style={[
-            styles.content,
-            styles.contentFill,
-            { paddingTop: 12, paddingBottom: insets.bottom + 16 },
-          ]}>
-          {header}
-          {children}
-        </View>
+        {keyboard ? (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={insets.top}
+            style={styles.root}>
+            {fill}
+          </KeyboardAvoidingView>
+        ) : (
+          fill
+        )}
       </MeshBackground>
     );
   }
 
+  const scroller = (
+    <ScrollView
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: 12, paddingBottom: insets.bottom + 32 },
+      ]}
+      keyboardShouldPersistTaps="handled">
+      {header}
+      {children}
+    </ScrollView>
+  );
+
   return (
     <MeshBackground style={styles.root}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: 12, paddingBottom: insets.bottom + 32 },
-        ]}>
-        {header}
-        {children}
-      </ScrollView>
+      {keyboard ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top}
+          style={styles.root}>
+          {scroller}
+        </KeyboardAvoidingView>
+      ) : (
+        scroller
+      )}
     </MeshBackground>
   );
 }

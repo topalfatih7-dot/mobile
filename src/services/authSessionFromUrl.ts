@@ -107,15 +107,6 @@ export async function establishAuthSessionFromUrl(
     if (!error && data?.session) return data.session;
   }
 
-  const { data: pre } = await supabase.auth.getSession();
-  if (pre.session?.user) return pre.session;
-
-  const code = params.get('code');
-  if (code) {
-    const session = await exchangeCodeSingleFlight(supabase, code, waitMs);
-    if (session?.user) return session;
-  }
-
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
   if (accessToken && refreshToken) {
@@ -124,6 +115,15 @@ export async function establishAuthSessionFromUrl(
       refresh_token: refreshToken,
     });
     if (!error && data?.session) return data.session;
+  }
+
+  const { data: pre } = await supabase.auth.getSession();
+  if (pre.session?.user) return pre.session;
+
+  const code = params.get('code');
+  if (code) {
+    const session = await exchangeCodeSingleFlight(supabase, code, waitMs);
+    if (session?.user) return session;
   }
 
   return waitForSession(supabase, waitMs);

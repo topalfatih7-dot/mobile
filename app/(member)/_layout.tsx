@@ -33,6 +33,7 @@ import {
   routeFromPushData,
   watchAppStateForPushReregister,
 } from '@/services/push';
+import { syncEngagementReminders, cancelHabitReminders } from '@/services/engagementReminders';
 import {
   isNotificationSoundEnabled,
   isReminderNotificationsEnabled,
@@ -58,6 +59,7 @@ type NotifRow = {
 function MemberPushBootstrap() {
   const { role, userId } = useAuth();
   const member = useMember();
+  const { myPrograms } = useData();
   const seenIdsRef = useRef<Set<string> | null>(null);
   const bootstrappedRef = useRef(false);
 
@@ -150,6 +152,37 @@ function MemberPushBootstrap() {
       foregroundSub.remove();
     };
   }, [role, userId]);
+
+  useEffect(() => {
+    if (role !== 'member' || !member?.id) {
+      void cancelHabitReminders();
+      return;
+    }
+    void syncEngagementReminders({
+      member: member as Record<string, unknown>,
+      programs: myPrograms,
+    });
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void syncEngagementReminders({
+        member: member as Record<string, unknown>,
+        programs: myPrograms,
+      });
+    });
+    return () => {
+      sub.remove();
+      void cancelHabitReminders();
+    };
+  }, [
+    role,
+    member?.id,
+    member?.membership,
+    member?.settings,
+    member?.completedActivities,
+    member?.healthTest,
+    member?.gender,
+    myPrograms,
+  ]);
 
   /**
    * Web `useNotificationAlerts` parity:

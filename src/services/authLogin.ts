@@ -63,37 +63,60 @@ export async function passwordLogin(opts: {
 
   const client = requireSupabase();
 
-  const { ok, status, json } = await postJson<{
-    ok?: boolean;
-    session?: { access_token?: string; refresh_token?: string };
-    error?: string;
-  }>(
-    '/api/auth',
-    {
-      action: 'password-login',
-      email: v.email,
-      password: opts.password,
-      client: AUTH_CLIENT_MOBILE,
-      turnstileToken: '',
-    },
-    { auth: false },
-  );
+  try {
+    const { ok, status, json } = await postJson<{
+      ok?: boolean;
+      session?: { access_token?: string; refresh_token?: string };
+      error?: string;
+    }>(
+      '/api/auth',
+      {
+        action: 'password-login',
+        email: v.email,
+        password: opts.password,
+        client: AUTH_CLIENT_MOBILE,
+        turnstileToken: '',
+      },
+      { auth: false },
+    );
 
-  if (!ok || !json?.session?.access_token || !json?.session?.refresh_token) {
+    if (!ok || !json?.session?.access_token || !json?.session?.refresh_token) {
+      return {
+        success: false,
+        error: mapLoginError(status, json?.error),
+      };
+    }
+
+    /* Eski oturumun in-flight refresh’i yeni JWT’yi SIGNED_OUT ile ezmesin */
+    try {
+      client.auth.stopAutoRefresh();
+    } catch {
+      /* ignore */
+    }
+    await client.auth.signOut({ scope: 'local' }).catch(() => {});
+
+    try {
+      const { data: sessionData, error } = await client.auth.setSession({
+        access_token: json.session.access_token,
+        refresh_token: json.session.refresh_token,
+      });
+      if (error || !sessionData?.user) {
+        return { success: false, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
+      }
+    } finally {
+      try {
+        client.auth.startAutoRefresh();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    await setRememberMe(opts.remember);
+    return { success: true };
+  } catch {
     return {
       success: false,
-      error: mapLoginError(status, json?.error),
+      error: 'Giriş servisine ulaşılamadı. İnternet bağlantınızı kontrol edin.',
     };
   }
-
-  const { error } = await client.auth.setSession({
-    access_token: json.session.access_token,
-    refresh_token: json.session.refresh_token,
-  });
-  if (error) {
-    return { success: false, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
-  }
-
-  await setRememberMe(opts.remember);
-  return { success: true };
 }

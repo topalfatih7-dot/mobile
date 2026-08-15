@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
-import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, Redirect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
@@ -69,7 +69,7 @@ export default function MessageThreadScreen() {
   const { threadId: rawId } = useLocalSearchParams<{ threadId: string }>();
   const threadRef = String(rawId || '');
   const member = useMember();
-  const { staffById, loading: dataLoading, myPrograms } = useData();
+  const { staffById, loading: dataLoading, myPrograms, isUnpaidMember } = useData();
   const { toast } = useToast();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -273,6 +273,10 @@ export default function MessageThreadScreen() {
   const staffRole = String(thread?.staffRole || threadRef || '');
   const peerOnline = peerId ? isOnline(peerId) : false;
   const peerLastSeen = peerId ? lastSeenAt(peerId) : null;
+
+  if (isUnpaidMember) {
+    return <Redirect href={'/(member)/messages' as Href} />;
+  }
 
   if (!member?.id && dataLoading) {
     return (

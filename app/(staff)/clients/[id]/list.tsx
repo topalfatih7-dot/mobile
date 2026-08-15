@@ -160,6 +160,7 @@ export default function ClientNutritionList() {
 
   return (
     <PanelScaffold
+      keyboard
       showBack
       subtitle={
         isEdit

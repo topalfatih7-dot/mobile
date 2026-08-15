@@ -87,6 +87,7 @@ export default function ClientProgram() {
 
   return (
     <PanelScaffold
+      keyboard
       showBack
       subtitle={clientName}
       title={isEdit ? 'Programı düzenle' : 'Program oluştur'}>

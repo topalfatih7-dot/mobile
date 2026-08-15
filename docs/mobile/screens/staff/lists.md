@@ -16,7 +16,7 @@ Use exact ids/labels from `domains/programs-model.md`. Builder: meal slot + **Ö
 
 - Package windows / date range same as coach (`programPackageScope`)
 - Create nutrition `programs` type via createProgram parity
-- Redirect: coach hitting lists or dietitian hitting library — `StaffLibraryGate` behavior
+- Redirect: coach → `/(staff)/programs`; dietitian olmayan → `/(staff)`; dietitian hitting library — `StaffLibraryGate`
 
 ## Acceptance
 

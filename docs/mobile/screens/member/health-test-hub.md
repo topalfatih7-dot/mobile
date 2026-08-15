@@ -20,6 +20,7 @@
   - needs consent: **Analize başlamadan önce onayları işaretleyin**
   - needs profile: **Boy, kilo ve yaş bilgilerinizi tamamlayın**
   - core incomplete: **1. aşama: Genel Sağlık Testini tamamlayın**
+  - unpaid + analiz hazır: **Opsiyonel kategorilerle analizi derinleştirin — uzman raporu paketle açılır**
   - else: **İsterseniz opsiyonel kategorilerle analizi derinleştirin**
 
 ## Consent

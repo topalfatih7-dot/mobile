@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const LINKS: {
@@ -26,10 +29,17 @@ const LINKS: {
 /** 03-navigation — Daha fazla hub (net yönler) */
 export default function MoreScreen() {
   const { logout } = useAuth();
+  const { toast } = useToast();
+  const insets = useSafeAreaInsets();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   return (
     <MeshBackground style={styles.root}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xxl },
+        ]}>
         <FadeIn>
           <Text style={styles.title}>Daha fazla</Text>
           <Text style={styles.sub}>Tüm üye araçları tek yerde — nereye gideceğini seç.</Text>
@@ -55,11 +65,20 @@ export default function MoreScreen() {
             accessibilityLabel="Çıkış yap"
             accessibilityRole="button"
             onPress={async () => {
-              await logout();
-              router.replace('/(auth)/login');
+              if (loggingOut) return;
+              setLoggingOut(true);
+              try {
+                await logout();
+                toast('Çıkış yapıldı', 'info');
+                router.replace('/(public)/landing' as Href);
+              } finally {
+                setLoggingOut(false);
+              }
             }}
             style={styles.logout}>
-            <Text style={styles.logoutText}>Çıkış Yap</Text>
+            <Text style={styles.logoutText}>
+              {loggingOut ? 'Çıkış yapılıyor…' : 'Çıkış Yap'}
+            </Text>
           </Pressable>
         </FadeIn>
       </ScrollView>

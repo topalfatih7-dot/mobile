@@ -50,6 +50,40 @@
 | Notifications all read | Tümü okundu olarak işaretlendi |
 | Notifications empty title | Bildirim yok |
 | Notifications empty desc | Yeni bildirimler burada görünecek. |
+| Unpaid gate default title | Bu özellik paket gerektirir |
+| Unpaid gate default desc | Sayfayı gezebilirsiniz; mesaj, randevu, program ve benzeri ücretli işlemler için bir plan seçin. |
+| Unpaid gate CTA | Plan Seç |
+| Unpaid programs title | Programlar paket gerektirir |
+| Unpaid programs desc | Ücretsiz hesapla bu sayfayı gezebilirsiniz. Size özel antrenman ve beslenme programları ücretli paketle açılır. |
+| Unpaid calendar title | Takvim paket gerektirir |
+| Unpaid calendar desc | Bu sayfayı gezebilirsiniz. Program takvimi ve tamamlamalar ücretli paketle açılır. |
+| Unpaid messages title | Mesajlaşma paket gerektirir |
+| Unpaid messages desc | Geçmiş sohbetleriniz saklanır; yeni mesaj göndermek ve uzmanlarla görüşmek için bir plan seçin. |
+| Unpaid library title | Video kütüphanesi paket gerektirir |
+| Unpaid library desc | Sayfayı gezebilirsiniz. Hareket videolarını izlemek için bir plan seçin. |
+| Unpaid schedule title | Randevular paket gerektirir |
+| Unpaid schedule desc | Bu sayfayı gezebilirsiniz. Koç, diyetisyen veya doktor randevusu almak için bir plan seçin. |
+| Unpaid calorie title | Kalori analizi paket gerektirir |
+| Unpaid calorie desc | Sayfayı gezebilirsiniz. Yazılı veya fotoğraflı kalori AI için uygun bir plan seçin. |
+| Programs empty staff title | Uzmanınız atanıyor |
+| Programs empty staff desc | Paketinizdeki koç veya diyetisyen ataması tamamlanınca programlar burada görünecek. |
+| Programs empty waiting title | Uzmanınız program hazırlıyor |
+| Programs empty waiting desc | Koçunuz veya diyetisyeniniz program gönderdiğinde burada görünecek ve bildirim alacaksınız. |
+| Activation title | Başlangıç adımları |
+| Activation remaining | {n} adım kaldı — sırayla tamamlayın |
+| Activation health | Kişisel sağlık analizini tamamla |
+| Activation health hint | Skorlarınızın doğru hesaplanması için gerekli |
+| Activation plan | Paket seç |
+| Activation plan hint | Mesaj, takvim, program ve uzman raporları için |
+| Activation session | İlk randevunu al |
+| Activation session hint | Koç, diyetisyen veya doktor görüşmesi |
+| Activation program | Programını kontrol et |
+| Activation program hint ready | Personelin gönderdiği program hazır |
+| Activation program hint wait | Personelin program gönderince burada görünür |
+| Activation dismiss | Listeyi kapat |
+| Logout done | Çıkış yapıldı |
+| Health unpaid subtitle | Opsiyonel kategorilerle analizi derinleştirin — uzman raporu paketle açılır |
+| Health unpaid pitch | Plan seç ve uzman raporunu aç |
 | Book CTA | Randevu Al |
 | Appointments empty title | Randevu bulunamadı |
 | Cancel appointment | Randevu iptal edildi |
