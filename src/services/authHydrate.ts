@@ -1,6 +1,8 @@
 /**
  * Session → role — 05-auth-onboarding + login.md roleForUser eşdeğeri.
  */
+import type { Session } from '@supabase/supabase-js';
+
 import { env } from '@/config/env';
 import { rowToMember, rowToStaff } from '@/services/mappers';
 import { requireSupabase, supabase } from '@/services/supabase';
@@ -17,54 +19,63 @@ export type HydratedAuth = {
   registeredMember: boolean;
 };
 
-export async function hydrateAuth(): Promise<HydratedAuth | null> {
-  if (!supabase) return null;
-  const client = requireSupabase();
-  const { data: sessionData } = await client.auth.getSession();
-  const session = sessionData.session;
-  if (!session?.user) return null;
+export async function hydrateAuth(sessionOverride?: Session | null): Promise<HydratedAuth | null> {
+  try {
+    if (!supabase) return null;
+    const client = requireSupabase();
+    const session = sessionOverride ?? (await client.auth.getSession()).data.session;
+    if (!session?.user) return null;
 
-  const userId = session.user.id;
-  const email = (session.user.email || '').toLowerCase();
+    const userId = session.user.id;
+    const email = (session.user.email || '').toLowerCase();
 
-  if (email && email === env.adminEmail) {
+    if (email && email === env.adminEmail) {
+      return {
+        userId,
+        email,
+        role: 'admin',
+        member: null,
+        staff: null,
+        registeredMember: true,
+      };
+    }
+
+    let staffRow: Record<string, unknown> | null = null;
+    let memberRow: Record<string, unknown> | null = null;
+    try {
+      const [staffRes, memberRes] = await Promise.all([
+        client.from('staff').select('*').eq('id', userId).maybeSingle(),
+        client.from('members').select('*').eq('id', userId).maybeSingle(),
+      ]);
+      staffRow = (staffRes.data as Record<string, unknown> | null) || null;
+      memberRow = (memberRes.data as Record<string, unknown> | null) || null;
+    } catch {
+      /* Oturum var; satır okuma sonraki hydrate’de denenecek */
+    }
+
+    if (staffRow) {
+      return {
+        userId,
+        email,
+        role: 'staff',
+        member: null,
+        staff: rowToStaff(staffRow),
+        registeredMember: true,
+      };
+    }
+
+    const member = memberRow ? rowToMember(memberRow) : null;
     return {
       userId,
       email,
-      role: 'admin',
-      member: null,
+      role: 'member',
+      member,
       staff: null,
-      registeredMember: true,
+      registeredMember: hasRegisteredMember(member),
     };
+  } catch {
+    return null;
   }
-
-  const [staffRes, memberRes] = await Promise.all([
-    client.from('staff').select('*').eq('id', userId).maybeSingle(),
-    client.from('members').select('*').eq('id', userId).maybeSingle(),
-  ]);
-
-  if (staffRes.data) {
-    return {
-      userId,
-      email,
-      role: 'staff',
-      member: null,
-      staff: rowToStaff(staffRes.data as Record<string, unknown>),
-      registeredMember: true,
-    };
-  }
-
-  const member = memberRes.data
-    ? rowToMember(memberRes.data as Record<string, unknown>)
-    : null;
-  return {
-    userId,
-    email,
-    role: 'member',
-    member,
-    staff: null,
-    registeredMember: hasRegisteredMember(member),
-  };
 }
 
 /** login.md redirect — member default /profile */

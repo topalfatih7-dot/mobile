@@ -85,6 +85,8 @@ Content-Type: application/json
 
 Sonra client: `supabase.auth.setSession({ access_token, refresh_token })`.
 
+**MOBILE DIFF:** Web `signOut({ scope: 'local' })` sonra `setSession` (sync `localStorage`). RN AsyncStorage’da `signOut` yazımı yeni oturumu silebiliyor → **Oturum açılamadı**. Mobil: `stopAutoRefresh` + `setSession` (+ bir retry); hydrate `setSession` session’ı ile.
+
 ### Errors (mesajları koru)
 
 | Durum | Kullanıcı mesajı |

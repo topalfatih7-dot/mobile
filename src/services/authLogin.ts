@@ -3,6 +3,8 @@
  * Production: POST /api/auth (MOBILE DIFF: client=yeniform-mobile, Turnstile yok).
  * Doğrudan signInWithPassword captcha_failed verir — kullanma.
  */
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+
 import { AUTH_CLIENT_MOBILE } from '@/config/turnstile';
 import { postJson } from '@/services/api';
 import { requireSupabase } from '@/services/supabase';
@@ -50,12 +52,24 @@ function mapLoginError(status: number, apiError?: string): string {
   return msg || 'E-posta veya şifre hatalı.';
 }
 
+async function applyPasswordSession(
+  client: SupabaseClient,
+  tokens: { access_token: string; refresh_token: string },
+): Promise<Session | null> {
+  const first = await client.auth.setSession(tokens);
+  if (first.data?.session?.user) return first.data.session;
+  await new Promise((r) => setTimeout(r, 400));
+  const retry = await client.auth.setSession(tokens);
+  if (retry.data?.session?.user) return retry.data.session;
+  return null;
+}
+
 export async function passwordLogin(opts: {
   email: string;
   password: string;
   remember: boolean;
   turnstileToken?: string;
-}): Promise<{ success: true } | { success: false; error: string }> {
+}): Promise<{ success: true; session: Session } | { success: false; error: string }> {
   const v = validateLoginForm(opts.email, opts.password);
   if (!v.ok || !v.email) {
     return { success: false, error: v.formError || 'Lütfen formu kontrol edin.' };
@@ -87,23 +101,23 @@ export async function passwordLogin(opts: {
       };
     }
 
-    /* Eski oturumun in-flight refresh’i yeni JWT’yi SIGNED_OUT ile ezmesin */
+    /*
+     * MOBILE DIFF: web login signOut({ scope: 'local' }) sonra setSession yapar
+     * (sync localStorage). RN AsyncStorage’da aynı sıra setSession yazısını
+     * silebiliyor → “Oturum açılamadı”. In-flight refresh için yalnız stopAutoRefresh.
+     */
     try {
       client.auth.stopAutoRefresh();
     } catch {
       /* ignore */
     }
-    await client.auth.signOut({ scope: 'local' }).catch(() => {});
 
-    try {
-      const { data: sessionData, error } = await client.auth.setSession({
-        access_token: json.session.access_token,
-        refresh_token: json.session.refresh_token,
-      });
-      if (error || !sessionData?.user) {
-        return { success: false, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
-      }
-    } finally {
+    const session = await applyPasswordSession(client, {
+      access_token: json.session.access_token,
+      refresh_token: json.session.refresh_token,
+    });
+
+    if (opts.remember) {
       try {
         client.auth.startAutoRefresh();
       } catch {
@@ -111,8 +125,12 @@ export async function passwordLogin(opts: {
       }
     }
 
+    if (!session?.user) {
+      return { success: false, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
+    }
+
     await setRememberMe(opts.remember);
-    return { success: true };
+    return { success: true, session };
   } catch {
     return {
       success: false,

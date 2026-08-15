@@ -1,8 +1,17 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-15 — Mobil giriş: refresh-token claim + Expo web CORS + login hydrate lock  
+> **Son güncelleme:** 2026-08-15 — Preview login: RN `signOut`+AsyncStorage `setSession` yarışı  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-15 Preview “Oturum açılamadı”
+
+| Madde | Durum |
+|-------|--------|
+| API 200 + token sonrası hata = `setSession`/hydrate (şifre değil) | ✅ |
+| RN `signOut({ scope:'local' })` AsyncStorage yazımı yeni JWT’yi siliyor | ✅ kaldırıldı; `stopAutoRefresh` + setSession retry |
+| Hydrate `setSession` session override; satır hatası login’i düşürmez | ✅ |
+| `react-native-get-random-values` + `url-polyfill` boot | ✅ |
 
 ## 2026-08-15 Mobil giriş hâlâ düşüyor (doğrulama)
 

@@ -2,6 +2,8 @@
  * Supabase client — docs/mobile/01-architecture.md + contracts/env-vars.md
  * Auth storage: AsyncStorage (JWT SecureStore 2KB limit’i aşabilir).
  */
+import '@/polyfills';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 

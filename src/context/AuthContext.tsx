@@ -165,7 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           turnstileToken: opts.turnstileToken || '',
         });
         if (!result.success) return { success: false as const, error: result.error };
-        const next = await hydrateAuth();
+        const next =
+          (await hydrateAuth(result.session)) || (await hydrateAuth());
         setAuth(next);
         loginEpochRef.current = authEventGenRef.current;
         if (!next) {
