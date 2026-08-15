@@ -16,6 +16,7 @@ These files are **not committed to git** (they are in `.gitignore`). You must ob
 4. Click **Download google-services.json**.
 5. Place the file at the **project root**: `/Users/mac/Desktop/mobile/google-services.json`
 6. Firebase then shows **Add Firebase SDK** (Kotlin vs Java, Gradle Groovy vs Kotlin DSL). **Skip those steps.** This is an Expo managed app — do not paste Gradle/Kotlin snippets. EAS prebuild reads `android.googleServicesFile` from `app.json`.
+7. File stays gitignored. `.easignore` allows EAS cloud upload so preview/production Android builds can compile FCM.
 
 `app.json` points to it **only when the file exists** at the project root:
 
