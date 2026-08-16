@@ -118,10 +118,6 @@ export function isPaidMembership(id?: string | null) {
   return PAID_MEMBERSHIPS.includes(id || '');
 }
 
-export function isOneTimeBillingPlan(id?: string | null) {
-  return id === 'doktor';
-}
-
 export function getPlanLabel(id?: string | null) {
   return PLAN_LABELS[id || ''] || id || 'Basic';
 }

@@ -5,10 +5,10 @@
 | Durum | Hedef |
 |-------|--------|
 | Unauthenticated → protected | Login; `from` = intended path |
-| Admin hit member/staff route | `/admin` |
-| Staff hit member/admin | `/staff` |
-| Member hit staff/admin | `/profile` or member home |
-| Member auth but no `members` row | Onboarding `?plan=` (+ `oauth=1`) |
+| Admin login | `/(auth)/admin-web` — yönetim yalnız web (`/admin`) |
+| Staff hit member | `/staff` |
+| Member hit staff | member home |
+| Member auth but no `members` row | Onboarding (ücretsiz tek adım) |
 
 ## Expo Router önerisi
 
@@ -21,13 +21,13 @@ app/
     blog/...
     team/...
     legal/[slug].tsx
-    corporate...
+    corporate...              **MOBILE DIFF: rota yok**
   (auth)/
     login.tsx
     forgot-password.tsx
     reset-password.tsx
     onboarding.tsx
-    auth/callback.tsx
+    admin-web.tsx             **MOBILE DIFF: admin web CTA**
   (member)/
     _layout.tsx             → PanelTopBar + PanelDrawer + Stack
     dashboard.tsx
@@ -83,11 +83,9 @@ Base: Genel Bakış, Profilim, Danışanlarım, Bildirimler, Mesajlar.
 + Admin Mesajları.  
 Dietitian: Listeler + Ödeme. Coach: Programlar + Kütüphane + Ödeme. Doctor: yalnızca Ödeme (Programlar / Kütüphane / Listeler yok).
 
-## Admin drawer (sıra — `src/data/adminNav.ts`)
+## Admin drawer
 
-Genel Bakış → Üyeler → Paketler → Premium Yönetimi → Başvurular → Kütüphane → Kadromuz → Finans & Ödemeler → Seanslar → Mesajlar → Destek Talepleri → Blog → İçerik → Analitik → YZ Gider → Aktivite → Hesap Ayarları → Abonelikler (MOBILE DIFF: inventory).
-
-Desktop-heavy (analytics charts, bulk tables) simplified mobile views.
+**MOBILE DIFF (2026-08-17):** `app/(admin)` yok. Admin `/(auth)/admin-web`. Web spec: `screens/admin/*` (yalnız web uygulaması).
 
 ## Deep links
 

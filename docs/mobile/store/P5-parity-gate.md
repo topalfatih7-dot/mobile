@@ -6,7 +6,7 @@
 - [x] Chat collapsible programs (coach/dietitian; doctor gizli)
 - [x] Library filtreleri = web (search/category/difficulty/location/machine) — equipment uydurma yok
 - [x] Calorie AI flags: `EXPO_PUBLIC_AI_CHAT_ENABLED` / `EXPO_PUBLIC_AI_VISION_ENABLED`
-- [x] Payments: P2 IAP UX (keys boşsa “yakında”) — acceptance cihazda
+- [x] Payments: web Stripe `/plans` CTA (IAP yok)
 - [x] LOCK: `messages.md` + `realtime.md` güncellendi
 
 ## Smoke (cihaz / native)
@@ -20,7 +20,7 @@
 7. Calorie metin (+ vision plan-gated) çalışır
 8. Dashboard → health → calendar → programs → schedule → call kısa tur
 
-SKIP: stories / corporate / team-apply
+SKIP: stories / corporate / team-apply (uygulamada rota yok). Admin paneli web-only.
 
 ## Sonraki
 

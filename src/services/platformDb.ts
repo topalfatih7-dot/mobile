@@ -1,5 +1,6 @@
 /**
- * Staff/admin platform hydrate — web supabaseDb fetchAuthenticatedBundle parity.
+ * Staff platform hydrate — web supabaseDb fetchAuthenticatedBundle parity.
+ * MOBILE DIFF: admin paneli yok; bu bundle yalnız personel için.
  * LOCK: docs/mobile/contracts/supabase-tables.md + row-mappers.md
  */
 import { isUiOnly } from '@/config/runtime';

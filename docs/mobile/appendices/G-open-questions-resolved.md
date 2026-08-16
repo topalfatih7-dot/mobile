@@ -4,20 +4,23 @@
 
 | Topic | Decision |
 |-------|----------|
-| Scope | Member + Staff + Admin |
+| Scope | Member + Staff native; **Admin web-only** (2026-08-17) |
 | Framework | Expo |
-| Payments | IAP/RevenueCat mobile + Stripe web |
+| Payments | Web Stripe only — mobil IAP/RevenueCat yok |
 | Spec location | `docs/mobile/` |
 | Skills | `.cursor/skills/yeniform-*` auto-invoke |
 | Landing | Native summary + CTA; full marketing optional WebView |
 | Legal | Bundle or WebView — wording must not be altered |
 | Public team | No email/phone/social |
+| Public SKIP | stories / corporate / team-apply — uygulamada rota yok |
+| Auth | Password only (Google/Apple kapalı) |
+| Onboarding | Tek adım ücretsiz üyelik; paket web `/plans` |
 
 ## IMPLEMENTATION LOCK — complete
 
-All planned screens and contracts marked LOCK or explicit WebView policy. See `COMPLETE.md`.
+All planned screens and contracts marked LOCK, WebView, or explicit MOBILE DIFF. See `COMPLETE.md`.
 
-Remaining only as **code phase** (not docs): Expo app, store products, RevenueCat webhook implementation, push worker.
+Remaining as **ops / store** (not product invention): FCM credential files, iOS preview, store listing.
 
 ## Gap protocol
 

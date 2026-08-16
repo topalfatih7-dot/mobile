@@ -42,15 +42,6 @@ export async function pickImageFromLibrary(): Promise<PickedImage | null> {
   }
 }
 
-export async function pickImageFromCamera(): Promise<PickedImage | null> {
-  try {
-    const { pickWithCamera } = await import('@/services/memberMediaPicker');
-    return await pickWithCamera();
-  } catch {
-    return null;
-  }
-}
-
 export async function pickImageFromLibraryDetailed(
   options?: PickImageOptions,
 ): Promise<PickResult> {

@@ -22,13 +22,13 @@
 
 `POST /api/auth` `{ action: "password-login", email, password, turnstileToken, … }`
 
-Başarı → role redirect: admin `/admin`, staff `/staff`, member registered → dashboard, else onboarding.
+Başarı → role redirect: admin `/(auth)/admin-web` (web `/admin`), staff `/staff`, member registered → dashboard, else onboarding.
 
 Hata örnekleri: yanlış şifre, rate limit, disposable email, captcha fail.
 
 ### Sosyal
 
-Web: Google only. Mobil iOS: **Apple Sign-In zorunlu** (+ Google opsiyonel). OAuth deep link → callback → `completeOAuthMember` / onboarding `oauth=1`.
+**MOBILE DIFF:** Google / Apple kapalı. Yalnız password-login.
 
 ## Password reset
 

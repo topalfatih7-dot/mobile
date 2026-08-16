@@ -27,7 +27,7 @@ Başlık: Giriş Yap (veya web parity kısa başlık)
 [Beni hatırla checkbox]
 [Turnstile / device attestation slot — production]
 [Primary CTA: Giriş Yap]  // loading iken spinner, disabled
-[SocialAuthButtons — Google; iOS + Apple]
+**MOBILE DIFF:** SocialAuthButtons yok (Google/Apple kapalı — yalnız e-posta/şifre)
 Link: Şifremi unuttum → forgot-password
 Link: Kayıt ol → onboarding
 [FormErrorModal when error]
@@ -127,9 +127,11 @@ Mount’ta `consumeSessionRevokedMessage()` varsa toast warning 7000ms.
 
 ## Social
 
-- Google: `oauthAuth` flow `login`
-- iOS MOBILE DIFF: Apple Sign-In ekle (store); web’de yok ama iOS zorunlu
-- Callback: `auth/callback` deep link
+**MOBILE DIFF (2026-08-17):** Google / Apple kapalı. Yalnız password-login.
+
+- Web hâlâ Google `oauthAuth` kullanabilir
+- iOS Apple Sign-In store için ileride — şu an yok
+- Callback: `auth/callback` deep link (password/reset/OAuth web handoff)
 
 ## Remember me
 

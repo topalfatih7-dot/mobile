@@ -75,7 +75,7 @@ export type DataContextValue = {
   refreshData: (opts?: RefreshDataOptions) => Promise<void>;
   setLocalMemberOverlay: (member: MemberRecord | null) => void;
   memberOverride: MemberRecord | null;
-  /** Staff/admin platform slice */
+  /** Staff platform slice (admin panel is web-only) */
   platform: PlatformBundle;
   staffClients: MemberRecord[];
 };
@@ -160,7 +160,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setPrograms(DEMO_PROGRAMS);
         setPosts(DEMO_POSTS);
         setStaffById(DEMO_STAFF);
-      } else if (role === 'staff' || role === 'admin') {
+      } else if (role === 'staff') {
         const demo = demoPlatform(role);
         setPlatform(demo);
         setPrograms(demo.programs as ProgramRecord[]);
@@ -247,7 +247,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!silent && !isMemberWriteInFlight()) {
           setMemberOverride(null);
         }
-      } else if (role === 'staff' || role === 'admin') {
+      } else if (role === 'staff') {
         const bundle = await hydratePlatform({ role, userId, staff: staffNow });
         setPlatform(bundle);
         setPrograms(bundle.programs as ProgramRecord[]);
@@ -257,6 +257,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           await refreshAuth();
         }
         bootHydrated.current = true;
+      } else if (role === 'admin') {
+        setPlatform(EMPTY_PLATFORM);
+        setPrograms([]);
+        setPosts([]);
+        setStaffById({});
       }
     } finally {
       if (!silent) setLoading(false);
@@ -282,7 +287,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         return [next, ...prev];
       });
-      if (role === 'staff' || role === 'admin') {
+      if (role === 'staff') {
         setPlatform((prev) => {
           const list = (prev.programs || []) as ProgramRecord[];
           if (change.type === 'delete') {
@@ -342,16 +347,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [bumpChatUnread]);
 
   const onPlatformChange = useCallback(() => {
-    // Admin apps / staff row notification refresh
-    if (role === 'admin') {
-      void refreshData({ silent: true, reason: 'unknown' });
-      return;
-    }
     if (role === 'staff') {
       // Staff row UPDATE → refresh auth for notification badge (not full hydrate)
       void refreshAuth();
     }
-  }, [role, refreshData, refreshAuth]);
+  }, [role, refreshAuth]);
 
   usePlatformRealtime({
     role,
@@ -395,7 +395,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (role === 'staff' && staff) {
       return getStaffClients(platform.members, String(staff.role), String(staff.id));
     }
-    if (role === 'admin') return platform.members;
     return platform.staffClients;
   }, [role, staff, platform.members, platform.staffClients]);
 

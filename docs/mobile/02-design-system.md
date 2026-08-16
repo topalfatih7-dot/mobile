@@ -81,7 +81,7 @@ Panel/public sayfalar düz tek renk değildir. Web: radial mesh (brand/sage/warm
 
 ## Bileşen seti (RN)
 
-`BrandLogo`, `Button` (primary brand-600), `TextField`, `PhoneField`, `GenderSelect`, `Modal`/`BottomSheet`, `Toast`, `Stepper`, `Badge`, `EmptyState`, `LoadingScreen`, `PanelPageHeader`, `ExerciseVideoThumbnail`, `VideoPlayer`, `LegalConsentCheckbox`, `DisclaimerBox`.
+`BrandLogo`, `Button` (primary brand-600), `TextField`, `PhoneField`, `GenderSelect`, `Modal`/`BottomSheet`, `Toast`, `EmptyState`, `LoadingScreen`, `ExerciseVideoThumbnail`, `VideoPlayer`.
 
 ## Motion
 

@@ -38,7 +38,7 @@ mobile/   # or apps/mobile
 
 ## Implementation checklist
 
-- [ ] Role gates match `03-navigation.md` (member/staff/admin)
+- [ ] Role gates match `03-navigation.md` (member/staff; admin → web)
 - [ ] ProfileCompletionGate parity (`hasRegisteredMember`)
 - [ ] Entitlement checks before gated features
 - [ ] API calls use Bearer session; same paths as `contracts/`

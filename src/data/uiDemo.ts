@@ -323,63 +323,6 @@ export const DEMO_CLIENTS: Record<string, unknown>[] = [
   },
 ];
 
-function minutesAgo(mins: number) {
-  return new Date(Date.now() - mins * 60000).toISOString();
-}
-
-export type AdminStaffChatMessage = {
-  id: string;
-  from: 'staff' | 'admin';
-  text: string;
-  createdAt: string;
-};
-
-/** Admin ↔ personel sohbetleri için yerel tohum mesajlar (UI-only). */
-export const DEMO_ADMIN_STAFF_CHATS: Record<string, AdminStaffChatMessage[]> = {
-  'ui-demo-coach': [
-    {
-      id: 'ac1',
-      from: 'staff',
-      text: 'Yeni üyenin programını bugün hazırlıyorum.',
-      createdAt: minutesAgo(55),
-    },
-    {
-      id: 'ac2',
-      from: 'admin',
-      text: 'Teşekkürler, atamasız üyeleri de kontrol edelim.',
-      createdAt: minutesAgo(40),
-    },
-  ],
-  'ui-demo-dietitian': [
-    {
-      id: 'ad1',
-      from: 'staff',
-      text: 'Diyet listeleri güncellendi.',
-      createdAt: minutesAgo(130),
-    },
-    {
-      id: 'ad2',
-      from: 'admin',
-      text: 'Harika, yeni üyelerin listelerini de bu hafta tamamlayalım.',
-      createdAt: minutesAgo(110),
-    },
-  ],
-  'ui-demo-doctor': [
-    {
-      id: 'adr1',
-      from: 'staff',
-      text: 'Perşembe randevularım onaylandı.',
-      createdAt: minutesAgo(300),
-    },
-    {
-      id: 'adr2',
-      from: 'admin',
-      text: 'Teşekkürler, seans notlarını panelden takip ediyorum.',
-      createdAt: minutesAgo(280),
-    },
-  ],
-};
-
 export const DEMO_ADMIN_STATS = {
   members: 128,
   activeSessions: 14,

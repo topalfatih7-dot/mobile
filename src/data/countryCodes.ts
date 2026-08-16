@@ -88,14 +88,6 @@ export function formatE164(e164: string | null | undefined): string {
   return `+${parsed.dial} ${formatted}`.trim();
 }
 
-/** Kayıt/güncelleme için tutarlı E.164 üretir. */
-export function normalizeE164(e164: string | null | undefined): string {
-  if (!e164) return '';
-  const parsed = parseE164(e164);
-  if (!parsed?.national) return e164;
-  return `+${parsed.dial}${parsed.national}`;
-}
-
 export function formatNationalNumber(iso: string, raw: unknown): string {
   const country = getCountry(iso);
   let d = digitsOnly(raw).slice(0, country.max);

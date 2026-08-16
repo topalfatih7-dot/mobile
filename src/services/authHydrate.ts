@@ -80,7 +80,7 @@ export async function hydrateAuth(sessionOverride?: Session | null): Promise<Hyd
 
 /** login.md redirect — member default /profile */
 export function routeForHydrated(auth: HydratedAuth): string {
-  if (auth.role === 'admin') return '/(admin)';
+  if (auth.role === 'admin') return '/(auth)/admin-web';
   if (auth.role === 'staff') return '/(staff)';
   if (!auth.registeredMember) return '/(auth)/onboarding';
   return '/(member)/dashboard';

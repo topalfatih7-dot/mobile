@@ -9,14 +9,6 @@ export function computePremiumExpiresAt(startDate, durationMonths) {
   return d.toISOString().split('T')[0]
 }
 
-/** Geriye dönük: hafta bazlı hesaplama (eski kayıtlar) */
-export function computePremiumExpiresAtWeeks(startDate, durationWeeks) {
-  const start = startDate || today()
-  const d = new Date(start)
-  d.setDate(d.getDate() + (Number(durationWeeks) || 4) * 7)
-  return d.toISOString().split('T')[0]
-}
-
 export function getRemainingDays(expiresAt) {
   if (!expiresAt) return null
   const now = new Date()
@@ -42,20 +34,6 @@ export function extendPremiumExpiry(currentExpiresAt, extraDays) {
   base.setHours(0, 0, 0, 0)
   base.setDate(base.getDate() + Number(extraDays || 0))
   return base.toISOString().split('T')[0]
-}
-
-export function durationWeeksFromDays(days) {
-  return Math.max(1, Math.ceil(Number(days) / 7))
-}
-
-export function enrichMemberPremium(member) {
-  const remaining = getRemainingDays(member.premiumExpiresAt)
-  return {
-    ...member,
-    premiumRemainingDays: remaining,
-    premiumExpired: remaining !== null && remaining <= 0,
-    premiumExpiringSoon: remaining !== null && remaining > 0 && remaining <= 7,
-  }
 }
 
 /** packageConfig'den süreyi ay olarak okur */

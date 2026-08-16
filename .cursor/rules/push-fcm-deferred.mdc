@@ -1,0 +1,25 @@
+---
+description: Push/FCM ertelendi — her sohbette açık iş olarak hatırlat
+alwaysApply: true
+---
+
+# Push / FCM — ertelendi (2026-08-17)
+
+Kullanıcı kararı: şimdi yapma; **sonra tamamen halledilecek**. Unutma, uydurma “push hazır” deme.
+
+## Bu makinede yok
+
+- `google-services.json` (Android FCM) — proje kökü
+- `GoogleService-Info.plist` (iOS) — proje kökü
+
+Dosyasız APK kurulur; **arka plan bildirimi / Expo push token çalışmaz**. Adımlar: `SETUP_REQUIRED.md`.
+
+## Her sohbette
+
+Kısa hatırlat: **açık iş — Push/FCM dosyaları yok; kullanıcı “halledelim” deyince SETUP_REQUIRED + EAS preview rebuild.**
+
+## Yapma
+
+- Dosya yokken push’u tamamlandı sayma
+- Firebase/Gradle snippet yapıştırma (Expo managed)
+- Kullanıcı istemeden FCM kurulum turuna girme

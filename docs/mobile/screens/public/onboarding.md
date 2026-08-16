@@ -6,6 +6,12 @@
 - **Flows:** F01, F02, F15
 - **Skill:** `yeniform-auth-onboarding` + `yeniform-membership-payments`
 
+## MOBILE DIFF (2026-08-17)
+
+Uygulamada kayıt **tek adım ücretsiz üyelik** (Stepper yok; Üyelik adımı yok). Ücretli paket: panel → login’li web `/plans`. Aşağıdaki web Stepper / plan query davranışı **yalnız web**.
+
+Zaten üye ise: “Zaten üyesin” kartı → panele git / vazgeç (yeni hesap yok).
+
 ---
 
 ## Modes

@@ -8,12 +8,12 @@
 | VideoPlayer | `expo-video` + signed URL (`exerciseMedia`) |
 | ExerciseDetailModal | Ortalanmış 16:9 player + metadata |
 | ExerciseVideoThumbnail | expo-image webp |
-| Stepper | custom |
+| Stepper | web onboarding — **MOBILE DIFF:** kayıt tek adım, Stepper yok |
 | PanelMobileMenu | PanelTopBar + PanelDrawer (soldan slide-in) |
 | MembershipPlanCard | Pressable cards |
-| MembershipDurationPicker | segmented control |
+| MembershipDurationPicker | segmented control — **MOBILE DIFF:** paket web `/plans` |
 | Chat thread UI | Gifted Chat or custom FlatList |
-| Recharts (admin) | victory-native or simple numbers |
-| TurnstileWidget | attestation / WebView captcha |
+| Recharts (admin) | **MOBILE DIFF:** admin web-only |
+| TurnstileWidget | **MOBILE DIFF:** native widget yok; API secret bypass |
 | ToastContext | react-native toast lib |
 | AnimatedBackground | LinearGradient static |

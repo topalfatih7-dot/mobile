@@ -187,32 +187,21 @@ Her satır için: açılır · loading · empty · hata · ana CTA.
 | 10 | Her staff | Member messages + reply → üye bildirimi | ☐ |
 | 11 | Her staff | Video call | ☐ |
 | 12 | Her staff | Force password (F10) varsa | ☐ |
-| 13 | Her staff | Payments ekranı (Demo badge LOCK ise OK) | ☐ |
+| 13 | Her staff | Payments ekranı (canlı `staff_earnings`; Demo badge yok) | ☐ |
 | 14 | Member URL | Staff → redirect staff home | ☐ |
 
 ---
 
-## T7 — Admin paneli
+## T7 — Admin (web-only)
 
-| # | Ekran | Kritik | Pass |
-|---|-------|--------|------|
-| 1 | Overview | KPI/özet yüklenir | ☐ |
-| 2 | Üyeler list + pagination | Arama / sayfa | ☐ |
-| 3 | Üye detay + health | Açılır | ☐ |
-| 4 | Paketler | Liste / düzen | ☐ |
-| 5 | Premium assign | F13 — üye plan/expiry | ☐ |
-| 6 | Başvurular | İncele + staff create | ☐ |
-| 7 | Kütüphane CRUD | Upload / edit / pending | ☐ |
-| 8 | Kadro (staff) | Liste | ☐ |
-| 9 | Finans / payments | Liste | ☐ |
-| 10 | Seanslar | Liste | ☐ |
-| 11 | Mesajlar | Staff chat | ☐ |
-| 12 | Messages audit | Thread audit sekmesi | ☐ |
-| 13 | Destek | Ticket yanıt | ☐ |
-| 14 | Blog list + `[id]` | CRUD | ☐ |
-| 15 | İçerik | site_content | ☐ |
-| 16 | Analitik / AI costs / Aktivite | Lite view | ☐ |
-| 17 | Hesap / Abonelikler | Açılır | ☐ |
+Admin paneli uygulamada yok. Admin hesapla giriş → `/(auth)/admin-web` → “Yönetim panelini aç” web `/admin`.
+
+| # | Adım | Beklenen | Pass |
+|---|------|----------|------|
+| 1 | Admin login | Native admin drawer **yok**; web CTA ekranı | ☐ |
+| 2 | Yönetim panelini aç | Site `/admin` açılır | ☐ |
+| 3 | Çıkış | Login’e döner | ☐ |
+| 4 | Üye/personel URL denemesi | Admin web ekranına redirect | ☐ |
 
 ---
 
@@ -247,7 +236,7 @@ Her satır için: açılır · loading · empty · hata · ana CTA.
 | # | Adım | Beklenen | Pass |
 |---|------|----------|------|
 | 1 | Library uzun liste | Scroll jank yok (virtualized) | ☐ |
-| 2 | Admin members uzun | Pagination çalışır | ☐ |
+| 2 | Background 5 dk → foreground | Session sağ; crash yok | ☐ |
 | 3 | Background 5 dk → foreground | Session sağ; crash yok | ☐ |
 | 4 | Airplane mode → aksiyon | Anlamlı TR hata | ☐ |
 | 5 | Hızlı drawer spam | Crash / stuck overlay yok | ☐ |
@@ -259,7 +248,7 @@ Her satır için: açılır · loading · empty · hata · ana CTA.
 1. **Bugün:** T0 → T1 → T2 → T4 (public + auth + chrome)  
 2. **Sonra:** T5 (üye features) — en uzun  
 3. **Sonra:** T3 (ödeme — web `/plans` CTA; IAP yok)  
-4. **Sonra:** T6 staff → T7 admin  
+4. **Sonra:** T6 staff → T7 admin web CTA  
 5. **Son:** T8–T10  
 
 Her aşama bitince buraya işaret koy veya bana “T1 bitti, şunlar fail” de.
@@ -282,8 +271,8 @@ Her aşama bitince buraya işaret koy veya bana “T1 bitti, şunlar fail” de.
 | F10 force password | T6.12 |
 | F11 coach program | T6.4 |
 | F12 dietitian | T6.6 |
-| F13 premium | T7.5 |
-| F14 expiry | T3 + admin (manuel expiry) |
+| F13 premium | T7 (web admin) |
+| F14 expiry | T3 + web admin (manuel expiry) |
 | F15 entitlement | T3.6–9 |
 
 ---

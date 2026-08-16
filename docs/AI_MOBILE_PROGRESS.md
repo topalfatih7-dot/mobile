@@ -1,8 +1,20 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-16 — Android preview APK (Metro yok): kur, aç, test  
+> **Son güncelleme:** 2026-08-17 — ölü kod temizliği; admin web-only; SKIP rotalar kaldırıldı  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
-> **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+> **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-17 Ürün kararları + tarama
+
+| Madde | Durum |
+|-------|--------|
+| Ölü kod: HealthRadarScores, aiAnalysis, phone.ts, TurnstileWidget, qa-smoke.sh | ✅ silindi |
+| Admin paneli `app/(admin)` | ✅ kaldırıldı; `/(auth)/admin-web` |
+| SKIP public: stories / corporate / team-apply | ✅ rota yok |
+| Kayıt: tek adım ücretsiz; Stepper/SocialAuthButtons | ✅ silindi |
+| LOCK / COMPLETE / nav / inventory / QA drift | ✅ MOBILE DIFF |
+| IAP/RevenueCat doc artıkları | ✅ web Stripe |
+| FCM `google-services.json` / iOS plist | ⏸ ertelendi — her sohbette hatırlat (`.cursor/rules/push-fcm-deferred.mdc`) |
 
 ## 2026-08-16 Standalone preview (expo start yok)
 
@@ -259,7 +271,7 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 - Consent once-ever (`AsyncStorage` web parity)
 - Inbox unread-first sıralama
 
-**Chat kalan GAP:** Admin messages audit + collab oversight sekmeleri (LOCK’da var, mobil henüz yok).
+**Chat:** Admin messages audit native kaldırıldı (admin web-only, 2026-08-17). Staff ↔ admin mesajlar personel panelinde duruyor.
 
 ## Parity matrisi (2026-07-26)
 
@@ -322,7 +334,7 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 | Landing / membership | OK | native |
 | Blog | OK | native + **guest hydrate fix** |
 | About / team / legal | OK | WebView kasıtlı (LOCK) |
-| stories / corporate/* / team/apply | SKIP | dokunulmadı |
+| stories / corporate/* / team/apply | SKIP | **rota yok** (2026-08-17) |
 
 ## Bu turda kapatılan drift’ler
 
@@ -334,12 +346,11 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Kalan doğrulanmış GAP’ler (blocked — karar / env)
 
-1. **iOS FCM:** `GoogleService-Info.plist` yok — `SETUP_REQUIRED.md` (Android dosyası yerelde)
-2. **Push cihaz smoke:** yeni preview APK + `device_push_tokens` satırı + arka plan banner
-3. ~~App Store / Play + RevenueCat~~ — IAP iptal; web Stripe `/plans`
-4. **EAS preview iOS:** `npm run build:preview:ios` (ayrı tur)
-5. **Library equipment filter:** mobil eski spec; web UI yok — otorite: web only (yapılmadı)
-6. **Payments history ledger:** Stripe ledger UI yok (status `members` paketleri)
+1. **FCM (ERTElendi):** `google-services.json` + `GoogleService-Info.plist` yok. Kullanıcı “halledelim” deyince `SETUP_REQUIRED.md` + yeni preview build. Kural: `.cursor/rules/push-fcm-deferred.mdc`
+2. **Push cihaz smoke:** dosyalar + yeni preview APK + `device_push_tokens`
+3. **EAS preview iOS:** `npm run build:preview:ios` (ayrı tur)
+4. **Public `+not-found`:** inventory’de var, rota yok
+5. **Payments history ledger:** Stripe ledger UI yok (status `members` paketleri)
 
 ## Sonraki
 

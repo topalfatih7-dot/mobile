@@ -18,17 +18,17 @@ description: >-
 
 Force password when `tempPasswordIssued`. Clients via `getStaffClients()` (assignment + package).
 
+## Admin
+
+**MOBILE DIFF:** Admin paneli uygulamada yok. Admin login → `/(auth)/admin-web` → web `/admin`. Premium, başvurular, kütüphane CRUD web’de.
+
 ## Coach program builder UX
 
 `StaffClientProgramPage`: library filters → cart entries (`createCartEntry`: reps/duration, order) → package date windows → `CoachProgramSendModal` → `createProgram`.
 
-## Admin critical flows
+## Admin critical flows (web only)
 
-- **Premium:** `AdminPremiumPage` → `adminUpdatePremiumMembership` + `ManualSessionEditor`
-- Applications: staff/corporate/contact (+ CV docs)
-- Library CRUD + video upload
-- Messages: staff threads, audit, collab
-- Dense tables → mobile: list + detail sheet; mark desktop-heavy tools clearly
+Premium, başvurular, kütüphane CRUD, audit mesajlar — **web admin**. Mobilde bu ekranlar yok.
 
 ## Related
 

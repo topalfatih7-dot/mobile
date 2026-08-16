@@ -7,13 +7,10 @@ Kodlamaya başlamadan:
 - [ ] Read `docs/mobile/00`–`05`
 - [ ] Read `domains/membership-entitlements.md` + `health-test-catalog.md`
 - [ ] Confirm Supabase project + anon keys in EAS
-- [ ] Create RevenueCat project + store products `yf_*`
 - [ ] Configure Supabase Auth redirect URLs for app scheme
-- [ ] Enable Apple provider (iOS)
 - [ ] Daily domain + API key on server
-- [ ] Implement RevenueCat webhook before production IAP
 - [ ] Copy brand fonts/logo into app assets
-- [ ] Walk F01–F15 on staging
+- [ ] Walk F01–F15 on staging (admin adımları web)
 
 Spec completeness:
 

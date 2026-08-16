@@ -231,28 +231,6 @@ export async function ensureMemberChatThreads(
   return threads.filter((t) => roles.has(t.staffRole));
 }
 
-export async function loadMemberChat(
-  contacts: ChatContact[],
-  memberId: string,
-  memberName: string,
-): Promise<{ threads: ChatThread[]; messages: Record<string, ChatMessage[]> }> {
-  if (isUiOnly()) {
-    return getChatSnapshot(contacts, memberName, memberId);
-  }
-
-  const threads = await ensureMemberChatThreads(contacts, memberId, memberName);
-  const messages: Record<string, ChatMessage[]> = {};
-  await Promise.all(
-    threads.map(async (t) => {
-      messages[t.id] = await fetchThreadMessagesPage(t.id, {
-        limit: CHAT_MESSAGE_PAGE_SIZE,
-      });
-    }),
-  );
-
-  return { threads, messages };
-}
-
 /**
  * Web chatDb.recordChatConsent parity — hata fırlatmaz (local consent asıl kapı).
  */

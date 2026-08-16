@@ -2,7 +2,7 @@
  * Realtime sync — web `useRealtimeSync.js` parity.
  * Member: own members row + programs(member_id).
  * Staff: programs(staff_id) + assigned members + admin_staff.
- * Shared: chat_messages (sound/badges only) + tickets (scoped handlers).
+ * Admin: no mobile panel — no admin realtime channels.
  */
 import { useEffect, useRef } from 'react';
 
@@ -27,7 +27,7 @@ type Opts = {
   userId: string | null;
   staffId?: string | null;
   staffRole?: string | null;
-  /** Platform-level refresh (admin apps, staff tickets if needed) — NOT chat */
+  /** Platform-level refresh (staff row) — NOT chat */
   onChange: () => void;
   onProgramsChange?: (change: ProgramsRealtimeChange) => void;
   /** Chat badges / inbox only — never full hydrate */
@@ -124,7 +124,7 @@ export function usePlatformRealtime({
       .subscribe();
     channels.push(chatCh);
 
-    if (role === 'member' || role === 'admin') {
+    if (role === 'member') {
       const ticketsCh = client
         .channel(`tickets-sync-${userId}`)
         .on(
@@ -132,12 +132,7 @@ export function usePlatformRealtime({
           { event: '*', schema: 'public', table: 'tickets' },
           () => {
             perfInc('realtime_ticket');
-            if (role === 'member' && onTicketsChangeRef.current) {
-              onTicketsChangeRef.current();
-              return;
-            }
-            // Admin: full platform may include tickets
-            if (role === 'admin') bump();
+            if (onTicketsChangeRef.current) onTicketsChangeRef.current();
           },
         )
         .subscribe();
@@ -270,37 +265,6 @@ export function usePlatformRealtime({
         )
         .subscribe();
       channels.push(adminStaffCh);
-    }
-
-    if (role === 'admin') {
-      const adminStaffCh = client
-        .channel(`admin-staff-all-${userId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'admin_staff_threads' },
-          () => bumpChat(),
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'admin_staff_messages' },
-          () => bumpChat(),
-        )
-        .subscribe();
-      channels.push(adminStaffCh);
-
-      (['staff_applications', 'corporate_applications', 'contact_inquiries'] as const).forEach(
-        (table) => {
-          const ch = client
-            .channel(`apps-sync-${table}`)
-            .on(
-              'postgres_changes',
-              { event: '*', schema: 'public', table },
-              () => bump(),
-            )
-            .subscribe();
-          channels.push(ch);
-        },
-      );
     }
 
     return () => {
