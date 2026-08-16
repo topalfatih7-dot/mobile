@@ -34,7 +34,7 @@ import { colors, fonts, radius, spacing } from '@/theme';
 
 /**
  * MOBILE DIFF: kayıt yalnızca ücretsiz üyelik (tek adım).
- * Ücretli paketler panel içinden / web’den (IAP sonraki faz).
+ * Ücretli paketler panel içinden web Stripe `/plans` CTA.
  */
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -65,10 +65,10 @@ export default function OnboardingScreen() {
           <Text style={styles.planChangeSub}>
             Hesabın hazır. Panele dönerek devam edebilirsin.
           </Text>
-          <Button label="Panele git" onPress={() => router.replace('/(member)/dashboard')} />
+          <Button label="Panele git" onPress={() => router.replace('/(member)/dashboard' as Href)} />
           <Button
             label="Vazgeç"
-            onPress={() => router.replace('/(member)/profile')}
+            onPress={() => router.replace('/(member)/profile' as Href)}
             style={{ marginTop: spacing.sm }}
             variant="secondary"
           />

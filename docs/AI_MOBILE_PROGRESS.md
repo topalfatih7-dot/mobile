@@ -1,8 +1,19 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-15 — Android preview APK hazır (`21be2b73`)  
+> **Son güncelleme:** 2026-08-16 — Android preview APK (Metro yok): kur, aç, test  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak (zorunlu):** `/Users/mac/Desktop/Serenova-F-t/Adsız` (`donusum-programi`)
+
+## 2026-08-16 Standalone preview (expo start yok)
+
+| Madde | Durum |
+|-------|--------|
+| Preview = JS gömülü APK (`developmentClient: false`) | ✅ |
+| `app.config.js` variant: Dev `.dev` / Preview `com.yeniform.app` | ✅ |
+| `eas.json` preview `autoIncrement` + `buildType: apk` | ✅ |
+| `google-services.json` yoksa FCM atlanır (build kırılmaz) | ✅ |
+| Panel auth gate + ErrorBoundary | ✅ |
+| Telefonda eski Yeni Form silinmeden imza çakışması | runbook README |
 
 ## 2026-08-15 Android preview hazırlık
 

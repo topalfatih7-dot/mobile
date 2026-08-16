@@ -6,6 +6,7 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
 import { AUTH_CLIENT_MOBILE } from '@/config/turnstile';
+import { env } from '@/config/env';
 import { postJson } from '@/services/api';
 import { requireSupabase } from '@/services/supabase';
 import { setRememberMe } from '@/services/authStorage';
@@ -76,6 +77,14 @@ export async function passwordLogin(opts: {
   }
 
   const client = requireSupabase();
+
+  if (!env.mobileApiSecret) {
+    return {
+      success: false,
+      error:
+        'Giriş yapılandırması eksik. Preview EAS ortamına EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET ekleyin.',
+    };
+  }
 
   try {
     const { ok, status, json } = await postJson<{

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { PanelAuthGate } from '@/components/panel/PanelAuthGate';
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
 import { useChatUnread } from '@/context/ChatUnreadContext';
@@ -369,6 +370,7 @@ export default function MemberLayout() {
   const userName = String(member?.name || member?.email || '').trim();
 
   return (
+    <PanelAuthGate allow="member">
     <PanelChrome
       accent="member"
       brandHref="/(member)/dashboard"
@@ -408,5 +410,6 @@ export default function MemberLayout() {
         />
       </Stack>
     </PanelChrome>
+    </PanelAuthGate>
   );
 }

@@ -3,6 +3,7 @@
  * Paid → web Stripe (mobil IAP yok); free register on-device.
  * MOBILE DIFF: client=yeniform-mobile; Turnstile yok.
  */
+import { env } from '@/config/env';
 import { isUiOnly } from '@/config/runtime';
 import { AUTH_CLIENT_MOBILE } from '@/config/turnstile';
 import { postJson } from '@/services/api';
@@ -59,6 +60,14 @@ export async function registerFreeMember(profile: RegisterProfile, _turnstileTok
 
   const email = sanitizeEmailInput(profile.email);
   const client = requireSupabase();
+
+  if (!env.mobileApiSecret) {
+    return {
+      success: false as const,
+      error:
+        'Kayıt yapılandırması eksik. Preview EAS ortamına EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET ekleyin.',
+    };
+  }
 
   const { ok, json } = await postJson<{
     ok?: boolean;

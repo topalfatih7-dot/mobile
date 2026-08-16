@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { StaffForcePasswordChange } from '@/components/auth/StaffForcePasswordChange';
+import { PanelAuthGate } from '@/components/panel/PanelAuthGate';
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
 import { useChatUnread } from '@/context/ChatUnreadContext';
@@ -167,6 +168,7 @@ export default function StaffLayout() {
   const userName = String(staff?.name || staff?.email || '').trim();
 
   return (
+    <PanelAuthGate allow="staff">
     <View style={{ flex: 1 }}>
       <PanelChrome
         accent="staff"
@@ -217,5 +219,6 @@ export default function StaffLayout() {
         />
       ) : null}
     </View>
+    </PanelAuthGate>
   );
 }

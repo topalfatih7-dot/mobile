@@ -20,6 +20,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { AppProviders } from '@/context/AppProviders';
 
@@ -45,10 +46,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AppProviders>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }} />
-        </AppProviders>
+        <ErrorBoundary>
+          <AppProviders>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </AppProviders>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

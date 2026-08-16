@@ -116,7 +116,6 @@ async function recoverPendingResult(ImagePicker: ImagePickerMod): Promise<PickRe
     }
     const assets = 'assets' in pending ? pending.assets : null;
     if (assets?.[0]?.uri) {
-      console.log('[ImagePicker] recovered pending camera/library result');
       return { ok: true, image: assetToImage(assets[0]) };
     }
   } catch (e) {
@@ -144,7 +143,6 @@ export async function pickWithLibraryDetailed(
   const wantBase64 = Boolean(options.base64);
   try {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    console.log('[ImagePicker] library perm', perm.status, 'granted=', perm.granted);
     if (!perm.granted) {
       return {
         ok: false,
@@ -160,7 +158,6 @@ export async function pickWithLibraryDetailed(
       allowsEditing: options.allowsEditing ?? false,
       aspect: options.aspect,
     });
-    console.log('[ImagePicker] library canceled=', result.canceled);
     if (result.canceled || !result.assets?.[0]) {
       const recovered = await recoverPendingResult(ImagePicker);
       if (recovered) return recovered;
@@ -187,7 +184,6 @@ export async function pickWithCameraDetailed(
   const wantBase64 = Boolean(options.base64);
   try {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    console.log('[ImagePicker] camera perm', perm.status, 'granted=', perm.granted);
     if (!perm.granted) {
       return {
         ok: false,
@@ -204,7 +200,6 @@ export async function pickWithCameraDetailed(
       aspect: options.aspect,
       exif: false,
     });
-    console.log('[ImagePicker] camera canceled=', result.canceled);
     if (result.canceled || !result.assets?.[0]) {
       const recovered = await recoverPendingResult(ImagePicker);
       if (recovered) return recovered;

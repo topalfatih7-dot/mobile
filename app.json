@@ -7,15 +7,9 @@
     "icon": "./assets/icon.png",
     "scheme": "yeniform",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#2d8fc4"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yeniform.app",
-      "buildNumber": "3",
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -29,8 +23,6 @@
     },
     "android": {
       "package": "com.yeniform.app",
-      "versionCode": 3,
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#2d8fc4",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -42,8 +34,11 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
+        "android.permission.BLUETOOTH_CONNECT",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ]
     },
     "web": {

@@ -66,14 +66,11 @@ export async function pickProfilePhoto(opts?: {
 
   // KRİTİK: Modal kapanmadan Alert/ImagePicker Android+iOS'ta açılmaz
   if (opts?.beforePick) {
-    console.log('[pickProfilePhoto] closing modal before prompt');
     await opts.beforePick();
     await delay(dismissMs);
   }
 
-  console.log('[pickProfilePhoto] prompting source', Platform.OS);
   const source = await promptImageSource();
-  console.log('[pickProfilePhoto] source=', source);
   if (!source) {
     if (opts?.afterPick) await opts.afterPick();
     return null;
@@ -95,7 +92,6 @@ export async function pickProfilePhoto(opts?: {
       source === 'camera'
         ? await pickImageFromCameraDetailed(pickOpts)
         : await pickImageFromLibraryDetailed(pickOpts);
-    console.log('[pickProfilePhoto] result=', result.ok ? 'ok' : result);
     if (!result.ok) {
       if (result.code !== 'canceled') {
         await showPickFailure(result.message);

@@ -19,6 +19,7 @@ import { AuthSceneBackground } from '@/components/auth/AuthSceneBackground';
 import { Button } from '@/components/ui/Button';
 import { CheckboxRow } from '@/components/ui/CheckboxRow';
 import { TextField } from '@/components/ui/TextField';
+import { env } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { getRememberMe } from '@/services/authStorage';
@@ -108,6 +109,11 @@ export default function LoginScreen() {
       <View style={styles.sheet}>
         <Text style={styles.title}>Giriş Yap</Text>
         <Text style={styles.sub}>Hesabınla devam et — yolculuğun seni bekliyor.</Text>
+        {!env.mobileApiSecret ? (
+          <Text style={styles.configHint}>
+            Bu kurulumda giriş anahtarı yok. Preview build ortam değişkenlerini kontrol edin.
+          </Text>
+        ) : null}
 
         <View style={styles.form}>
           <TextField
@@ -239,6 +245,14 @@ const styles = StyleSheet.create({
     color: colors.cream[800],
     marginTop: 6,
     marginBottom: spacing.lg,
+  },
+  configHint: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.danger[700],
+    marginTop: -spacing.md,
+    marginBottom: spacing.md,
   },
   form: { gap: spacing.md },
   registerBtn: {

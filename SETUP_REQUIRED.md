@@ -14,7 +14,7 @@ These files are **not committed to git** (they are in `.gitignore`). You must ob
 3. Under **Your apps**, find the Android app with package name `com.yeniform.app`.
    - If it doesn't exist, click **Add app** → Android → enter `com.yeniform.app`.
 4. Click **Download google-services.json**.
-5. Place the file at the **project root**: `/Users/mac/Desktop/mobile/google-services.json`
+5. Place the file at the **project root**: `google-services.json` (same folder as `package.json`).
 6. Firebase then shows **Add Firebase SDK** (Kotlin vs Java, Gradle Groovy vs Kotlin DSL). **Skip those steps.** This is an Expo managed app — do not paste Gradle/Kotlin snippets. EAS prebuild reads `android.googleServicesFile` from `app.json`.
 7. File stays gitignored. `.easignore` allows EAS cloud upload so preview/production Android builds can compile FCM.
 
@@ -39,7 +39,7 @@ Do not add `googleServicesFile` without the file — Expo config parse fails and
 2. Under **Your apps**, find the iOS app with bundle ID `com.yeniform.app`.
    - If it doesn't exist, click **Add app** → Apple → enter `com.yeniform.app`.
 3. Click **Download GoogleService-Info.plist**.
-4. Place the file at the **project root**: `/Users/mac/Desktop/mobile/GoogleService-Info.plist`
+4. Place the file at the **project root**: `GoogleService-Info.plist` (same folder as `package.json`).
 
 > **Optional but recommended:** Also upload your APNs Auth Key (`.p8`) to Firebase Console under **Project settings → Cloud Messaging → Apple app configuration**. Get the key from [Apple Developer → Certificates, IDs & Profiles → Keys](https://developer.apple.com/account/resources/authkeys/list).
 

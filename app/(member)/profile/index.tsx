@@ -382,7 +382,7 @@ export default function ProfileScreen() {
           </View>
         </FadeIn>
 
-        <HealthSummarySection user={member} />
+        {member ? <HealthSummarySection user={member} /> : null}
 
         <View style={styles.quickGrid}>
           {quickLinks.map((l) => (
@@ -399,7 +399,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <PersonalInfoSection user={member} />
+        {member ? <PersonalInfoSection user={member} /> : null}
 
         <ProfileSectionCard
           accent="violet"

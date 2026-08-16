@@ -114,15 +114,15 @@ Uygulama açılır, kırmızı box yok → T1’e geç.
 |---|------|----------|------|
 | 1 | Step 0: ad, email, tel, cinsiyet, şifre, legal | Validation; disposable email hata | ☐ |
 | 2 | Step 1: plan + süre | free / eko / diyet / spor / doktor / vip | ☐ |
-| 3 | Free kayıt | IAP açılmaz; `members` free; Dashboard | ☐ |
-| 4 | Paid → PaywallModal / RC | Cancel → onboarding’de kalır; sahte isim yok | ☐ |
-| 5 | Paid Success (test store) | “İşleniyor” → hydrate → paid membership | ☐ |
-| 6 | Feature gate | Paid özellik üyelik satırına göre; store tek başına yetmez | ☐ |
-| 7 | Restore purchases | CustomerInfo + refresh | ☐ |
-| 8 | Customer Center | Abonelik yönetimi açılır (paid) | ☐ |
+| 3 | Free kayıt | IAP yok; `members` free; Dashboard | ☐ |
+| 4 | Paid → panel Ödemeler CTA | Web `/plans` (login’li Stripe); IAP/Paywall yok | ☐ |
+| 5 | Web’de paket al → uygulamaya dön | `members` satırı yenilenir; paid özellikler | ☐ |
+| 6 | Feature gate | Paid özellik üyelik satırına göre | ☐ |
+| 7 | Restore / Customer Center | Yok — IAP iptal (2026-08-08) | — |
+| 8 | — | — | — |
 | 9 | Web Stripe üye → mobile login | Paid özellikler açık (F15) | ☐ |
 
-**Not:** Store ürünleri yoksa offerings boş → bunu “blocker” olarak raporla, T3.4–8’i skip işaretle.
+**Not:** Native IAP yok. Ücretli paket = web Stripe `/plans`. T3.7–8 uygulanmaz.
 
 ---
 

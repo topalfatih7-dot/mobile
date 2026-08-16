@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { PanelAuthGate } from '@/components/panel/PanelAuthGate';
 import { PanelChrome } from '@/components/panel/PanelChrome';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -76,6 +77,7 @@ export default function AdminLayout() {
   );
 
   return (
+    <PanelAuthGate allow="admin">
     <PanelChrome
       accent="admin"
       badge={{ label: 'Admin', icon: 'shield-outline' }}
@@ -111,5 +113,6 @@ export default function AdminLayout() {
         <Stack.Screen name="account" />
       </Stack>
     </PanelChrome>
+    </PanelAuthGate>
   );
 }

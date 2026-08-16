@@ -33,3 +33,6 @@ yarn-error.*
 
 # Local Metro/QA capture logs
 .cursor/test-logs/
+
+# Machine-local web/spec paths — keep example only
+.local/paths.json
