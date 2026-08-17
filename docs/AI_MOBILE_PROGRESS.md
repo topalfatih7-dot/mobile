@@ -346,9 +346,9 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Kalan doğrulanmış GAP’ler (blocked — karar / env)
 
-1. **FCM (ERTElendi):** `google-services.json` + `GoogleService-Info.plist` yok. Kullanıcı “halledelim” deyince `SETUP_REQUIRED.md` + yeni preview build. Kural: `.cursor/rules/push-fcm-deferred.mdc`
-2. **Push cihaz smoke:** dosyalar + yeni preview APK + `device_push_tokens`
-3. **EAS preview iOS:** `npm run build:preview:ios` (ayrı tur)
+1. **FCM dosyaları:** `google-services.json` + `GoogleService-Info.plist` yerelde (`com.yeniform.app`); git’e girmez. iOS `googleServicesFile` / `.easignore` plist upload ayrı tur. Preview build yalnızca kullanıcı onayıyla.
+2. **Push cihaz smoke:** yeni preview binary + `device_push_tokens`
+3. **EAS preview iOS:** ad hoc — önce `eas device:create`, sonra onaylı `npm run build:preview:ios`. Runbook: [`mobile/store/ios-preview-build.md`](./mobile/store/ios-preview-build.md)
 4. **Public `+not-found`:** inventory’de var, rota yok
 5. **Payments history ledger:** Stripe ledger UI yok (status `members` paketleri)
 

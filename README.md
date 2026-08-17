@@ -28,6 +28,10 @@ Gerekli ortam (EAS **preview** environment, binary’ye gömülür):
 
 Push için kökte `google-services.json` (`com.yeniform.app`). Yoksa APK yine kurulur; bildirim token’ı çalışmaz.
 
+## iOS preview (ad hoc)
+
+Android APK gibi herkese kurulmaz. Yalnızca **build’den önce** `eas device:create` ile kaydedilmiş iPhone’lar IPA’yı kurar. Mac gerekmez (EAS cloud). Komut ve sıra: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md). Kullanıcı onayından önce build alma.
+
 ## Geliştirici (opsiyonel — Metro)
 
 Yalnızca `Yeni Form (Dev)` (`com.yeniform.app.dev`) kuruluysa:

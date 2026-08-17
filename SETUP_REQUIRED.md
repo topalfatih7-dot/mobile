@@ -51,7 +51,7 @@ Do not add `googleServicesFile` without the file — Expo config parse fails and
 
 After placing the Android file (and iOS plist when targeting iOS):
 
-1. Run a new EAS build so the native project picks up the credentials:
+1. Run a new EAS build so the native project picks up the credentials (**yalnızca kullanıcı onayıyla**). iOS ad hoc sıra ve cihaz kaydı: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md).
    ```bash
    npm run build:preview:android
    npm run build:preview:ios

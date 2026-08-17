@@ -30,7 +30,7 @@ npm run build:preview:android
 npm run build:preview:ios
 ```
 
-İlk iOS build’de Apple credentials / provisioning onayın gerekir.
+iOS preview: ücretli Apple Developer + **önce** cihaz kaydı (`eas device:create`), **sonra** build. Yalnızca o anki kayıtlı iPhone’lar kurar. Adımlar: [`ios-preview-build.md`](ios-preview-build.md). Kullanıcı onayından önce build alma.
 
 ## Smoke
 
