@@ -33,7 +33,7 @@ type Props = {
 
 /**
  * Native egzersiz oynatıcı (expo-video).
- * Overlay, signed URL + ilk kare gelene kadar kalır — siyah kare yok.
+ * Poster yalnızca ilk kare gelene kadar; oynarken thumbnail kalkar — siyah kare yok.
  */
 export function VideoPlayer({
   url,
@@ -151,8 +151,12 @@ export function VideoPlayer({
 
   return (
     <View style={[styles.frame, style]} accessibilityLabel={title || 'Video'}>
-      {poster ? (
-        <Image contentFit="cover" source={{ uri: poster }} style={StyleSheet.absoluteFill} />
+      {poster && !hasFrame ? (
+        <Animated.View
+          exiting={FadeOut.duration(220)}
+          style={StyleSheet.absoluteFill}>
+          <Image contentFit="cover" source={{ uri: poster }} style={StyleSheet.absoluteFill} />
+        </Animated.View>
       ) : null}
       {url ? (
         <VideoView

@@ -9,8 +9,13 @@ import {
   type ReactNode,
 } from 'react';
 
+import {
+  isColdBootCompleted,
+  markColdBootCompleted,
+  waitColdBootMin,
+} from '@/boot/coldBoot';
+import { BrandedBootScreen } from '@/components/welcome/BrandedBootScreen';
 import { isUiOnly } from '@/config/runtime';
-import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { buildDemoAuth } from '@/data/uiDemo';
 import { resetChatUi } from '@/data/uiChat';
 import { hydrateAuth, routeForHydrated, type HydratedAuth, type SessionRole } from '@/services/authHydrate';
@@ -52,6 +57,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(true);
+  const [showColdBoot, setShowColdBoot] = useState(() => !isColdBootCompleted());
   const [auth, setAuth] = useState<HydratedAuth | null>(null);
   const [staffOverride, setStaffOverride] = useState<Record<string, unknown> | null>(
     null,
@@ -197,6 +203,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const routeForRole = useCallback(() => (auth ? routeForHydrated(auth) : null), [auth]);
 
+  useEffect(() => {
+    if (booting || !showColdBoot) return;
+    let cancelled = false;
+    void waitColdBootMin().then(() => {
+      if (cancelled) return;
+      markColdBootCompleted();
+      setShowColdBoot(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [booting, showColdBoot]);
+
   const resolvedStaff = staffOverride ?? auth?.staff ?? null;
 
   const value = useMemo<AuthContextValue>(
@@ -233,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {booting ? <LoadingScreen label="Oturum kontrol ediliyor…" /> : children}
+      {booting || showColdBoot ? <BrandedBootScreen /> : children}
     </AuthContext.Provider>
   );
 }

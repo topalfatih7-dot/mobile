@@ -11,6 +11,13 @@
 - [x] Android `POST_NOTIFICATIONS`
 - [x] `eas.json`: development / development-device / preview / production
 
+### MOBILE DIFF (2026-08-17) — JS branded boot
+
+- Native Expo splash **değişmez**: `splash-icon.png` + `#2d8fc4` (mağaza soğuk açılış).
+- Native splash gizlendikten sonra JS **`BrandedBootScreen`**: mesh + marka animasyonu, ~1.5–2s minimum, **her soğuk açılış** (giriş yapmış kullanıcı dahil).
+- JS runtime başına bir kez (`coldBoot` modül bayrağı) — ekran geçişlerinde tekrar yok.
+- Overlay `LoadingScreen` (yavaş işlem maskesi) aynı kalır.
+
 ## Build (sen — credentials)
 
 ```bash
@@ -27,9 +34,9 @@ npm run build:preview:ios
 
 ## Smoke
 
-1. Soğuk açılış → markalı splash (mavi + logo)
+1. Soğuk açılış → native splash (mavi + logo) → süslü JS boot (~1.5–2s) → panel veya welcome
 2. Fontlar Inter / Plus Jakarta
-3. Üye login → `device_push_tokens` satırı (projectId ile token)
+3. Üye login → `device_push_tokens` satırı (projectId ile token) — FCM dosyası yoksa atlanır
 4. Ödeme: native IAP yok — `/(member)/profile/payments` web `/plans` CTA
 5. Daily join native path (cihaz)
 

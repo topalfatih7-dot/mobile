@@ -49,6 +49,13 @@
         "simulator": false
       }
     },
+    "preview-store": {
+      "extends": "preview",
+      "distribution": "store",
+      "ios": {
+        "simulator": false
+      }
+    },
     "production": {
       "autoIncrement": true,
       "environment": "production",

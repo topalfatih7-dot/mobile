@@ -1,4 +1,5 @@
 import '@/polyfills';
+import '@/boot/coldBoot';
 
 import {
   Inter_400Regular,
@@ -21,7 +22,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { BrandedBootScreen } from '@/components/welcome/BrandedBootScreen';
 import { AppProviders } from '@/context/AppProviders';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -38,10 +39,11 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded]);
+    // Native splash → JS branded boot (animasyonlu giriş)
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
-  if (!fontsLoaded) return <LoadingScreen label="Yeni Form hazırlanıyor…" />;
+  if (!fontsLoaded) return <BrandedBootScreen />;
 
   return (
     <GestureHandlerRootView style={styles.root}>
