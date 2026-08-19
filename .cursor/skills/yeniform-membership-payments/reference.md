@@ -4,17 +4,21 @@
 
 | Plan | Coach/mo | Dietitian/mo | Doctor |
 |------|----------|--------------|--------|
-| eko | 0 | 0 | 0 |
-| diyet | 0 | 2 | 1 (package field) |
-| spor | 2 | 0 | 1 |
+| eko (eski) | 0 | 0 | 0 |
+| eko_diyet | 0 | 1 | 0 |
+| eko_spor | 1 | 0 | 0 |
+| diyet | 0 | 2 | 0 |
+| spor | 2 | 0 | 0 |
 | doktor | 0 | 0 | `doctorSessionsTotal: 1`, `billingType: one_time` |
-| vip | 2 | 2 | 1 |
+| vip | 2 | 2 | 0 |
 
 ## Pricing (monthly TRY — verify `membershipPlans.js` / DB `plans`)
 
 | Plan | 1 ay | 3 ay | 6 ay |
 |------|------|------|------|
 | eko | 1299 | 2999 | 3999 |
+| eko_diyet | 1299 | 2999 | 3999 |
+| eko_spor | 1299 | 2999 | 3999 |
 | diyet | 2499 | 6499 | 9999 |
 | spor | 2499 | 6499 | 9999 |
 | doktor | 1500 one-time | — | — |

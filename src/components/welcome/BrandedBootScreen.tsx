@@ -1,6 +1,5 @@
-import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -14,12 +13,11 @@ import Animated, {
 
 import { BrandMark } from '@/components/brand/BrandMark';
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { BRAND } from '@/config/brand';
-import { colors, fonts, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 /**
  * Soğuk açılış JS boot — native splash sonrası.
- * Token’lar: brand / sage / warm / gold. Copy: BRAND.name + tagline.
+ * Yalnız kare marka (wordmark yok: logo PNG’de “Form” açık zeminde kayboluyordu).
  */
 export function BrandedBootScreen() {
   const enter = useSharedValue(0);
@@ -57,15 +55,6 @@ export function BrandedBootScreen() {
     ],
   }));
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(enter.value, [0.35, 1], [0, 1]),
-    transform: [{ translateY: interpolate(enter.value, [0.35, 1], [12, 0]) }],
-  }));
-
-  const tagStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(enter.value, [0.55, 1], [0, 1]),
-  }));
-
   const glowStyle = useAnimatedStyle(() => ({
     opacity: interpolate(pulse.value, [0, 1], [0.22, 0.48]),
     transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.08]) }],
@@ -82,7 +71,7 @@ export function BrandedBootScreen() {
   }));
 
   return (
-    <MeshBackground style={styles.root}>
+    <MeshBackground accessibilityLabel="Yeni Form" style={styles.root}>
       <View style={styles.blobWarm} />
       <View style={styles.blobGold} />
       <View style={styles.center}>
@@ -94,21 +83,6 @@ export function BrandedBootScreen() {
             <BrandMark glowing size={88} />
           </Animated.View>
         </View>
-
-        <Animated.View style={[styles.logoBlock, logoStyle]}>
-          <Image
-            accessibilityLabel={BRAND.name}
-            contentFit="contain"
-            source={BRAND.assets.logo}
-            style={styles.logo}
-            transition={0}
-          />
-          <Text style={styles.title}>{BRAND.name}</Text>
-        </Animated.View>
-
-        <Animated.Text style={[styles.tagline, tagStyle]}>
-          {BRAND.tagline}
-        </Animated.Text>
       </View>
     </MeshBackground>
   );
@@ -141,7 +115,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    gap: spacing.lg,
   },
   markWrap: {
     width: 160,
@@ -168,26 +141,5 @@ const styles = StyleSheet.create({
   },
   ringGold: {
     borderColor: colors.gold[400],
-  },
-  logoBlock: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  logo: {
-    width: 168,
-    height: 44,
-  },
-  title: {
-    fontFamily: fonts.displayBold,
-    fontSize: 28,
-    color: colors.cream[900],
-    letterSpacing: -0.4,
-  },
-  tagline: {
-    fontFamily: fonts.sans,
-    fontSize: 15,
-    color: colors.cream[800],
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });

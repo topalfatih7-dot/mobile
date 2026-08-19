@@ -2,7 +2,7 @@
 
 These files are **not committed to git** (they are in `.gitignore`). You must obtain and place them manually before running a native build that needs push.
 
-> **2026-08-17:** Kullanıcı erteledi. Tam kurulum ayrı tur — `.cursor/rules/push-fcm-deferred.mdc`. Dosya yokken uygulama açılır; arka plan bildirimi gelmez.
+> **2026-08-17:** Dosyalar proje kökünde (`com.yeniform.app`). Git’e girmez. Canlı push için yeni EAS preview binary gerekir — `.cursor/rules/push-fcm-deferred.mdc`.
 
 ---
 

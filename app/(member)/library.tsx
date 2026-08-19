@@ -23,15 +23,13 @@ import { UnpaidMemberGate } from '@/components/membership/UnpaidMemberGate';
 import { PANEL_IMAGES } from '@/constants/panelImages';
 import { useData, useMember } from '@/context/DataContext';
 import { DIFFICULTY_LABELS } from '@/data/exerciseLabels';
-import { hasFullVideoAccess as planHasFullVideo } from '@/data/membershipPlans';
 import {
   EXERCISE_PAGE_SIZE,
   fetchDistinctExerciseCategories,
   fetchExercisesPage,
 } from '@/services/exerciseLibrary';
 import { prefetchExerciseVideo } from '@/services/exerciseMedia';
-import { collectProgramExerciseIds } from '@/utils/coachProgram';
-import { memberHasFullVideoAccess } from '@/utils/memberPackages';
+import { collectProgramExerciseIds, hasFullLibraryAccess } from '@/utils/coachProgram';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 const LOCATIONS = [
@@ -63,10 +61,12 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Record<string, unknown> | null>(null);
 
-  const fullAccess =
-    memberHasFullVideoAccess(member) || planHasFullVideo(String(member?.membership || 'free'));
+  const fullLibrary = hasFullLibraryAccess(
+    member as Record<string, unknown> | null,
+    myPrograms as Record<string, unknown>[],
+  );
 
-  // Web parity: üye kütüphanesi yalnızca program hareketleri
+  // Web parity: üye kütüphanesi program-scoped; tam katalog yalnız fullLibraryAccess
   const programExerciseIds = useMemo(
     () => collectProgramExerciseIds(myPrograms as Record<string, unknown>[]),
     [myPrograms],
@@ -99,7 +99,7 @@ export default function LibraryScreen() {
             difficulty,
             location,
             requiresMachine,
-            ids: programExerciseIds,
+            ids: fullLibrary ? undefined : programExerciseIds,
           },
         });
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
@@ -109,7 +109,7 @@ export default function LibraryScreen() {
         setLoading(false);
       }
     },
-    [debouncedSearch, category, difficulty, location, requiresMachine, programExerciseIds],
+    [debouncedSearch, category, difficulty, location, requiresMachine, programExerciseIds, fullLibrary],
   );
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function LibraryScreen() {
   }, []);
 
   const openExercise = (ex: Record<string, unknown>) => {
-    if (ex.videoUrl && !ex.videoPending && fullAccess) {
+    if (ex.videoUrl && !ex.videoPending && fullLibrary) {
       prefetchExerciseVideo(ex.videoUrl);
     }
     setActive(ex);
@@ -132,7 +132,7 @@ export default function LibraryScreen() {
       <Pressable
         onPress={() => openExercise(item)}
         onPressIn={() => {
-          if (item.videoUrl && !item.videoPending && fullAccess) {
+          if (item.videoUrl && !item.videoPending && fullLibrary) {
             prefetchExerciseVideo(item.videoUrl);
           }
         }}
@@ -155,7 +155,7 @@ export default function LibraryScreen() {
       </Pressable>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fullAccess],
+    [fullLibrary],
   );
 
   if (isUnpaidMember) {
@@ -226,27 +226,20 @@ export default function LibraryScreen() {
                 />
                 <Text style={styles.title}>Hareket Kütüphanesi</Text>
                 <Text style={styles.sub}>
-                  Programınızdaki hareket videolarını doğru formla izleyin
+                  {fullLibrary
+                    ? 'Tüm hareket videolarını inceleyin'
+                    : 'Programınızdaki hareket videolarını doğru formla izleyin'}
                 </Text>
               </View>
             </FadeIn>
 
-            {!fullAccess ? (
-              <View style={styles.gate}>
-                <Text style={styles.gateText}>
-                  Tam video kütüphanesi Spor ve Vip paketlerinde açılır. Liste önizlemesi
-                  görüntülenir.
-                </Text>
-              </View>
-            ) : null}
-
-            {programExerciseIds.length > 0 ? (
+            {!fullLibrary && programExerciseIds.length > 0 ? (
               <Text style={styles.scopeInfo}>
                 Yalnızca size atanan antrenman programındaki hareketler listelenir.
               </Text>
             ) : null}
 
-            {programExerciseIds.length > 0 ? (
+            {fullLibrary || programExerciseIds.length > 0 ? (
               <>
                 <Pressable
                   accessibilityLabel={filtersOpen ? 'Filtreleri kapat' : 'Filtreleri aç'}
@@ -361,7 +354,7 @@ export default function LibraryScreen() {
       />
 
       <ExerciseDetailModal
-        canPlay={fullAccess}
+        canPlay
         exercise={active}
         onClose={() => setActive(null)}
         visible={Boolean(active)}

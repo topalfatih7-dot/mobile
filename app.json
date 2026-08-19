@@ -39,6 +39,9 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.FOREGROUND_SERVICE_CAMERA",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+      ],
+      "blockedPermissions": [
+        "com.google.android.gms.permission.AD_ID"
       ]
     },
     "web": {
@@ -102,9 +105,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0799a1b3-4e0a-4d73-9961-918878977fbb"
+        "projectId": "460ad8b4-c94a-4933-885c-be703befe489"
       }
     },
-    "owner": "yeniform"
+    "owner": "yeniforms-team"
   }
 }

@@ -13,9 +13,7 @@
 
 ## Access
 
-- List metadata: available per plan (limited vs full via `hasFullVideoAccess`)
-- Playback always via signed URL rules in `domains/video-media.md`
-- `video_pending` → no sign; placeholder UI
+Web parity: ücretli üye program-scoped liste (`collectProgramExerciseIds`). Tam katalog yalnız `members.data.fullLibraryAccess` veya `source: library_catalog` program (`hasFullLibraryAccess`). `fullVideo` entitlement runtime’da listeyi açmaz.
 
 ## Filters (yalnızca web’dekiler)
 

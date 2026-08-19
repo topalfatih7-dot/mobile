@@ -1,6 +1,7 @@
-# Google Play — TR listing şablonu
+# Google Play — TR listing
 
-> Placeholder — sen doldurursun. Package: `com.yeniform.app`
+Package: `com.yeniform.app`  
+Play Console’a yapıştır. İletişim e-postasını kendi destek kutunla değiştir.
 
 ## Uygulama adı
 
@@ -9,28 +10,49 @@ Yeni Form
 ## Kısa açıklama (80 karakter)
 
 ```
-[PLACEHOLDER — örn. Koç, diyetisyen ve sağlık programınız cebinizde.]
+Koç, diyetisyen ve doktor desteği tek uygulamada.
 ```
 
 ## Uzun açıklama
 
 ```
-[PLACEHOLDER]
+Yeni Form — koç, diyetisyen ve doktor desteğini tek uygulamada toplayan üye ve uzman paneli.
 
-Yeni Form üye uygulaması:
-• Mesajlaşma (atanmış uzmanlar)
-• Program / takvim / sağlık testi
-• Kalori analizi
-• Görüntülü seans (Daily)
+Ücretsiz üye ol; ücretli paketleri web üzerinden yönet. Uygulama içi satın alma yoktur.
+
+• Atanmış uzmanlarınla mesajlaşma
+• Antrenman programı, beslenme listesi ve takvim
+• Sağlık testi
+• Kalori analizi (metin ve foto)
+• Görüntülü seans
 
 Gizlilik: https://www.yeniform.com/gizlilik-politikasi
-Sözleşme: https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi
+Üyelik sözleşmesi: https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi
+Destek: https://www.yeniform.com
 ```
 
 ## Kategori
 
 Sağlık ve Fitness
 
+## Grafikler
+
+| Varlık | Dosya | Boyut |
+|--------|--------|--------|
+| Feature graphic | `assets/store/google-play-feature-graphic.png` | 1024×500 |
+| Yüksek çözünürlük ikon | `assets/icon.png` | kare (Play 512+) |
+| Telefon screenshot | sen çekersin | 1080×1920 veya 1080×2340 |
+
+Screenshot sırası: [screenshot-checklist.md](screenshot-checklist.md)
+
 ## İletişim e-posta
 
-[PLACEHOLDER]
+`admin@yeniform.com` (Play’de kamu destek adresin farklıysa onu yaz)
+
+## URL’ler
+
+| | URL |
+|--|-----|
+| Destek | https://www.yeniform.com |
+| Gizlilik | https://www.yeniform.com/gizlilik-politikasi |
+| Sözleşme | https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi |

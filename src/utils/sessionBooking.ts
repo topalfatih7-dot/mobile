@@ -1,4 +1,4 @@
-/** Schedule / book-session helpers — LOCK: schedule.md + api-book-session.md */
+import { doctorBookingLimit } from '@/utils/memberPackages';
 
 export type SessionType = 'coach' | 'dietitian' | 'doctor';
 
@@ -57,8 +57,11 @@ export function dietitianMonthlyLimit(packageConfig: Record<string, unknown> = {
   return Number(packageConfig.dietitianMeetingsPerMonth) || 0;
 }
 
-export function doctorMonthlyLimit() {
-  return 1;
+export function doctorMonthlyLimit(
+  packageConfig: Record<string, unknown> = {},
+  member: Record<string, unknown> | null = null,
+) {
+  return doctorBookingLimit(packageConfig, member as never);
 }
 
 export function sessionsKey(type: SessionType): 'coachSessions' | 'dietitianSessions' | 'doctorSessions' {

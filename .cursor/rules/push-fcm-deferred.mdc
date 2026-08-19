@@ -1,25 +1,25 @@
 ---
-description: Push/FCM ertelendi — her sohbette açık iş olarak hatırlat
+description: Push/FCM — dosyalar yerelde; canlı push için EAS rebuild gerekir
 alwaysApply: true
 ---
 
-# Push / FCM — ertelendi (2026-08-17)
+# Push / FCM — dosyalar yerelde (2026-08-17)
 
-Kullanıcı kararı: şimdi yapma; **sonra tamamen halledilecek**. Unutma, uydurma “push hazır” deme.
+Kullanıcı FCM dosyalarını koydu. Git’e girmez. Uydurma “push canlı” deme — **yeni EAS preview binary** olmadan arka plan bildirimi gelmez.
 
-## Bu makinede yok
+## Bu makinede var (kök, gitignore)
 
-- `google-services.json` (Android FCM) — proje kökü
-- `GoogleService-Info.plist` (iOS) — proje kökü
+- `google-services.json` — Android, paket `com.yeniform.app`
+- `GoogleService-Info.plist` — iOS, bundle `com.yeniform.app`
 
-Dosyasız APK kurulur; **arka plan bildirimi / Expo push token çalışmaz**. Adımlar: `SETUP_REQUIRED.md`.
+`app.config.js` preview/production’da `googleServicesFile` bağlar (dev variant `.dev` paketinde yok). `.easignore` bu iki dosyayı EAS’e yükler.
 
 ## Her sohbette
 
-Kısa hatırlat: **açık iş — Push/FCM dosyaları yok; kullanıcı “halledelim” deyince SETUP_REQUIRED + EAS preview rebuild.**
+Kısa hatırlat: **açık iş — FCM dosyaları yerelde; canlı push için onaylı EAS preview rebuild** (`build:preview:android` / `build:preview:ios`). iOS ayrıca cihaz kaydı + Apple Developer.
 
 ## Yapma
 
-- Dosya yokken push’u tamamlandı sayma
+- Rebuild olmadan push’u tamamlandı sayma
 - Firebase/Gradle snippet yapıştırma (Expo managed)
-- Kullanıcı istemeden FCM kurulum turuna girme
+- Dosyaları git’e ekleme / commit etme

@@ -32,7 +32,9 @@ module.exports = () => {
   const expo = { ...(appJson.expo || {}) };
   const isDev = isDevVariant();
   const googleServicesPath = path.join(__dirname, 'google-services.json');
+  const googleServicesIosPath = path.join(__dirname, 'GoogleService-Info.plist');
   const hasGoogleServices = fs.existsSync(googleServicesPath);
+  const hasGoogleServicesIos = fs.existsSync(googleServicesIosPath);
 
   const { splash: _splash, ...rest } = expo;
   const android = { ...(rest.android || {}) };
@@ -45,14 +47,20 @@ module.exports = () => {
     android.package = 'com.yeniform.app.dev';
     ios.bundleIdentifier = 'com.yeniform.app.dev';
     delete android.googleServicesFile;
-  } else if (hasGoogleServices) {
-    android.package = 'com.yeniform.app';
-    ios.bundleIdentifier = 'com.yeniform.app';
-    android.googleServicesFile = './google-services.json';
+    delete ios.googleServicesFile;
   } else {
     android.package = 'com.yeniform.app';
     ios.bundleIdentifier = 'com.yeniform.app';
-    delete android.googleServicesFile;
+    if (hasGoogleServices) {
+      android.googleServicesFile = './google-services.json';
+    } else {
+      delete android.googleServicesFile;
+    }
+    if (hasGoogleServicesIos) {
+      ios.googleServicesFile = './GoogleService-Info.plist';
+    } else {
+      delete ios.googleServicesFile;
+    }
   }
 
   return {

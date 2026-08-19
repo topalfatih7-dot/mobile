@@ -50,8 +50,15 @@
       }
     },
     "preview-store": {
+      "extends": "play-store"
+    },
+    "play-store": {
       "extends": "preview",
       "distribution": "store",
+      "developmentClient": false,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "simulator": false
       }
@@ -65,6 +72,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "play-store": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed",
+        "changesNotSentForReview": true
+      }
+    }
   }
 }

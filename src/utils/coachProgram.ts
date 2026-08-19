@@ -52,6 +52,22 @@ export function entryToDisplayText(e: Record<string, unknown>) {
 }
 
 /** Workout programlarındaki benzersiz exerciseId listesi (koç + AI). */
+export const LIBRARY_CATALOG_SOURCE = 'library_catalog';
+
+export function isLibraryCatalogProgram(program?: Record<string, unknown> | null) {
+  if (!program) return false;
+  return program.source === LIBRARY_CATALOG_SOURCE || program.fullLibraryAccess === true;
+}
+
+/** Üye bayrağı veya kütüphane kataloğu programı — web `hasFullLibraryAccess` parity. */
+export function hasFullLibraryAccess(
+  member?: Record<string, unknown> | null,
+  programs: Record<string, unknown>[] = [],
+) {
+  if (member?.fullLibraryAccess === true) return true;
+  return (programs || []).some(isLibraryCatalogProgram);
+}
+
 export function collectProgramExerciseIds(programs: Record<string, unknown>[] = []): string[] {
   const ids = new Set<string>();
   for (const program of programs || []) {

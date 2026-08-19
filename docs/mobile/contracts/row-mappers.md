@@ -16,7 +16,9 @@ Columns + `data` merge; then `syncMemberPackages`:
 
 id, email, name, role, active + `normalizeStaffProfile(data)` (availability, bio, tempPasswordIssued, …)
 
-## Program
+## Plan (`rowToPlan`)
+
+Web `supabaseDb.rowToPlan`: id, name, price, period, isActive, isSellable, billingType, entitlements (`normalizeEntitlements`), pricingTiers, badge, features, limits, color, icon, emoji, sortOrder.
 
 `{ ...data, id, memberId, staffId }`
 

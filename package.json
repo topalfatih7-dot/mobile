@@ -14,6 +14,8 @@
     "build:preview": "npx eas build --profile preview --platform all",
     "build:preview:android": "npx eas build --profile preview --platform android",
     "build:preview:ios": "npx eas build --profile preview --platform ios",
+    "build:play:android": "npx eas build --profile play-store --platform android",
+    "submit:play:android": "npx eas submit --profile play-store --platform android",
     "eas:preview-env": "node scripts/push-eas-preview-env.mjs"
   },
   "dependencies": {

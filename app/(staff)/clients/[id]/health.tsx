@@ -118,13 +118,19 @@ function Chips({
 const AVATAR_BG: Record<string, string> = {
   vip: colors.gold[400],
   spor: colors.brand[500],
+  eko_spor: colors.brand[500],
   diyet: colors.sage[500],
+  eko_diyet: colors.sage[500],
+  eko: colors.sage[500],
 };
 
 const PLAN_BADGE: Record<string, { bg: string; fg: string }> = {
   vip: { bg: colors.gold[400], fg: colors.white },
   spor: { bg: colors.brand[100], fg: colors.brand[700] },
+  eko_spor: { bg: colors.brand[100], fg: colors.brand[700] },
   diyet: { bg: colors.sage[100], fg: colors.sage[700] },
+  eko_diyet: { bg: colors.sage[100], fg: colors.sage[700] },
+  eko: { bg: colors.sage[100], fg: colors.sage[700] },
 };
 
 const GENDER_TR: Record<string, string> = { female: 'Kadın', male: 'Erkek' };

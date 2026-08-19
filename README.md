@@ -2,13 +2,23 @@
 
 Expo SDK **56** (`expo-router`). Ürün kilidi: `docs/mobile/IMPLEMENTATION-LOCK.md`.
 
+## Play Store (Android AAB)
+
+Sideload APK Play’e gitmez. Yayın adımları (senin işin): [`docs/mobile/store/android-play-store.md`](docs/mobile/store/android-play-store.md)
+
+```bash
+npm run build:play:android
+```
+
+Onaysız `eas build` / Submit yok.
+
 ## Telefonda test (Metro / `expo start` YOK)
 
 İndirdiğiniz APK kendi başına açılır. Development client (QR + Metro) bu yol değildir.
 
 1. Telefonda eski **Yeni Form** uygulamasını silin (imza/paket çakışması).
 2. Bilinmeyen kaynaklardan kurulum izni verin.
-3. EAS **preview** APK indirin (`.apk` — `.aab` değil):
+3. EAS **preview** APK indirin (`.apk` — Play `.aab` değil):
 
 ```bash
 npm install

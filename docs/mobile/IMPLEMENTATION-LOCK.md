@@ -24,7 +24,7 @@ Bu dosya, uygulayıcı yapay zeka / geliştirici için **zorunlu** kurallardır.
 |--------|-------|
 | `contracts/*` body/response | Yeni `/api/foo` |
 | `supabase-tables.md` + mapper key’leri | `members.data.xyz` icat |
-| Plan id: free\|eko\|diyet\|spor\|doktor\|vip | gumus/altin UI’da birincil id (legacy map yalnızca query’de) |
+| Plan id: free\|eko\|eko_diyet\|eko_spor\|diyet\|spor\|doktor\|vip (`eko` eski, satış kapalı) | gumus/altin UI’da birincil id (legacy map yalnızca query’de: gumus→eko_diyet) |
 
 ## 3. Ödeme
 

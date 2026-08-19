@@ -106,10 +106,10 @@ const PLAN_RANK = Object.fromEntries(PLAN_IDS.map((id, i) => [id, i]))
 /** Geriye dönük plan id → sıra (resolvePrimaryMembership) */
 export const LEGACY_PLAN_RANK = {
   gumus: 1,
-  altin: 4,
-  kurucu: 4,
-  platinum: 5,
-  premium: 5,
+  altin: 6,
+  kurucu: 6,
+  platinum: 7,
+  premium: 7,
 }
 
 export function planRank(planId) {
@@ -281,8 +281,8 @@ export function doctorLimitIsOneTime(packageConfig = {}) {
   return (Number(packageConfig.doctorSessionsTotal) || 0) > 0
 }
 
-const PHOTO_CALORIE_PLANS = new Set(['diyet', 'spor', 'vip', 'platinum', 'premium'])
-const FULL_VIDEO_PLANS = new Set(['spor', 'vip', 'platinum', 'premium'])
+const PHOTO_CALORIE_PLANS = new Set(['eko_diyet', 'eko_spor', 'diyet', 'spor', 'vip', 'platinum', 'premium'])
+const FULL_VIDEO_PLANS = new Set(['eko_spor', 'spor', 'vip', 'platinum', 'premium'])
 const MANUAL_CALORIE_EXCLUDE = new Set(['free', 'doktor', 'kurucu'])
 
 /** Aktif paketler + birleşik config */

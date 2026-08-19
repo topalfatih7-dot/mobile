@@ -1,6 +1,7 @@
 /**
  * Row mappers — docs/mobile/contracts/row-mappers.md
  */
+import { normalizeEntitlements, type PlanCatalogEntry } from '@/data/membershipPlans';
 import { syncMemberPackages } from '@/utils/memberPackages';
 
 const MEMBER_COLUMN_KEYS = [
@@ -165,19 +166,39 @@ export function rowToActivity(row: Record<string, unknown>) {
   };
 }
 
-export function rowToPlan(row: Record<string, unknown>) {
+export function rowToPlan(row: Record<string, unknown>): PlanCatalogEntry {
+  const knownSellable = ['eko_diyet', 'diyet', 'eko_spor', 'spor', 'doktor', 'vip'];
+  const id = String(row.id || '');
+  const isSellable =
+    row.is_sellable == null
+      ? knownSellable.includes(id) || (id !== 'free' && Number(row.price) > 0)
+      : row.is_sellable === true;
+  const entRaw =
+    row.entitlements && typeof row.entitlements === 'object' && !Array.isArray(row.entitlements)
+      ? (row.entitlements as Record<string, unknown>)
+      : {};
+  const hasEnt = Object.keys(entRaw).length > 0;
+  const tiers = Array.isArray(row.pricing_tiers)
+    ? (row.pricing_tiers as PlanCatalogEntry['pricingTiers'])
+    : [];
   return {
-    id: row.id,
-    name: row.name,
-    price: row.price,
-    period: row.period,
-    isActive: row.is_active,
-    badge: row.badge || null,
-    features: row.features || [],
-    limits: row.limits || [],
-    pricingTiers: row.pricing_tiers || [],
-    color: row.color || 'sage',
-    sortOrder: row.sort_order || 0,
+    id,
+    name: row.name != null ? String(row.name) : undefined,
+    price: Number(row.price) || 0,
+    period: row.period != null ? String(row.period) : undefined,
+    isActive: row.is_active !== false,
+    badge: (row.badge as string | null) || null,
+    features: Array.isArray(row.features) ? row.features : [],
+    limits: Array.isArray(row.limits) ? row.limits : [],
+    pricingTiers: tiers,
+    color: row.color != null ? String(row.color) : 'sage',
+    icon: (row.icon as string | null) || null,
+    emoji: (row.emoji as string | null) || null,
+    isSellable,
+    billingType:
+      row.billing_type === 'one_time' || id === 'doktor' ? 'one_time' : 'recurring',
+    entitlements: hasEnt ? normalizeEntitlements(entRaw) : normalizeEntitlements({}),
+    sortOrder: Number(row.sort_order) || 0,
   };
 }
 

@@ -25,7 +25,7 @@ Query params:
 
 | Param | Davranış |
 |-------|----------|
-| `plan` | `resolvePlanFromQuery`: legacy map gumus→eko, altin→doktor, platinum→vip, premium→vip, kurucu→doktor; değilse PLAN_IDS veya `free` |
+| `plan` | `resolvePlanFromQuery`: legacy map eko/gumus→eko_diyet, altin→doktor, platinum/premium→vip, kurucu→doktor; değilse PLAN_IDS veya `free` |
 | `months` | 1\|3\|6 ise duration; yoksa recommended plan ise `RECOMMENDED_DURATION_MONTHS` (6), else 1 |
 | `oauth=1` | OAuth partial profile |
 | `payment=cancelled` | Toast info (aşağıdaki metinler) |

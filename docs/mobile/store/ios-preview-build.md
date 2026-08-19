@@ -5,7 +5,7 @@ Bu dosya, Yeni Form **iOS test IPA** alma ve kurma sürecidir. App Store / TestF
 Komut (yalnızca kullanıcı onayından sonra): `npm run build:preview:ios`  
 Profil: `eas.json` → `preview` → `distribution: internal`, `ios.simulator: false`  
 Bundle ID: `com.yeniform.app`  
-EAS proje: owner `yeniform`, `extra.eas.projectId` = `0799a1b3-4e0a-4d73-9961-918878977fbb`
+EAS proje: owner `yeniforms-team`, `extra.eas.projectId` = `460ad8b4-c94a-4933-885c-be703befe489`
 
 **Build alma.** Kullanıcı açıkça demeden `eas build` / `npm run build:preview:ios` çalıştırma.
 
@@ -149,8 +149,8 @@ Mağaza yayını ayrı: `production` profili + App Store Connect. Listing: `ios-
 
 ## Proje durumu (2026-08-17)
 
-Hazır: `eas.json` preview iOS, bundle ID, privacy string’ler, `UIBackgroundModes: remote-notification`, `expo-notifications`, `ITSAppUsesNonExemptEncryption`, `GoogleService-Info.plist` yerelde.
+Hazır: `eas.json` preview iOS, bundle ID, privacy string’ler, `UIBackgroundModes: remote-notification`, `expo-notifications`, `ITSAppUsesNonExemptEncryption`. `GoogleService-Info.plist` yerelde (`BUNDLE_ID` = `com.yeniform.app`); `app.config.js` preview/production’da `ios.googleServicesFile` bağlar; `.easignore` plist’i EAS’e yükler (git’e girmez).
 
-Build öncesi kod (ayrı tur, kullanıcı onayı): `app.config.js` henüz `ios.googleServicesFile` bağlamıyor; `.easignore` plist’i EAS upload’dan hariç tutuyor. IPA yine çıkar; iOS Firebase native bağlanmaz. Push için asıl kapı yine EAS APNs + kayıtlı cihaz.
+Canlı iOS push: kayıtlı cihaz + onaylı `npm run build:preview:ios` + EAS APNs. Rebuild olmadan eski IPA’da native Firebase bağlanmaz.
 
 Kaynak: [Expo internal distribution](https://docs.expo.dev/build/internal-distribution/), [App credentials](https://docs.expo.dev/app-signing/app-credentials/), [Push setup](https://docs.expo.dev/push-notifications/push-notifications-setup/).

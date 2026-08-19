@@ -17,17 +17,16 @@ description: >-
 
 ## Plan IDs
 
-`free` | `eko` | `diyet` | `spor` | `doktor` | `vip`  
-Durations: 1 / 3 / 6 months (`doktor` = one-time).
+`free` | `eko` (eski) | `eko_diyet` | `eko_spor` | `diyet` | `spor` | `doktor` | `vip`  
+Durations: 1 / 3 / 6 months (`doktor` = one-time). Satış: `eko_diyet` / `eko_spor` (eski tek `eko` kapalı).
 
 ## Gate helpers (parity with web)
 
 From `src/data/membershipPlans.js` — copy into mobile:
 
-- `hasManualCalorieAccess` — not free/doktor/kurucu
-- `hasPhotoCalorieAccess` — diyet, spor, vip (+ legacy platinum/premium)
-- `hasFullVideoAccess` — spor, vip (+ legacy)
-- Package quotas: `PACKAGE_BY_PLAN` / `getDefaultPackageForPlan`
+- `hasManualCalorieAccess` / `hasPhotoCalorieAccess` — DB `plans.entitlements`, yoksa legacy set
+- Kütüphane: ücretli + program-scoped; tam katalog `hasFullLibraryAccess` (web)
+- Package quotas: `PACKAGE_BY_PLAN` / `getDefaultPackageForPlan` (katalog entitlements öncelikli)
 
 ## When coding or documenting
 

@@ -1,18 +1,22 @@
-# P6 Store paket — test kapısı
+# P6 Store paket
 
-## Kod / şablon (bu faz)
+## Kod / şablon
 
 - [x] `ios-listing.tr.md`
 - [x] `android-listing.tr.md`
 - [x] `screenshot-checklist.md`
-- [x] Legal URL’ler: gizlilik + üyelik sözleşmesi (yeniform.com)
+- [x] `android-play-store.md` + `android-play-forms.md`
+- [x] Feature graphic 1024×500
+- [x] Legal URL’ler (yeniform.com)
 
 ## Senin işin
 
-- [ ] Listing metinlerini doldur
-- [ ] Screenshot çek
-- [ ] `eas build --profile preview` → TestFlight / Play internal
-- [ ] Final smoke: login, IAP (keys varsa), push, Daily join, health/calendar
+Android: [`android-play-store.md`](android-play-store.md) — AAB, testers, SHA, listing, formlar, Submit.
+
+- [ ] Screenshot çek (cihaz)
+- [ ] Hesap silme **çalışan** web URL
+- [ ] `npm run build:play:android` (onayınla) → Play Internal/Closed
+- [ ] Smoke: login, web `/plans` CTA, push, Daily, health/calendar — **IAP yok**
 
 ## Legal
 
@@ -22,6 +26,4 @@
 | Terms | https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi |
 | Destek | https://www.yeniform.com |
 
-## Not
-
-Production “Submit for review” ayrı go/no-go — bu kapı internal dağıtıma kadar.
+Production Submit ayrı onay. Preview **APK** Play’e yüklenmez.

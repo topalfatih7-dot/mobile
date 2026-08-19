@@ -1,20 +1,152 @@
-/** Plan ids LOCK: free|eko|diyet|spor|doktor|vip */
+/** Plan ids — web parity: free|eko|eko_diyet|eko_spor|diyet|spor|doktor|vip */
 
-export const PLAN_IDS = ['free', 'eko', 'diyet', 'spor', 'doktor', 'vip'] as const;
+export const PLAN_IDS = [
+  'free',
+  'eko',
+  'eko_diyet',
+  'eko_spor',
+  'diyet',
+  'spor',
+  'doktor',
+  'vip',
+] as const;
 export type PlanId = (typeof PLAN_IDS)[number];
 
-export const PLAN_DISPLAY_ORDER = [...PLAN_IDS];
+/** Satışa açık sıra (eski tek `eko` kapalı) */
+export const PLAN_DISPLAY_ORDER = [
+  'eko_diyet',
+  'diyet',
+  'eko_spor',
+  'spor',
+  'doktor',
+  'vip',
+] as const;
+
+export const SELLABLE_PLAN_IDS = [
+  'eko_diyet',
+  'diyet',
+  'eko_spor',
+  'spor',
+  'doktor',
+  'vip',
+] as const;
 
 export const PLAN_LABELS: Record<string, string> = {
   free: 'Basic',
-  eko: 'Eko Paket',
+  eko: 'Eko Paket (eski)',
+  eko_diyet: 'Eko Diyet Paketi',
+  eko_spor: 'Eko Spor Paketi',
   diyet: 'Diyet Paketi',
   spor: 'Spor Paketi',
   doktor: 'Doktor Paketi',
   vip: 'Vip Paket',
+  kurucu: '100 Kurucu Üye',
+  gumus: 'Gümüş',
+  altin: 'Altın',
+  platinum: 'Platinum',
+  premium: 'Premium',
 };
 
-export const PAID_MEMBERSHIPS = ['eko', 'diyet', 'spor', 'doktor', 'vip'];
+export const PAID_MEMBERSHIPS = [
+  'eko',
+  'eko_diyet',
+  'eko_spor',
+  'diyet',
+  'spor',
+  'doktor',
+  'vip',
+  'kurucu',
+  'gumus',
+  'altin',
+  'platinum',
+  'premium',
+];
+
+export const ADMIN_ASSIGNABLE_PLAN_IDS = [
+  'free',
+  'eko_diyet',
+  'diyet',
+  'eko_spor',
+  'spor',
+  'doktor',
+  'vip',
+];
+
+export type PlanEntitlements = {
+  coachMeetingsPerMonth: number;
+  dietitianMeetingsPerMonth: number;
+  doctorMeetingsPerMonth: number;
+  doctorSessionsTotal: number;
+  photoCalorie: boolean;
+  manualCalorie: boolean;
+  fullVideo?: boolean;
+};
+
+export type PlanCatalogEntry = {
+  id: string;
+  name?: string;
+  price?: number;
+  period?: string;
+  isActive?: boolean;
+  isSellable?: boolean;
+  billingType?: string;
+  entitlements?: Partial<PlanEntitlements> | null;
+  pricingTiers?: { months?: number; price?: number; label?: string }[];
+  sortOrder?: number;
+  badge?: string | null;
+  features?: unknown[];
+  limits?: unknown[];
+  color?: string;
+  icon?: string | null;
+  emoji?: string | null;
+};
+
+/** Runtime plan kataloğu — web AppContext `setPlanCatalog` parity (DB `plans`) */
+let _planCatalog = new Map<string, PlanCatalogEntry>();
+
+export function emptyEntitlements(): PlanEntitlements {
+  return {
+    coachMeetingsPerMonth: 0,
+    dietitianMeetingsPerMonth: 0,
+    doctorMeetingsPerMonth: 0,
+    doctorSessionsTotal: 0,
+    photoCalorie: false,
+    manualCalorie: false,
+  };
+}
+
+export function normalizeEntitlements(raw: Record<string, unknown> = {}): PlanEntitlements {
+  const e = emptyEntitlements();
+  if (!raw || typeof raw !== 'object') return e;
+  e.coachMeetingsPerMonth = Math.max(0, Number(raw.coachMeetingsPerMonth) || 0);
+  e.dietitianMeetingsPerMonth = Math.max(0, Number(raw.dietitianMeetingsPerMonth) || 0);
+  e.doctorMeetingsPerMonth = Math.max(0, Number(raw.doctorMeetingsPerMonth) || 0);
+  e.doctorSessionsTotal = Math.max(0, Number(raw.doctorSessionsTotal) || 0);
+  e.photoCalorie = Boolean(raw.photoCalorie);
+  e.manualCalorie = Boolean(raw.manualCalorie);
+  if (typeof raw.fullVideo === 'boolean') e.fullVideo = raw.fullVideo;
+  return e;
+}
+
+export function setPlanCatalog(plans: PlanCatalogEntry[] = []) {
+  const next = new Map<string, PlanCatalogEntry>();
+  for (const p of plans || []) {
+    if (p?.id) next.set(String(p.id), p);
+  }
+  _planCatalog = next;
+}
+
+export function getPlanFromCatalog(id?: string | null): PlanCatalogEntry | null {
+  if (!id) return null;
+  if (_planCatalog.has(id)) return _planCatalog.get(id) || null;
+  try {
+    const found = ALL_PLANS.find((p) => p.id === id);
+    if (found) return found as PlanCatalogEntry;
+  } catch {
+    /* TDZ */
+  }
+  return null;
+}
 
 export const DURATION_OPTIONS = [
   { months: 1, label: 'Aylık' },
@@ -24,6 +156,8 @@ export const DURATION_OPTIONS = [
 
 export const PLAN_PRICING: Record<string, Record<number, number>> = {
   eko: { 1: 1299, 3: 2999, 6: 3999 },
+  eko_diyet: { 1: 1299, 3: 2999, 6: 3999 },
+  eko_spor: { 1: 1299, 3: 2999, 6: 3999 },
   diyet: { 1: 2499, 3: 6499, 6: 9999 },
   spor: { 1: 2499, 3: 6499, 6: 9999 },
   doktor: { 1: 1500 },
@@ -40,6 +174,9 @@ export type PlanCard = {
   period: string;
   blurb: string;
   color: 'sage' | 'brand' | 'warm' | 'gold' | 'mint';
+  isSellable?: boolean;
+  billingType?: string;
+  entitlements?: PlanEntitlements;
 };
 
 export const ALL_PLANS: PlanCard[] = [
@@ -52,12 +189,21 @@ export const ALL_PLANS: PlanCard[] = [
     color: 'sage',
   },
   {
-    id: 'eko',
-    name: 'Eko Paket',
+    id: 'eko_diyet',
+    name: 'Eko Diyet Paketi',
     price: 1299,
     period: 'Aylık',
-    blurb: 'Kalori, diyet ve spor programı güncellemeleri.',
-    color: 'brand',
+    blurb: 'Ayda 1 diyetisyen görüşmesi + kalori takibi.',
+    color: 'sage',
+    isSellable: true,
+    entitlements: {
+      coachMeetingsPerMonth: 0,
+      dietitianMeetingsPerMonth: 1,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 0,
+      photoCalorie: true,
+      manualCalorie: true,
+    },
   },
   {
     id: 'diyet',
@@ -66,6 +212,33 @@ export const ALL_PLANS: PlanCard[] = [
     period: 'Aylık',
     blurb: 'Ayda 2 diyetisyen görüşmesi + özel beslenme.',
     color: 'mint',
+    isSellable: true,
+    entitlements: {
+      coachMeetingsPerMonth: 0,
+      dietitianMeetingsPerMonth: 2,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 0,
+      photoCalorie: true,
+      manualCalorie: true,
+    },
+  },
+  {
+    id: 'eko_spor',
+    name: 'Eko Spor Paketi',
+    price: 1299,
+    period: 'Aylık',
+    blurb: 'Ayda 1 koç görüşmesi + tam video kütüphanesi.',
+    color: 'brand',
+    isSellable: true,
+    entitlements: {
+      coachMeetingsPerMonth: 1,
+      dietitianMeetingsPerMonth: 0,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 0,
+      photoCalorie: true,
+      manualCalorie: true,
+      fullVideo: true,
+    },
   },
   {
     id: 'spor',
@@ -74,6 +247,16 @@ export const ALL_PLANS: PlanCard[] = [
     period: 'Aylık',
     blurb: 'Ayda 2 koç görüşmesi + özel antrenman.',
     color: 'warm',
+    isSellable: true,
+    entitlements: {
+      coachMeetingsPerMonth: 2,
+      dietitianMeetingsPerMonth: 0,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 0,
+      photoCalorie: true,
+      manualCalorie: true,
+      fullVideo: true,
+    },
   },
   {
     id: 'doktor',
@@ -82,6 +265,16 @@ export const ALL_PLANS: PlanCard[] = [
     period: 'Tek Seferlik',
     blurb: '1 online doktor görüşmesi.',
     color: 'gold',
+    isSellable: true,
+    billingType: 'one_time',
+    entitlements: {
+      coachMeetingsPerMonth: 0,
+      dietitianMeetingsPerMonth: 0,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 1,
+      photoCalorie: false,
+      manualCalorie: false,
+    },
   },
   {
     id: 'vip',
@@ -90,23 +283,46 @@ export const ALL_PLANS: PlanCard[] = [
     period: 'Aylık',
     blurb: 'Koç + diyetisyen + doktor desteği tek planda.',
     color: 'brand',
+    isSellable: true,
+    entitlements: {
+      coachMeetingsPerMonth: 2,
+      dietitianMeetingsPerMonth: 2,
+      doctorMeetingsPerMonth: 0,
+      doctorSessionsTotal: 0,
+      photoCalorie: true,
+      manualCalorie: true,
+      fullVideo: true,
+    },
   },
 ];
 
 export function sortPlansForDisplay<T extends { id: string }>(plans: T[] = []): T[] {
   return [...plans].sort((a, b) => {
-    const ia = PLAN_DISPLAY_ORDER.indexOf(a.id as PlanId);
-    const ib = PLAN_DISPLAY_ORDER.indexOf(b.id as PlanId);
+    const ia = (PLAN_DISPLAY_ORDER as readonly string[]).indexOf(a.id);
+    const ib = (PLAN_DISPLAY_ORDER as readonly string[]).indexOf(b.id);
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   });
 }
 
-export function getTierPrice(planId: string, months = 1): number {
+export function getTierPrice(planId: string, months = 1, planRow: PlanCatalogEntry | null = null): number {
   if (planId === 'free') return 0;
-  const tiers = PLAN_PRICING[planId];
-  if (!tiers) return 0;
   const m = Number(months) || 1;
-  return tiers[m] || tiers[1] || 0;
+  const plan = planRow || (_planCatalog.size ? _planCatalog.get(planId) || null : null);
+  if (plan) {
+    const tiers = plan.pricingTiers || [];
+    if (Array.isArray(tiers) && tiers.length) {
+      const tier = tiers.find((t) => Number(t.months) === m);
+      if (tier != null && tier.price != null && Number(tier.price) > 0) return Number(tier.price);
+      if (m === 1) {
+        const first = tiers.find((t) => Number(t.price) > 0);
+        if (first) return Number(first.price);
+      }
+    }
+    if (Number(plan.price) > 0 && (m === 1 || !tiers.length)) return Number(plan.price);
+  }
+  const hardcoded = PLAN_PRICING[planId];
+  if (!hardcoded) return 0;
+  return hardcoded[m] || hardcoded[1] || 0;
 }
 
 export function formatTry(amount: number): string {
@@ -115,25 +331,52 @@ export function formatTry(amount: number): string {
 }
 
 export function isPaidMembership(id?: string | null) {
-  return PAID_MEMBERSHIPS.includes(id || '');
+  if (!id || id === 'free') return false;
+  if (PAID_MEMBERSHIPS.includes(id)) return true;
+  const plan = getPlanFromCatalog(id);
+  if (plan) return Number(plan.price) > 0 || plan.isSellable === true;
+  return true;
 }
 
 export function getPlanLabel(id?: string | null) {
+  const plan = getPlanFromCatalog(id);
+  if (plan?.name) return plan.name;
   return PLAN_LABELS[id || ''] || id || 'Basic';
 }
 
-/** Query legacy map — LOCK onboarding */
+export function getMembershipBadgeTier(membership?: string | null) {
+  if (
+    membership === 'eko' ||
+    membership === 'eko_diyet' ||
+    membership === 'eko_spor' ||
+    membership === 'gumus'
+  ) {
+    return 'silver';
+  }
+  if (membership === 'doktor' || membership === 'kurucu') return 'silver';
+  if (membership === 'diyet' || membership === 'spor' || membership === 'altin') return 'gold';
+  if (membership === 'vip' || membership === 'platinum' || membership === 'premium') {
+    return 'platinum';
+  }
+  return 'free';
+}
+
+/** Query legacy map — web OnboardingPage LEGACY_PLAN_MAP */
 export function resolvePlanFromQuery(raw?: string | null): string {
   const v = (raw || 'free').toLowerCase().trim();
+  if (v === 'free') return 'free';
   const legacy: Record<string, string> = {
-    gumus: 'eko',
+    eko: 'eko_diyet',
+    gumus: 'eko_diyet',
     altin: 'doktor',
     platinum: 'vip',
     premium: 'vip',
     kurucu: 'doktor',
   };
   const mapped = legacy[v] || v;
-  return PLAN_IDS.includes(mapped as PlanId) ? mapped : 'free';
+  if ((PLAN_IDS as readonly string[]).includes(mapped)) return mapped;
+  if ((SELLABLE_PLAN_IDS as readonly string[]).includes(mapped)) return mapped;
+  return 'free';
 }
 
 export const DEFAULT_PACKAGE = {
@@ -148,8 +391,10 @@ export const DEFAULT_PACKAGE = {
 
 const PACKAGE_BY_PLAN: Record<string, Record<string, number | string>> = {
   eko: { coachMeetingsPerMonth: 0, dietitianMeetingsPerMonth: 0, doctorMeetingsPerMonth: 0 },
-  diyet: { coachMeetingsPerMonth: 0, dietitianMeetingsPerMonth: 2, doctorMeetingsPerMonth: 1 },
-  spor: { coachMeetingsPerMonth: 2, dietitianMeetingsPerMonth: 0, doctorMeetingsPerMonth: 1 },
+  eko_diyet: { coachMeetingsPerMonth: 0, dietitianMeetingsPerMonth: 1, doctorMeetingsPerMonth: 0 },
+  eko_spor: { coachMeetingsPerMonth: 1, dietitianMeetingsPerMonth: 0, doctorMeetingsPerMonth: 0 },
+  diyet: { coachMeetingsPerMonth: 0, dietitianMeetingsPerMonth: 2, doctorMeetingsPerMonth: 0 },
+  spor: { coachMeetingsPerMonth: 2, dietitianMeetingsPerMonth: 0, doctorMeetingsPerMonth: 0 },
   doktor: {
     coachMeetingsPerMonth: 0,
     dietitianMeetingsPerMonth: 0,
@@ -157,10 +402,92 @@ const PACKAGE_BY_PLAN: Record<string, Record<string, number | string>> = {
     doctorSessionsTotal: 1,
     billingType: 'one_time',
   },
-  vip: { coachMeetingsPerMonth: 2, dietitianMeetingsPerMonth: 2, doctorMeetingsPerMonth: 1 },
+  vip: { coachMeetingsPerMonth: 2, dietitianMeetingsPerMonth: 2, doctorMeetingsPerMonth: 0 },
+  kurucu: { coachMeetingsPerMonth: 2, dietitianMeetingsPerMonth: 2, doctorMeetingsPerMonth: 0 },
+  gumus: {
+    coachMeetingsPerMonth: 0,
+    dietitianMeetingsPerMonth: 1,
+    doctorMeetingsPerMonth: 0,
+    coachMeetingsPerWeek: 1,
+  },
+  altin: {
+    coachMeetingsPerMonth: 2,
+    dietitianMeetingsPerMonth: 2,
+    doctorMeetingsPerMonth: 0,
+    coachMeetingsPerWeek: 2,
+  },
+  platinum: {
+    coachMeetingsPerMonth: 4,
+    dietitianMeetingsPerMonth: 4,
+    doctorMeetingsPerMonth: 0,
+    coachMeetingsPerWeek: 3,
+  },
+  premium: {
+    coachMeetingsPerMonth: 2,
+    dietitianMeetingsPerMonth: 2,
+    doctorMeetingsPerMonth: 0,
+    coachMeetingsPerWeek: 2,
+  },
 };
 
-export function getDefaultPackageForPlan(planId: string, durationMonths = 1) {
+const PHOTO_CALORIE_PLANS = new Set([
+  'eko_diyet',
+  'eko_spor',
+  'diyet',
+  'spor',
+  'vip',
+  'platinum',
+  'premium',
+]);
+const MANUAL_CALORIE_EXCLUDE = new Set(['free', 'doktor', 'kurucu']);
+const FULL_VIDEO_PLANS = new Set(['eko_spor', 'spor', 'vip', 'platinum', 'premium']);
+
+function planHasEntitlementFlags(plan?: PlanCatalogEntry | null) {
+  const e = plan?.entitlements;
+  if (!e || typeof e !== 'object') return false;
+  return (
+    Number(e.coachMeetingsPerMonth) > 0 ||
+    Number(e.dietitianMeetingsPerMonth) > 0 ||
+    Number(e.doctorMeetingsPerMonth) > 0 ||
+    Number(e.doctorSessionsTotal) > 0 ||
+    e.photoCalorie === true ||
+    e.manualCalorie === true
+  );
+}
+
+export function entitlementsToPackageConfig(
+  entitlements: Partial<PlanEntitlements> = {},
+  billingType = 'recurring',
+  durationMonths = 1,
+) {
+  const e = normalizeEntitlements(entitlements as Record<string, unknown>);
+  const oneTime = billingType === 'one_time';
+  const months = Number(durationMonths) || 1;
+  return {
+    ...DEFAULT_PACKAGE,
+    coachMeetingsPerMonth: e.coachMeetingsPerMonth,
+    dietitianMeetingsPerMonth: e.dietitianMeetingsPerMonth,
+    doctorMeetingsPerMonth: e.doctorMeetingsPerMonth,
+    ...(e.doctorSessionsTotal > 0 ? { doctorSessionsTotal: e.doctorSessionsTotal } : {}),
+    ...(oneTime
+      ? { billingType: 'one_time', durationMonths: 0, durationWeeks: 0 }
+      : { durationMonths: months, durationWeeks: months * 4 }),
+    addOns: [] as unknown[],
+  };
+}
+
+export function getDefaultPackageForPlan(
+  planId: string,
+  durationMonths = 1,
+  planRow: PlanCatalogEntry | null = null,
+) {
+  const plan = planRow || getPlanFromCatalog(planId);
+  if (plan && planHasEntitlementFlags(plan)) {
+    const billing =
+      plan.billingType ||
+      (planId === 'doktor' || plan.period === 'Tek Seferlik' ? 'one_time' : 'recurring');
+    return entitlementsToPackageConfig(plan.entitlements || {}, billing, durationMonths);
+  }
   if (planId === 'doktor') {
     return {
       ...DEFAULT_PACKAGE,
@@ -219,8 +546,43 @@ export function dietitianMonthlyLimit(packageConfig: Record<string, unknown> = {
   return Number(packageConfig.dietitianMeetingsPerMonth) || 0;
 }
 
+export function hasPhotoCalorieAccess(membership?: string | null) {
+  const plan = getPlanFromCatalog(membership);
+  if (plan && typeof plan.entitlements?.photoCalorie === 'boolean') {
+    return plan.entitlements.photoCalorie;
+  }
+  return PHOTO_CALORIE_PLANS.has(membership || '');
+}
+
+export function hasManualCalorieAccess(membership?: string | null) {
+  const plan = getPlanFromCatalog(membership);
+  if (plan && typeof plan.entitlements?.manualCalorie === 'boolean') {
+    return plan.entitlements.manualCalorie;
+  }
+  const id = membership || '';
+  if (!id || MANUAL_CALORIE_EXCLUDE.has(id)) return false;
+  return id !== 'free';
+}
+
 export function hasFullVideoAccess(membership?: string | null) {
-  return ['spor', 'vip', 'platinum', 'premium'].includes(membership || '');
+  const plan = getPlanFromCatalog(membership);
+  if (plan && typeof plan.entitlements?.fullVideo === 'boolean') {
+    return plan.entitlements.fullVideo;
+  }
+  return FULL_VIDEO_PLANS.has(membership || '');
+}
+
+export function memberNeedsStaffAssignment(member?: {
+  packageConfig?: Record<string, unknown>;
+  assignedCoachId?: string | null;
+  assignedDietitianId?: string | null;
+  assignedDoctorId?: string | null;
+} | null) {
+  const pkg = member?.packageConfig || {};
+  const needsCoach = packageIncludesCoach(pkg) && !member?.assignedCoachId;
+  const needsDiet = packageIncludesDietitian(pkg) && !member?.assignedDietitianId;
+  const needsDoctor = packageIncludesDoctor(pkg) && !member?.assignedDoctorId;
+  return needsCoach || needsDiet || needsDoctor;
 }
 
 export function sanitizeSessionsForRole(sessions: unknown[] = [], keepRole: boolean) {

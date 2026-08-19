@@ -1,8 +1,18 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-17 — ölü kod temizliği; admin web-only; SKIP rotalar kaldırıldı  
+> **Son güncelleme:** 2026-08-19 — Android Play Store AAB profili + listing/runbook (Submit kullanıcı)  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-19 Android Play Store hazırlık
+
+| Madde | Durum |
+|-------|--------|
+| `eas.json` `play-store` AAB (`app-bundle`, preview env) | ✅ |
+| `preview-store` APK tuzağı kapatıldı | ✅ |
+| `AD_ID` blocked; Android 13+ Photo Picker | ✅ |
+| Listing + feature graphic 1024×500 + form şablonu | ✅ |
+| Kullanıcı: Play app, testers, SHA, screenshot, hesap silme URL, EAS build, Submit | ⬜ |
 
 ## 2026-08-17 Ürün kararları + tarama
 
@@ -14,7 +24,8 @@
 | Kayıt: tek adım ücretsiz; Stepper/SocialAuthButtons | ✅ silindi |
 | LOCK / COMPLETE / nav / inventory / QA drift | ✅ MOBILE DIFF |
 | IAP/RevenueCat doc artıkları | ✅ web Stripe |
-| FCM `google-services.json` / iOS plist | ⏸ ertelendi — her sohbette hatırlat (`.cursor/rules/push-fcm-deferred.mdc`) |
+| FCM `google-services.json` / iOS plist | ✅ yerelde `com.yeniform.app`; gitignore; canlı push = EAS rebuild |
+| `eko_diyet` / `eko_spor` kapı | ✅ `isPaidMembership` + DB `plans` katalog + kota/kalori web parity |
 
 ## 2026-08-16 Standalone preview (expo start yok)
 
@@ -200,7 +211,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | Madde | Durum |
 |-------|--------|
 | Docs cleanup (`docs/` kök kopyaları silindi; otorite `docs/mobile/`) | ✅ |
-| FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ Android: `google-services.json` yerelde + `app.json`; iOS plist USER |
+| FCM `app.json` (`android.googleServicesFile` + `expo-notifications` plugin) | ✅ Android + iOS dosyalar yerelde; `app.config.js` `googleServicesFile` |
 | RevenueCat test key + Paywall / CustomerCenter | ⛔ IAP kaldırıldı (2026-08-08) |
 | `shadow*` → `boxShadow` + `pointerEvents` style migrasyonu | ✅ |
 | Library virtualization + admin members pagination | ✅ |
@@ -208,13 +219,13 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | Push permission prompt + camera/mic gate (video call) | ✅ |
 | `npx tsc --noEmit` | ✅ 0 hata |
 | `npx expo export --platform web` | ✅ bundle |
-| EAS `whoami` | ✅ `yeniform` / logged in |
+| EAS `whoami` | ✅ `yeniform` (Owner) + org `yeniforms-team` |
 | EAS profiles (`development`, `preview`, `production`) + `projectId` | ✅ |
 
 **Kalan USER blockers:**
 1. ~~Android `google-services.json`~~ — yerelde var (`com.yeniform.app`); git’e girmez
-2. iOS `GoogleService-Info.plist` — iOS preview için (`SETUP_REQUIRED.md`)
-3. Cihazda EAS preview: `npm run build:preview:android` (bu tur) / iOS ayrı
+2. ~~iOS `GoogleService-Info.plist`~~ — yerelde var (`com.yeniform.app`); git’e girmez
+3. Cihazda EAS preview rebuild: `build:preview:android` / iOS: önce `eas device:create`
 
 ## Store yolu (üye)
 
@@ -228,7 +239,7 @@ Kapsamlı native audit + store hazırlık turu özeti:
 | P5 Parity | ✅ messages presence/programs | `store/P5-parity-gate.md` |
 | P6 Store | ✅ listing şablon | `store/P6-store-gate.md` |
 
-EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
+EAS `projectId`: `460ad8b4-c94a-4933-885c-be703befe489` (owner: yeniforms-team; 2026-08-19 Android kota için kişisel `yeniform` hesabından bağlandı)
 
 ## Durum
 
@@ -346,7 +357,7 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Kalan doğrulanmış GAP’ler (blocked — karar / env)
 
-1. **FCM dosyaları:** `google-services.json` + `GoogleService-Info.plist` yerelde (`com.yeniform.app`); git’e girmez. iOS `googleServicesFile` / `.easignore` plist upload ayrı tur. Preview build yalnızca kullanıcı onayıyla.
+1. **FCM dosyaları:** `google-services.json` + `GoogleService-Info.plist` yerelde (`com.yeniform.app`); git’e girmez. `app.config.js` + `.easignore` EAS upload bağlı. Canlı push = onaylı preview rebuild.
 2. **Push cihaz smoke:** yeni preview binary + `device_push_tokens`
 3. **EAS preview iOS:** ad hoc — önce `eas device:create`, sonra onaylı `npm run build:preview:ios`. Runbook: [`mobile/store/ios-preview-build.md`](./mobile/store/ios-preview-build.md)
 4. **Public `+not-found`:** inventory’de var, rota yok
@@ -354,6 +365,6 @@ EAS `projectId`: `0799a1b3-4e0a-4d73-9961-918878977fbb` (owner: yeniform)
 
 ## Sonraki
 
-1. Android preview APK kur + üye login push smoke
-2. iOS plist + `build:preview:ios` (ayrı)
+1. Android preview APK rebuild + üye login push smoke
+2. iOS: `eas device:create` sonra `build:preview:ios`
 3. Ödeme: native IAP yok — web `/plans` CTA

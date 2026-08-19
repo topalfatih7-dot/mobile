@@ -32,7 +32,7 @@ Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygul
 ## Yazım standardı
 
 - “Kaynağa bakın” tek başına yeterli değil — davranış burada gömülü
-- Paket kapıları: `free\|eko\|diyet\|spor\|doktor\|vip`
+- Paket kapıları: `free\|eko\|eko_diyet\|eko_spor\|diyet\|spor\|doktor\|vip`
 - JSON örnekleri contracts altında
 - Skills ile çapraz: uygulama işi → `yeniform-expo-app`; spec güncelleme → `yeniform-mobile-spec`
 
@@ -40,4 +40,4 @@ Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygul
 
 - Expo + Expo Router  
 - Üye + Staff + Admin  
-- Ödeme: RevenueCat IAP (mobil) + Stripe (web); entitlement Supabase  
+- Ödeme: web Stripe (mobil IAP yok); entitlement Supabase  

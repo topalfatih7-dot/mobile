@@ -1,5 +1,5 @@
-# EAS upload ignore — gitignore ile aynı, AMA google-services.json yüklenir.
-# Git’e girmez; Android FCM için EAS prebuild dosyayı görmeli.
+# EAS upload ignore — gitignore ile aynı, AMA FCM dosyaları yüklenir.
+# Git’e girmez; Android/iOS FCM için EAS prebuild dosyayı görmeli.
 
 node_modules/
 .expo/
@@ -17,9 +17,6 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
-
-# iOS FCM — app.json henüz googleServicesFile iOS göstermiyor
-GoogleService-Info.plist
 
 /ios
 /android

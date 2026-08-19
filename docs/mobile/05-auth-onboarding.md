@@ -67,7 +67,7 @@ OAuth: bağlı e-posta bandı; şifre alanları gizli.
 
 ### Step 1 — Üyelik
 
-- Plan kartları: free, eko, diyet, spor, doktor, vip  
+- Plan kartları: free, eko_diyet, diyet, eko_spor, spor, doktor, vip  
 - DurationPicker 1/3/6 (doktor hariç)  
 - Turnstile  
 - free → `register`  

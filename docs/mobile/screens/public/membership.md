@@ -16,7 +16,7 @@
 
 - Logged-out / incomplete → `/onboarding?plan={id}&months={n}`
 - Logged-in registered member → onboarding PlanChangeView or `/onboarding?plan=`
-- Do not invent plan ids beyond free|eko|diyet|spor|doktor|vip
+- Do not invent plan ids beyond free|eko|eko_diyet|eko_spor|diyet|spor|doktor|vip
 
 ## Mobile paid
 

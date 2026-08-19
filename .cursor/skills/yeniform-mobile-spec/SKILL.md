@@ -60,7 +60,7 @@ E2E: actors → steps → APIs → DB writes → failure branches → acceptance
 ## Quality bar
 
 - [ ] JSON request/response examples (happy + 1 error)
-- [ ] Membership IDs for locks (`free|eko|diyet|spor|doktor|vip`)
+- [ ] Membership IDs for locks (`free|eko|eko_diyet|eko_spor|diyet|spor|doktor|vip`)
 - [ ] No “bakınız src/…” as sole instruction
 - [ ] Turkish UI strings for CTAs/errors where critical
 

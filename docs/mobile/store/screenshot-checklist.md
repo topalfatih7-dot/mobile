@@ -12,7 +12,8 @@
 
 | Tip | Öneri | Durum |
 |-----|-------|-------|
-| Telefon | 1080×1920 veya 1080×2340 | ⬜ |
+| Feature graphic | 1024×500 — `assets/store/google-play-feature-graphic.png` | ✅ |
+| Telefon screenshot | 1080×1920 veya 1080×2340 | ⬜ sen çekersin |
 | 7" tablet (opsiyonel) | — | ⬜ |
 
 ## Ekran önerisi (üye)

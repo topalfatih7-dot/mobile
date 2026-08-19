@@ -12,7 +12,7 @@
 | payments | member_id, data JSONB |
 | site_content | kind, sort, data |
 | exercises | metadata + video_url path, locations[], requires_machine |
-| plans | pricing_tiers jsonb, features |
+| plans | `pricing_tiers`, `entitlements` jsonb, `is_sellable`, `billing_type` |
 | staff_applications / corporate_applications / contact_inquiries | intake |
 | chat_threads / chat_messages | member-staff chat |
 | admin_staff_* / staff_collab_* | other chats |

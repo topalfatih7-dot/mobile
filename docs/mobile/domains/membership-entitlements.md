@@ -7,10 +7,18 @@
 - 48 saat deneme programları; temel video; sağlık analizi  
 - Yok: koç/diyet görüşmesi, manuel/foto kalori (kapı fonksiyonlarına göre)
 
-### eko
+### eko (eski — satış kapalı)
 - Görüşme: 0/0/0  
 - Manuel kalori: evet · Foto: hayır · Tam video: hayır (sınırlı)  
-- AI program yenilemeleri (eko)
+- AI program yenilemeleri (yalnız `membership === 'eko'`)
+
+### eko_diyet
+- Ayda 1 diyetisyen  
+- Manuel + foto kalori · Tam video: hayır  
+
+### eko_spor
+- Ayda 1 koç  
+- Manuel + foto kalori · Tam video  
 
 ### diyet
 - Ayda 2 diyetisyen; doktor alanı paket config’de  
@@ -28,28 +36,33 @@
 - Ayda 2 koç + 2 diyetisyen  
 - Manuel + foto · Tam video · VIP rozet  
 
-## Kapı fonksiyonları (mobil kopyala)
+## Kapı fonksiyonları (web + DB katalog)
+
+Runtime SoT: `public.plans.entitlements` (hydrate `setPlanCatalog`). Yoksa fallback:
 
 ```
+isPaidMembership: free değil + PAID_MEMBERSHIPS veya katalog fiyat/isSellable
+
 hasManualCalorieAccess(m):
-  false if m in (free, doktor, kurucu); else true
+  katalog entitlements.manualCalorie; yoksa false if m in (free, doktor, kurucu)
 
 hasPhotoCalorieAccess(m):
-  m in (diyet, spor, vip, platinum, premium)
+  katalog entitlements.photoCalorie; yoksa eko_diyet, eko_spor, diyet, spor, vip, platinum, premium
 
-hasFullVideoAccess(m):
-  m in (spor, vip, platinum, premium)
+Kütüphane: UnpaidMemberGate + program-scoped. Tam katalog: fullLibraryAccess / library_catalog (web). fullVideo entitlement listeyi açmaz.
 ```
 
 ## PACKAGE_BY_PLAN
 
 | plan | coach/mo | dietitian/mo | doctor notes |
 |------|----------|--------------|--------------|
-| eko | 0 | 0 | 0 |
-| diyet | 0 | 2 | 1 |
-| spor | 2 | 0 | 1 |
+| eko (eski) | 0 | 0 | 0 |
+| eko_diyet | 0 | 1 | 0 |
+| eko_spor | 1 | 0 | 0 |
+| diyet | 0 | 2 | 0 |
+| spor | 2 | 0 | 0 |
 | doktor | 0 | 0 | doctorSessionsTotal 1 |
-| vip | 2 | 2 | 1 |
+| vip | 2 | 2 | 0 |
 | kurucu (legacy) | 2 | 2 | 0 |
 
 Helpers: `packageIncludesCoach`, `packageIncludesDietitian`, `sanitizeStaffForPackage`, `memberNeedsStaffAssignment`.

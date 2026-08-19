@@ -24,6 +24,7 @@ import {
 } from '@/data/uiDemo';
 import { usePlatformRealtime } from '@/hooks/usePlatformRealtime';
 import {
+  rowToPlan,
   rowToPost,
   rowToProgram,
   type MemberRecord,
@@ -37,7 +38,7 @@ import { isMemberWriteInFlight } from '@/services/memberWriteGate';
 import { fetchMemberRowQuiet } from '@/services/memberRowRefresh';
 import { fetchStaffDirectory } from '@/services/staffDirectory';
 import { requireSupabase, supabase } from '@/services/supabase';
-import { isPaidMembership } from '@/data/membershipPlans';
+import { isPaidMembership, setPlanCatalog } from '@/data/membershipPlans';
 import { getStaffClients } from '@/utils/staffClients';
 import { isProgramListedForMember } from '@/utils/programPackageScope';
 import { perfInc } from '@/utils/perfCounters';
@@ -211,7 +212,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           Date.now() - staffDirFetchedAt.current > STAFF_DIR_TTL_MS ||
           Object.keys(cachedDir).length === 0;
 
-        const [progRes, postsRes, staffBundle] = await Promise.all([
+        const [progRes, postsRes, staffBundle, plansRes] = await Promise.all([
           client.from('programs').select('*').eq('member_id', userId),
           client.from('posts').select('*').eq('published', true).limit(24),
           needStaffDir
@@ -220,6 +221,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 staffById: cachedDir,
                 staffList: [] as Record<string, unknown>[],
               }),
+          client.from('plans').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
         ]);
 
         setPrograms(
@@ -236,6 +238,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setStaffById(staffBundle.staffById);
           staffDirFetchedAt.current = Date.now();
         }
+        setPlanCatalog(
+          (plansRes.data || []).map((row) => rowToPlan(row as Record<string, unknown>)),
+        );
         setPlatform(EMPTY_PLATFORM);
         // Boot: Auth already hydrated — skip duplicate members select.
         // Explicit non-silent refresh (pull-to-refresh) still refreshes auth once.
@@ -250,6 +255,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } else if (role === 'staff') {
         const bundle = await hydratePlatform({ role, userId, staff: staffNow });
         setPlatform(bundle);
+        setPlanCatalog(bundle.plans as import('@/data/membershipPlans').PlanCatalogEntry[]);
         setPrograms(bundle.programs as ProgramRecord[]);
         setPosts(bundle.posts as PostRecord[]);
         setStaffById(bundle.staffById);

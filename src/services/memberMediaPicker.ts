@@ -79,6 +79,16 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+/** Android 13+ system photo picker — broad READ_MEDIA izni yok (Play Photos policy). */
+function androidUsesSystemPhotoPicker(): boolean {
+  if (Platform.OS !== 'android') return false;
+  const api =
+    typeof Platform.Version === 'number'
+      ? Platform.Version
+      : parseInt(String(Platform.Version), 10);
+  return Number.isFinite(api) && api >= 33;
+}
+
 /** Alert/ActionSheet sonrası native kamera Activity’ye geçmeden önce UI settle */
 async function waitForUiSettle() {
   await new Promise<void>((resolve) => {
@@ -142,13 +152,15 @@ export async function pickWithLibraryDetailed(
   const { ImagePicker } = loaded;
   const wantBase64 = Boolean(options.base64);
   try {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      return {
-        ok: false,
-        code: 'permission_denied',
-        message: 'Galeri izni verilmedi. Ayarlardan izin verin.',
-      };
+    if (!androidUsesSystemPhotoPicker()) {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        return {
+          ok: false,
+          code: 'permission_denied',
+          message: 'Galeri izni verilmedi. Ayarlardan izin verin.',
+        };
+      }
     }
     await waitForUiSettle();
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -157,6 +169,7 @@ export async function pickWithLibraryDetailed(
       base64: wantBase64,
       allowsEditing: options.allowsEditing ?? false,
       aspect: options.aspect,
+      ...(Platform.OS === 'android' ? { legacy: false } : {}),
     });
     if (result.canceled || !result.assets?.[0]) {
       const recovered = await recoverPendingResult(ImagePicker);

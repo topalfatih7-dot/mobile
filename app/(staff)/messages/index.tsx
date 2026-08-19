@@ -29,7 +29,10 @@ import { colors, fonts, radius, spacing } from '@/theme';
 const PLAN_AVATAR_COLORS: Record<string, string> = {
   vip: colors.gold[400],
   spor: colors.brand[500],
+  eko_spor: colors.brand[500],
   diyet: colors.sage[500],
+  eko_diyet: colors.sage[500],
+  eko: colors.sage[500],
 };
 
 export default function StaffMessagesIndex() {
