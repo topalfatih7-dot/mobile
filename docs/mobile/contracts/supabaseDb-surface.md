@@ -20,7 +20,7 @@ Implement equivalent service functions (names for parity):
 
 ## Staff / admin
 
-`addStaff`, `editStaff`, `updateStaffSelfProfile`, `adminUpdatePremiumMembership`, `adminSetMembershipStatus`, `bookStaffSession`, application resolve/submit helpers
+`addStaff`, `editStaff`, `updateStaffSelfProfile`, `adminUpdatePremiumMembership`, `adminSetMembershipStatus` (stub — dondur/iptal kaldırıldı), `bookStaffSession`, application resolve/submit helpers
 
 ## Content
 

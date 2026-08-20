@@ -20,7 +20,7 @@ Tek Expo uygulaması, üç rol paneli:
 |------|--------|
 | Framework | Expo + Expo Router |
 | Backend | Mevcut Supabase + Vercel `api/` |
-| Ödeme | Mobil: login’li web `/plans` CTA · Web: Stripe · Entitlement: Supabase (IAP yok) |
+| Ödeme | Mobil: login’li web `/plans` CTA · iptal: native uyarı + Stripe Portal · Web: Stripe · Entitlement: Supabase (IAP yok) |
 | Dil | Türkçe UI |
 | State | `useAuth` / `useData` / `useActions` dilim modeli |
 

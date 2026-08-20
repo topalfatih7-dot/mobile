@@ -33,6 +33,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { getPlanLabel, isPaidMembership, packageIncludesDoctor } from '@/data/membershipPlans';
+import { MEMBERSHIP_CANCEL_COPY } from '@/data/membershipCancelCopy';
+import { listCancelAtPeriodEndPackages } from '@/utils/memberPackages';
 import { useDailyTip } from '@/hooks/useDailyTip';
 import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
 import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
@@ -102,6 +104,10 @@ export default function MemberDashboard() {
         (premiumRemainingDays != null &&
           premiumRemainingDays > 0 &&
           premiumRemainingDays <= 7)),
+  );
+  const cancelPendingPackages = useMemo(
+    () => listCancelAtPeriodEndPackages(member),
+    [member],
   );
   const showPaidExpiredBanner = Boolean(
     membership === 'free' &&
@@ -306,6 +312,36 @@ export default function MemberDashboard() {
                 onPress={() => router.push('/(member)/profile/payments')}
                 style={styles.bannerBtn}>
                 <Text style={styles.bannerBtnText}>Üye Ol</Text>
+              </Pressable>
+            </View>
+          </FadeIn>
+        ) : null}
+
+        {cancelPendingPackages.length > 0 ? (
+          <FadeIn delay={90}>
+            <View style={styles.bannerAmber}>
+              <Ionicons color={colors.warm[500]} name="pause-circle" size={20} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bannerTitle}>Yenileme kapalı</Text>
+                <Text style={styles.bannerSub}>
+                  {cancelPendingPackages
+                    .map((pkg) =>
+                      MEMBERSHIP_CANCEL_COPY.renewalOffBanner(
+                        pkg.currentPeriodEnd || pkg.expiresAt
+                          ? format(new Date(pkg.currentPeriodEnd || pkg.expiresAt), 'd MMMM yyyy', {
+                              locale: tr,
+                            })
+                          : 'dönem sonu',
+                        getPlanLabel(pkg.planId),
+                      ),
+                    )
+                    .join(' ')}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => router.push('/(member)/profile/payments')}
+                style={[styles.bannerBtn, { backgroundColor: colors.warm[500] }]}>
+                <Text style={styles.bannerBtnText}>Ödeme Yönetimi</Text>
               </Pressable>
             </View>
           </FadeIn>
@@ -776,6 +812,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   bannerBtn: {
+    flexShrink: 0,
     backgroundColor: colors.gold[500],
     borderRadius: radius.lg,
     paddingHorizontal: 12,

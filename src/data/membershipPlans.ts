@@ -524,14 +524,12 @@ export function packageIncludesDietitian(packageConfig: Record<string, unknown> 
   return (Number(packageConfig.dietitianMeetingsPerMonth) || 0) > 0;
 }
 
+/** Pakette doktor görüşmesi var mı (tek seferlik veya aylık). Remaining kota için kullanılmaz. */
 export function packageIncludesDoctor(packageConfig: Record<string, unknown> = {}) {
-  const total = Number(packageConfig.doctorSessionsTotal) || 0;
-  if (total > 0) {
-    const remaining = packageConfig.doctorSessionsRemaining;
-    if (remaining != null && !Number.isNaN(Number(remaining))) return Number(remaining) > 0;
-    return true;
-  }
-  return (Number(packageConfig.doctorMeetingsPerMonth) || 0) > 0;
+  return (
+    (Number(packageConfig.doctorSessionsTotal) || 0) > 0 ||
+    (Number(packageConfig.doctorMeetingsPerMonth) || 0) > 0
+  );
 }
 
 export function coachMonthlyLimit(packageConfig: Record<string, unknown> = {}) {
@@ -585,14 +583,27 @@ export function memberNeedsStaffAssignment(member?: {
   return needsCoach || needsDiet || needsDoctor;
 }
 
-export function sanitizeSessionsForRole(sessions: unknown[] = [], keepRole: boolean) {
+const KEEP_SESSION_STATUSES = new Set([
+  'completed',
+  'cancelled',
+  'rejected',
+  'no_show',
+]);
+
+/** Rol kaybında geçmiş seanslar kalır; gelecekteki scheduled/rescheduled iptal edilir. */
+export function sanitizeSessionsForRole(
+  sessions: unknown[] = [],
+  keepRole: boolean,
+  { keepPending = false }: { keepPending?: boolean } = {},
+) {
   if (keepRole) return Array.isArray(sessions) ? sessions : [];
   const now = Date.now();
   return (Array.isArray(sessions) ? sessions : []).map((s) => {
     if (!s || typeof s !== 'object') return s;
     const session = s as Record<string, unknown>;
     const status = (session.status as string) || 'scheduled';
-    if (status === 'completed' || status === 'cancelled') return s;
+    if (KEEP_SESSION_STATUSES.has(status)) return s;
+    if (keepPending && status === 'pending') return s;
     const t = new Date(String(session.date || session.start || 0)).getTime();
     if (!t || Number.isNaN(t) || t < now) return s;
     return {
@@ -604,6 +615,7 @@ export function sanitizeSessionsForRole(sessions: unknown[] = [], keepRole: bool
   });
 }
 
+/** Paket kapsamı dışındaki koç/diyet atamalarını temizler. Doktor ataması yalnız admin ile kalkar. */
 export function sanitizeStaffForPackage(
   packageConfig: Record<string, unknown>,
   data: Record<string, unknown> = {},
@@ -615,7 +627,7 @@ export function sanitizeStaffForPackage(
     ...data,
     assignedCoachId: includeCoach ? (data.assignedCoachId ?? null) : null,
     assignedDietitianId: includeDiet ? (data.assignedDietitianId ?? null) : null,
-    assignedDoctorId: includeDoctor ? (data.assignedDoctorId ?? null) : null,
+    assignedDoctorId: data.assignedDoctorId ?? null,
     coachSessions: sanitizeSessionsForRole(
       (data.coachSessions as unknown[]) || [],
       includeCoach,
@@ -627,6 +639,7 @@ export function sanitizeStaffForPackage(
     doctorSessions: sanitizeSessionsForRole(
       (data.doctorSessions as unknown[]) || [],
       includeDoctor,
+      { keepPending: true },
     ),
   };
 }

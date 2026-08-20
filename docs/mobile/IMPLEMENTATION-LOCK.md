@@ -29,9 +29,10 @@ Bu dosya, uygulayıcı yapay zeka / geliştirici için **zorunlu** kurallardır.
 ## 3. Ödeme
 
 - **MOBILE DIFF (2026-08-15):** Uygulama içi IAP / RevenueCat **yok**. Satın alma ve abonelik yönetimi yalnız **web Stripe** (`contracts/api-stripe.md`).
-- Mobil UX: plan/status Supabase’ten; CTA → login’li web `/plans` (üye paneli paket seç / güncelle). `screens/member/payments.md`.
+- Mobil UX: plan/status Supabase’ten. Satın alma CTA → login’li web `/plans`. İptal / kart: native uyarı + `POST /api/stripe-checkout` Portal (`screens/member/payments.md`).
+- Paketler **bağımsız faturalanır**; bir Stripe aboneliğini kapatmak diğerini durdurmaz.
 - Handoff: aynı Supabase JWT (`/auth/callback?next=/plans&src=mobile#access_token&refresh_token`). Magic link / yeni session yok. Web tek-oturum claim+refresh bu akışta atlanır.
-- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok. Ödeme sonrası uygulamaya otomatik dönüş yok; ön plana gelişte yalnız `members` satırı yenilenir.
+- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok. Ödeme / Portal sonrası uygulamaya otomatik dönüş yok; ön plana gelişte yalnız `members` satırı yenilenir.
 
 ## 3b. Paneller
 
@@ -47,9 +48,10 @@ Bu dosya, uygulayıcı yapay zeka / geliştirici için **zorunlu** kurallardır.
 - **MOBILE DIFF:** Kayıt tek adım ücretsiz üyelik; ücretli paket panel içinden web `/plans`. Stepper (Hesap → Üyelik) yok.
 
 - **MOBILE DIFF (2026-08-15):** Uygulama içi IAP / RevenueCat **yok**. Satın alma ve abonelik yönetimi yalnız **web Stripe** (`contracts/api-stripe.md`).
-- Mobil UX: plan/status Supabase’ten; CTA → login’li web `/plans` (üye paneli paket seç / güncelle). `screens/member/payments.md`.
+- Mobil UX: plan/status Supabase’ten. Satın alma CTA → login’li web `/plans`. İptal / kart: native uyarı + `POST /api/stripe-checkout` Portal (`screens/member/payments.md`).
+- Paketler **bağımsız faturalanır**; bir Stripe aboneliğini kapatmak diğerini durdurmaz.
 - Handoff: aynı Supabase JWT (`/auth/callback?next=/plans&src=mobile#access_token&refresh_token`). Magic link / yeni session yok. Web tek-oturum claim+refresh bu akışta atlanır.
-- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok. Ödeme sonrası uygulamaya otomatik dönüş yok; ön plana gelişte yalnız `members` satırı yenilenir.
+- Feature gate SoT: Supabase `members` — client’ta mağaza entitlement okuma yok. Ödeme / Portal sonrası uygulamaya otomatik dönüş yok; ön plana gelişte yalnız `members` satırı yenilenir.
 
 ## 4. Auth
 

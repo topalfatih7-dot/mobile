@@ -29,13 +29,17 @@ export function CheckboxRow({ label, checked, onChange }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
     minHeight: 44,
+    paddingVertical: 2,
   },
   label: {
+    flex: 1,
+    flexShrink: 1,
     fontFamily: fonts.sans,
     fontSize: 14,
+    lineHeight: 20,
     color: colors.cream[900],
   },
 });

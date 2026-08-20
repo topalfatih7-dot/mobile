@@ -26,8 +26,8 @@ Yeni Form — koç, diyetisyen ve doktor desteğini tek uygulamada toplayan üye
 • Kalori analizi (metin ve foto)
 • Görüntülü seans
 
-Gizlilik: https://www.yeniform.com/gizlilik-politikasi
-Üyelik sözleşmesi: https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi
+Gizlilik: https://www.yeniform.com/legal/gizlilik-politikasi
+Üyelik sözleşmesi: https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi
 Destek: https://www.yeniform.com
 ```
 
@@ -54,5 +54,5 @@ Screenshot sırası: [screenshot-checklist.md](screenshot-checklist.md)
 | | URL |
 |--|-----|
 | Destek | https://www.yeniform.com |
-| Gizlilik | https://www.yeniform.com/gizlilik-politikasi |
-| Sözleşme | https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi |
+| Gizlilik | https://www.yeniform.com/legal/gizlilik-politikasi |
+| Sözleşme | https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi |

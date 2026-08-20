@@ -34,6 +34,7 @@ type Props = {
   existingSessions: MemberSession[];
   monthlyLimit: number;
   usedThisMonth: number;
+  limitScope?: 'month' | 'all';
   duration?: number;
   onBook: (iso: string, duration: number) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** LOCK session-booker — başka üyelerin dolu slot timestamp’leri */
@@ -59,6 +60,7 @@ export function SessionBooker({
   existingSessions,
   monthlyLimit,
   usedThisMonth,
+  limitScope = 'month',
   duration = DEFAULT_SESSION_DURATION,
   onBook,
   getBookedSlots,
@@ -103,6 +105,18 @@ export function SessionBooker({
   }, [selectedDay, availability]);
 
   const selectedMonthUsed = useMemo(() => {
+    if (limitScope === 'all') {
+      return existingSessions.filter((session) => {
+        const status = session.status || 'scheduled';
+        return (
+          SLOT_ACTIVE_STATUSES.includes(
+            status as (typeof SLOT_ACTIVE_STATUSES)[number],
+          ) ||
+          status === 'completed' ||
+          status === 'no_show'
+        );
+      }).length;
+    }
     if (!selectedDay) return usedThisMonth;
     return existingSessions.filter((session) => {
       if (
@@ -119,7 +133,7 @@ export function SessionBooker({
         date.getMonth() === selectedDay.getMonth()
       );
     }).length;
-  }, [existingSessions, selectedDay, usedThisMonth]);
+  }, [existingSessions, selectedDay, usedThisMonth, limitScope]);
   const remaining = Math.max(0, monthlyLimit - selectedMonthUsed);
   const limitReached = monthlyLimit > 0 && selectedMonthUsed >= monthlyLimit;
 
@@ -264,7 +278,9 @@ export function SessionBooker({
             </Text>
             {monthlyLimit > 0 ? (
               <Text style={styles.quota}>
-                Bu ay kalan hakkınız: {remaining}/{monthlyLimit}.
+                {limitScope === 'all'
+                  ? `Kalan hakkınız: ${remaining}/${monthlyLimit}.`
+                  : `Bu ay kalan hakkınız: ${remaining}/${monthlyLimit}.`}
               </Text>
             ) : null}
 
@@ -296,7 +312,9 @@ export function SessionBooker({
 
             {limitReached ? (
               <Text style={styles.warn}>
-                Bu ay için randevu hakkınız doldu. Sonraki ay için bir gün seçebilirsiniz.
+                {limitScope === 'all'
+                  ? 'Randevu hakkınız doldu.'
+                  : 'Bu ay için randevu hakkınız doldu. Sonraki ay için bir gün seçebilirsiniz.'}
               </Text>
             ) : !selectedDay ? (
               <Text style={styles.muted}>Gün seçin</Text>

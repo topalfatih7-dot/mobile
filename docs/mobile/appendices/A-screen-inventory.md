@@ -54,4 +54,4 @@
 | public | team-list | LOCK | screens/public/team-list.md | WebView |
 | public | team-profile | LOCK | screens/public/team-profile.md | WebView |
 
-Flows: F01–F15 in `flows/`. Skills: `.cursor/skills/`. Status: `COMPLETE.md`.
+Flows: F01–F16 in `flows/`. Skills: `.cursor/skills/`. Status: `COMPLETE.md`.

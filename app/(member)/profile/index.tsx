@@ -48,6 +48,7 @@ import {
 } from '@/services/authVerification';
 import { uploadMemberFile } from '@/services/memberMedia';
 import { getRemainingDays } from '@/services/premiumMembership';
+import { openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
 import {
   countUsedDoctorSessions,
   isOneTimePlan,
@@ -74,6 +75,7 @@ export default function ProfileScreen() {
   const [cityOpen, setCityOpen] = useState(false);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  const [openingPlans, setOpeningPlans] = useState(false);
 
   const [name, setName] = useState(String(member?.name || ''));
   const [city, setCity] = useState(String(member?.city || ''));
@@ -508,8 +510,8 @@ export default function ProfileScreen() {
                 (selectedRemainingDays != null && selectedRemainingDays <= 0)) && (
                 <Text style={styles.expireWarn}>
                   {selectedRemainingDays != null && selectedRemainingDays <= 0
-                    ? 'Bu paketin süresi doldu — yenilemek için destek ile iletişime geçin.'
-                    : 'Bu paketin süresi yakında doluyor — yenilemek için destek ile iletişime geçin.'}
+                    ? 'Bu paketin süresi doldu — yenilemek için Planlar sayfasını kullanın.'
+                    : 'Bu paketin süresi yakında doluyor — kesintisiz devam için Planlar’dan yenileyin. İptal için Ödeme Yönetimi.'}
                 </Text>
               )}
             </View>
@@ -526,11 +528,37 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
 
-          <Pressable
-            onPress={() => router.push('/(member)/profile/payments' as Href)}
-            style={styles.compareBtn}>
-            <Text style={styles.compareBtnText}>Planları karşılaştır / değiştir</Text>
-          </Pressable>
+          <View style={styles.planActions}>
+            <Pressable
+              onPress={() => router.push('/(member)/profile/payments' as Href)}
+              style={styles.manageBtn}>
+              <Text style={styles.manageBtnText}>Ödeme Yönetimi</Text>
+            </Pressable>
+            <Pressable
+              disabled={openingPlans}
+              onPress={() => {
+                void (async () => {
+                  setOpeningPlans(true);
+                  try {
+                    const result = await openWebCheckoutHandoff();
+                    if (result.ok) return;
+                    toast(
+                      result.error,
+                      result.fallback === 'plans-login' ? 'warning' : 'error',
+                    );
+                  } catch {
+                    toast('Web sayfası açılamadı.', 'error');
+                  } finally {
+                    setOpeningPlans(false);
+                  }
+                })();
+              }}
+              style={styles.compareBtn}>
+              <Text style={styles.compareBtnText}>
+                {openingPlans ? 'Açılıyor…' : 'Planları karşılaştır / paket ekle'}
+              </Text>
+            </Pressable>
+          </View>
         </ProfileSectionCard>
 
         <ProfileSectionCard
@@ -908,17 +936,32 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   freeLink: { fontFamily: fonts.sansSemi, color: colors.brand[600] },
-  compareBtn: {
+  planActions: {
     marginTop: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  manageBtn: {
     alignSelf: 'flex-start',
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#ddd6fe',
-    backgroundColor: '#f5f3ff',
+    borderColor: colors.brand[200],
+    backgroundColor: colors.brand[50],
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  compareBtnText: { fontFamily: fonts.sansSemi, fontSize: 13, color: '#5b21b6' },
+  manageBtnText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.brand[800] },
+  compareBtn: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.sage[200],
+    backgroundColor: colors.sage[50],
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  compareBtnText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.sage[700] },
   notifStack: { gap: 10 },
   notifRow: {
     borderRadius: radius.xl,

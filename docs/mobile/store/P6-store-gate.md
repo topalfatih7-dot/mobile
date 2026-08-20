@@ -14,7 +14,7 @@
 Android: [`android-play-store.md`](android-play-store.md) — AAB, testers, SHA, listing, formlar, Submit.
 
 - [ ] Screenshot çek (cihaz)
-- [ ] Hesap silme **çalışan** web URL
+- [ ] Hesap silme **çalışan** web URL — **tasarlanacak (Submit öncesi zorunlu; 2026-08-20 bekletildi)**
 - [ ] `npm run build:play:android` (onayınla) → Play Internal/Closed
 - [ ] Smoke: login, web `/plans` CTA, push, Daily, health/calendar — **IAP yok**
 
@@ -22,8 +22,8 @@ Android: [`android-play-store.md`](android-play-store.md) — AAB, testers, SHA,
 
 | | URL |
 |--|-----|
-| Privacy | https://www.yeniform.com/gizlilik-politikasi |
-| Terms | https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi |
+| Privacy | https://www.yeniform.com/legal/gizlilik-politikasi |
+| Terms | https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi |
 | Destek | https://www.yeniform.com |
 
 Production Submit ayrı onay. Preview **APK** Play’e yüklenmez.

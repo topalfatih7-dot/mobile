@@ -2,6 +2,7 @@
 import {
   DEFAULT_PACKAGE,
   getDefaultPackageForPlan,
+  getPlanFromCatalog,
   isPaidMembership,
   PLAN_IDS,
   sanitizeStaffForPackage,
@@ -29,7 +30,10 @@ const today = () => new Date().toISOString().split('T')[0]
 export const ONE_TIME_PLANS = new Set(['doktor'])
 
 export function isOneTimePlan(planId) {
-  return ONE_TIME_PLANS.has(planId)
+  if (!planId) return false
+  if (ONE_TIME_PLANS.has(planId)) return true
+  const plan = getPlanFromCatalog(planId)
+  return plan?.billingType === 'one_time' || plan?.period === 'Tek Seferlik'
 }
 
 export function isPackageEntryActive(pkg, now = today()) {
@@ -59,10 +63,58 @@ export function migrateLegacyToPackages(member) {
   }]
 }
 
+/** videoCallSession JOIN_WINDOW_DEFAULTS.doctor.after ile aynı */
+const DOCTOR_JOIN_AFTER_MINUTES = 30
+
+const DOCTOR_QUOTA_STATUSES = new Set([
+  'pending', 'scheduled', 'rescheduled', 'cancel_pending', 'admin_cancel_pending', 'completed', 'no_show',
+])
+const DOCTOR_CONSUME_STATUSES = new Set(['completed', 'no_show'])
+
+function doctorSessionWindowEnd(session) {
+  const start = new Date(session?.date || session?.start || 0)
+  if (Number.isNaN(start.getTime())) return null
+  const durationMin = Number(session?.duration) || 30
+  return new Date(start.getTime() + (durationMin + DOCTOR_JOIN_AFTER_MINUTES) * 60_000)
+}
+
+/** Onaylı görüşme: katılma penceresi kapandı, completed değil. pending asla no_show olmaz. */
+export function isDoctorApprovedNoShow(session, now = new Date()) {
+  const status = session?.status || 'scheduled'
+  if (status !== 'scheduled' && status !== 'rescheduled') return false
+  const windowEnd = doctorSessionWindowEnd(session)
+  return Boolean(windowEnd && now > windowEnd)
+}
+
+export function applyDoctorSessionNoShows(sessions = [], now = new Date()) {
+  return (Array.isArray(sessions) ? sessions : []).map((s) => {
+    if (!s || typeof s !== 'object') return s
+    if (!isDoctorApprovedNoShow(s, now)) return s
+    if (s.status === 'no_show') return s
+    return {
+      ...s,
+      status: 'no_show',
+      noShowAt: s.noShowAt || now.toISOString(),
+    }
+  })
+}
+
+/** Yeni randevu kotası — pending dahil yer tutar; red/iptal sayılmaz */
 export function countUsedDoctorSessions(member) {
-  return (member?.doctorSessions || []).filter((s) =>
-    ['scheduled', 'rescheduled', 'completed'].includes(s?.status || 'scheduled')
-  ).length
+  return (member?.doctorSessions || []).filter((s) => {
+    const status = s?.status || 'scheduled'
+    if (DOCTOR_QUOTA_STATUSES.has(status)) return true
+    return isDoctorApprovedNoShow(s)
+  }).length
+}
+
+/** Tek seferlik paket tüketimi — yalnız completed + no_show */
+export function countConsumedDoctorSessions(member) {
+  return (member?.doctorSessions || []).filter((s) => {
+    const status = s?.status || 'scheduled'
+    if (DOCTOR_CONSUME_STATUSES.has(status)) return true
+    return isDoctorApprovedNoShow(s)
+  }).length
 }
 
 export function mergePackageConfigs(packages = [], member = null) {
@@ -131,10 +183,18 @@ export function resolvePrimaryMembership(activePackages = [], fallback = 'free')
   }, pool[0].planId)
 }
 
+export function isOneTimePackage(pkg) {
+  if (!pkg) return false
+  return isOneTimePlan(pkg.planId) || pkg.packageConfig?.billingType === 'one_time'
+}
+
 export function createPackageEntry(planId, packageConfig, meta = {}) {
   const startedAt = meta.startedAt || today()
   const oneTime = isOneTimePlan(planId) || packageConfig?.billingType === 'one_time'
-  return {
+  const provider = ['stripe', 'revenuecat', 'admin'].includes(String(meta.provider || '').trim())
+    ? String(meta.provider).trim()
+    : 'legacy'
+  const entry = {
     id: meta.id || `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     planId,
     packageConfig,
@@ -145,7 +205,14 @@ export function createPackageEntry(planId, packageConfig, meta = {}) {
     status: 'active',
     purchasedAt: meta.purchasedAt || new Date().toISOString(),
     price: meta.price || 0,
+    provider,
   }
+  const sid = String(meta.stripeSubscriptionId || '').trim()
+  if (sid) entry.stripeSubscriptionId = sid
+  if (meta.cancelAtPeriodEnd != null) entry.cancelAtPeriodEnd = Boolean(meta.cancelAtPeriodEnd)
+  const periodEnd = String(meta.currentPeriodEnd || '').trim()
+  if (periodEnd) entry.currentPeriodEnd = periodEnd
+  return entry
 }
 
 export function addMemberPackage(activePackages = [], planId, packageConfig, meta = {}) {
@@ -155,6 +222,52 @@ export function addMemberPackage(activePackages = [], planId, packageConfig, met
 export function memberHasActivePaidPackages(member) {
   const packages = migrateLegacyToPackages(member)
   return packages.some((p) => isPackageEntryActive(p))
+}
+
+export function packageStripeSubscriptionId(pkg) {
+  const sid = String(pkg?.stripeSubscriptionId || '').trim()
+  return sid || null
+}
+
+export function findPackageBySubscriptionId(packages, subscriptionId, member = null) {
+  const sid = String(subscriptionId || '').trim()
+  if (!sid) return null
+  const pkgs = packages || []
+  const exact = pkgs.find((p) => packageStripeSubscriptionId(p) === sid)
+  if (exact) return exact
+  const memberSid = String(member?.stripeSubscriptionId || '').trim()
+  if (memberSid !== sid) return null
+  const unlabeled = pkgs.filter((p) => (
+    isPackageEntryActive(p)
+    && !isOneTimePackage(p)
+    && !packageStripeSubscriptionId(p)
+  ))
+  if (unlabeled.length === 1) return unlabeled[0]
+  const recurring = pkgs.filter((p) => isPackageEntryActive(p) && !isOneTimePackage(p))
+  if (recurring.length === 1) return recurring[0]
+  return null
+}
+
+export function packageBillingSubscriptionId(pkg, member) {
+  const sid = packageStripeSubscriptionId(pkg)
+  if (sid) return sid
+  if (isOneTimePackage(pkg)) return null
+  const memberSid = String(member?.stripeSubscriptionId || '').trim()
+  if (!memberSid) return null
+  const match = findPackageBySubscriptionId(migrateLegacyToPackages(member), memberSid, member)
+  return match?.id === pkg?.id ? memberSid : null
+}
+
+export function listCancelAtPeriodEndPackages(member) {
+  return migrateLegacyToPackages(member).filter((p) => (
+    isPackageEntryActive(p)
+    && !isOneTimePackage(p)
+    && Boolean(p.cancelAtPeriodEnd)
+  ))
+}
+
+export function memberHasActiveRecurringPackages(member) {
+  return migrateLegacyToPackages(member).some((p) => isPackageEntryActive(p) && !isOneTimePackage(p))
 }
 
 export function shouldStackNewPackage(member, planId) {
@@ -171,7 +284,16 @@ export function resolvePackagePurchase(activePackages = [], planId, packageConfi
   const { addPackage = false } = options
   const packages = activePackages || []
 
-  if (addPackage || isOneTimePlan(planId)) {
+  if (addPackage || isOneTimePlan(planId) || String(meta.provider || '') === 'stripe') {
+    const sid = String(meta.stripeSubscriptionId || '').trim()
+    if (sid) {
+      const idx = packages.findIndex((p) => String(p?.stripeSubscriptionId || '').trim() === sid)
+      if (idx >= 0) {
+        const next = [...packages]
+        next[idx] = createPackageEntry(planId, packageConfig, { ...meta, id: packages[idx].id })
+        return next
+      }
+    }
     return addMemberPackage(packages, planId, packageConfig, meta)
   }
 
@@ -183,22 +305,29 @@ export function resolvePackagePurchase(activePackages = [], planId, packageConfi
 export function syncMemberPackages(member) {
   if (!member) return member
 
-  let packages = migrateLegacyToPackages(member)
+  const syncedMember = {
+    ...member,
+    doctorSessions: applyDoctorSessionNoShows(member.doctorSessions),
+  }
+
+  let packages = migrateLegacyToPackages(syncedMember)
   const now = today()
-  const usedDoctor = countUsedDoctorSessions(member)
+  const consumedDoctor = countConsumedDoctorSessions(syncedMember)
 
   packages = packages.map((pkg) => {
+    if (pkg.status === 'expired') return { ...pkg, status: 'expired' }
     if (isOneTimePlan(pkg.planId) || pkg.packageConfig?.billingType === 'one_time') {
       const total = Number(pkg.packageConfig?.doctorSessionsTotal) || 1
-      if (usedDoctor >= total) return { ...pkg, status: 'consumed' }
+      if (consumedDoctor >= total) return { ...pkg, status: 'consumed' }
       return { ...pkg, status: 'active' }
     }
+    if (pkg.status === 'consumed') return { ...pkg, status: 'consumed' }
     if (pkg.expiresAt && pkg.expiresAt < now) return { ...pkg, status: 'expired' }
-    return { ...pkg, status: pkg.status === 'consumed' ? 'consumed' : 'active' }
+    return { ...pkg, status: 'active' }
   })
 
   const active = packages.filter((p) => isPackageEntryActive(p))
-  const merged = mergePackageConfigs(active, member)
+  const merged = mergePackageConfigs(active, syncedMember)
   const primary = resolvePrimaryMembership(active, member.membership)
 
   const subExpiries = active
@@ -228,27 +357,18 @@ export function syncMemberPackages(member) {
     membershipStatus = member.membershipStatus
   }
 
-  // Ücretli geçmişi olan üyede eski 48s deneme kilidi kalmasın
-  // (DB membership zaten free olsa bile premiumStartedAt / paket geçmişi yeter)
-  let freeTrialExpiresAt = member.freeTrialExpiresAt ?? null
-  const hadPaidHistory = wasPaid
-    || Boolean(member.premiumStartedAt)
-    || packages.some((p) => isPaidMembership(p.planId))
-  if (membership === 'free' && hadPaidHistory && !active.length) {
-    freeTrialExpiresAt = null
-  }
-
+  const goingFree = membership === 'free' && !active.length
   const synced = {
-    ...member,
+    ...syncedMember,
     activePackages: packages,
-    packageConfig: merged,
+    packageConfig: goingFree ? { ...DEFAULT_PACKAGE } : merged,
     membership,
     membershipStatus,
-    premiumExpiresAt: latestExpiry ?? (active.length ? member.premiumExpiresAt : null),
-    premiumStartedAt: member.premiumStartedAt || packages[0]?.startedAt || null,
-    freeTrialExpiresAt,
+    premiumExpiresAt: goingFree ? null : (latestExpiry ?? member.premiumExpiresAt ?? null),
+    premiumStartedAt: goingFree ? null : (member.premiumStartedAt || packages[0]?.startedAt || null),
+    freeTrialExpiresAt: goingFree ? null : (member.freeTrialExpiresAt ?? null),
   }
-  return sanitizeStaffForPackage(merged, synced)
+  return sanitizeStaffForPackage(synced.packageConfig, synced)
 }
 
 /** hydrate sırasında süre dolumu senkronunun DB'ye yazılması gerekip gerekmediği */
@@ -261,6 +381,8 @@ export function memberExpirySyncNeedsPersist(before, after) {
   if (before.assignedDoctorId !== after.assignedDoctorId) return true
   if ((before.freeTrialExpiresAt || null) !== (after.freeTrialExpiresAt || null)) return true
   if ((before.premiumExpiresAt || null) !== (after.premiumExpiresAt || null)) return true
+  if ((before.premiumStartedAt || null) !== (after.premiumStartedAt || null)) return true
+  if (JSON.stringify(before.activePackages || []) !== JSON.stringify(after.activePackages || [])) return true
   // Gelecek seans iptalleri (paket bitişi) de yazılsın
   for (const key of ['coachSessions', 'dietitianSessions', 'doctorSessions']) {
     if (JSON.stringify(before[key] || []) !== JSON.stringify(after[key] || [])) return true

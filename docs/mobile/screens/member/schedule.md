@@ -46,10 +46,13 @@ Redirects (web App.jsx): `/schedule/coach|dietitian|doctor` → `?tab=`.
 ### doctor
 - title: **Doktor Randevuları**
 - subtitle: **Online sağlık görüşmeleriniz**
-- canBook: `packageIncludesDoctor(packageConfig)`
-- monthlyLimit: **1** (sabit)
+- canBook: `packageIncludesDoctor(packageConfig) && doctorBookingLimit(packageConfig, user) > 0`
+- monthlyLimit: tek seferlik `doctorSessionsTotal`, aksi halde `doctorMeetingsPerMonth`
+- limitScope: tek seferlik `all`, aksi halde `month`
 - lockedTitle: **Doktor randevuları paketinizde yok**
-- lockedDescription: **Online doktor görüşmesi için Doktor Paketi veya VIP pakete geçin.**
+- lockedDescription: **Online doktor görüşmesi için Doktor Paketi satın alın. Diğer abonelik planlarına dahil değildir.**
+- Kilit: yalnız `!canBook && sessions.length === 0`. Onaylı/bekleyen randevu varken liste ve katıl görünür; yeni randevu butonu kota bitince gizlenir.
+- Tek seferlik paket `scheduled` olunca **consumed olmaz** — tüketim yalnız `completed` / `no_show` (web `countConsumedDoctorSessions`).
 
 ## MemberScheduleView behavior
 
@@ -78,7 +81,7 @@ See [contracts/api-book-session.md](../../contracts/api-book-session.md) — bod
 ## Acceptance
 
 - [ ] Tab labels/locked strings exact  
-- [ ] doctor monthlyLimit = 1  
-- [ ] Package include helpers from membershipPlans  
+- [ ] doctor canBook = include + bookingLimit; kilit yalnız seans yokken  
+- [ ] Package include helpers from membershipPlans (remaining kota include’u düşürmez)  
 - [ ] Join path pattern exact  
 - [ ] Scheduled future session: 3/5-day reschedule + existing member data patch

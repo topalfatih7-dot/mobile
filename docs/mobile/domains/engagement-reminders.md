@@ -21,13 +21,16 @@ Herkes (ücretsiz dahil). `members.data.settings.reminderNotifs === false` → h
 | Saat | action | Ücretli + o gün içerik | Ücretsiz / içerik yok |
 |------|--------|------------------------|------------------------|
 | 08:30 | `habit_motivation` | Motivasyon → dashboard | Aynı |
+| 09:00 | `habit_daily_tip` | Günün ipucu (günde 1) → dashboard | Aynı |
 | 10:30 | `habit_water` | Su → dashboard | Aynı |
 | 12:30 | `habit_meal` / `habit_health` / `habit_upsell` | Öğün eksikse meal → takvim | Test eksikse health; değilse upsell |
+| 14:00 | `habit_water` | Su → dashboard | Aynı |
 | 16:00 | `habit_water` | Su | Aynı |
 | 18:30 | `habit_workout` / `habit_health` / `habit_upsell` | Antrenman eksikse workout → takvim | 12:30 health ise atla; değilse health/upsell |
+| 20:00 | `habit_motivation` | Kısa motivasyon → dashboard | Aynı |
 | 21:00 | `habit_streak` | Bugün görev kaldıysa → takvim | Atla (ücretsiz) |
 
-En fazla 6; atlamalarla çoğu gün 4–5.
+En fazla 9; atlamalarla çoğu gün 6–8. Günün ipucu **günde bir** (09:00); listeye yazılmaz. Bugünün gövdesi API ipucu, sonraki günler yedek havuz.
 
 ## Atlama
 
@@ -42,7 +45,7 @@ En fazla 6; atlamalarla çoğu gün 4–5.
 
 | action | route |
 |--------|--------|
-| `habit_motivation`, `habit_water`, `habit_winback` | `/(member)/dashboard` |
+| `habit_motivation`, `habit_water`, `habit_winback`, `habit_daily_tip` | `/(member)/dashboard` |
 | `habit_meal`, `habit_workout`, `habit_streak` | `/(member)/calendar` |
 | `habit_health` | `/(member)/health-test` |
 | `habit_upsell` | `/(member)/profile/payments` |

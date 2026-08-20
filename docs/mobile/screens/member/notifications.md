@@ -41,6 +41,7 @@ Default filter web: `all`.
 | `type === 'reminder'` ve `action` habit_meal / habit_workout / habit_streak | `/calendar` |
 | `type === 'reminder'` ve `action === 'habit_health'` | `/health-test` |
 | `type === 'reminder'` ve `action === 'habit_upsell'` | `/profile/payments` |
+| `type === 'reminder'` ve `action === 'habit_daily_tip'` | `/dashboard` |
 | `type === 'reminder'` (hoş geldin veya diğer habit_*) | `/dashboard` |
 
 Always `markNotificationRead(n.id)` first.

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthBackButton } from '@/components/auth/AuthBackButton';
+import { AuthLegalNote } from '@/components/auth/AuthLegalNote';
 import { AuthSceneBackground } from '@/components/auth/AuthSceneBackground';
 import { Button } from '@/components/ui/Button';
 import { CheckboxRow } from '@/components/ui/CheckboxRow';
@@ -157,6 +158,7 @@ export default function LoginScreen() {
             </Pressable>
           </Link>
         </View>
+        <AuthLegalNote variant="onLight" />
       </View>
     </ScrollView>
   );

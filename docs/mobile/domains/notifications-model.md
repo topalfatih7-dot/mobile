@@ -20,7 +20,7 @@
 
 Builders: `src/data/memberNotificationTemplates.js` + `buildMemberNotification` — **port templates; do not invent new types without updating navigate map**.
 
-Günlük alışkanlık (su / motivasyon / öğün): OS-only `type: reminder` + `action: habit_*`. Listeye yazılmaz. Ayrıntı: [`engagement-reminders.md`](engagement-reminders.md).
+Günlük alışkanlık (su / motivasyon / öğün / günün ipucu): OS-only `type: reminder` + `action: habit_*`. Listeye yazılmaz. Ayrıntı: [`engagement-reminders.md`](engagement-reminders.md).
 
 ## Client APIs
 

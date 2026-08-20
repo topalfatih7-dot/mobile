@@ -21,5 +21,5 @@ Mobil IAP / RevenueCat **yok** (2026-08-08). Play’de abonelik ürünü oluştu
 EAS_PROJECT_ID=460ad8b4-c94a-4933-885c-be703befe489
 PLAY_APP_CREATED=evet/hayır
 PLAY_CLOSED_TESTERS=
-ACCOUNT_DELETION_URL=
+ACCOUNT_DELETION_URL=  # 2026-08-20: tasarlanacak — Production Submit öncesi zorunlu
 ```

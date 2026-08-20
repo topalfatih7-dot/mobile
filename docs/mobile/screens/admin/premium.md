@@ -38,7 +38,7 @@ Port from `src/components/admin/ManualSessionEditor.jsx` — sections gated by p
 
 ## Status
 
-`adminSetMembershipStatus(memberId, { status, note, pauseUntil })` — separate from plan edit when web exposes it.
+Admin **Dondur / İptal kaldırıldı** (2026-08-20). `adminSetMembershipStatus` stub hata döner. Üye iptali F16.
 
 ## Mobile UX
 

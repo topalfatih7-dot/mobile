@@ -60,7 +60,7 @@ Kopyala: [`android-listing.tr.md`](android-listing.tr.md)
 Kopyala: [`android-play-forms.md`](android-play-forms.md)
 
 - Data safety, IARC, FGS, sağlık, reklam yok
-- **Hesap silme URL:** Google zorunlu. Mobilde ekran yok. Web’de silme/talep sayfası yoksa Submit **blok**. URL’yi Play’e yapıştır; yoksa web’e eklet.
+- **Hesap silme URL:** Google zorunlu. **2026-08-20 tasarlanacak — Submit öncesi hatırlat.** Mobilde ekran yok. Çalışmayan URL yapıştırma.
 
 ### 7. İnceleme hesabı
 

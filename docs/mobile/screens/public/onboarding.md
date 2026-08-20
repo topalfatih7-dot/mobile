@@ -180,7 +180,13 @@ Mobile paid change: IAP product change / purchase + webhook (F15).
 
 ## Legal
 
-`LegalConsentCheckbox` — terms + privacy; metin web bileşeninden kopyala, kısaltarak uydurma.
+`LegalConsentCheckbox` — web ile aynı cümle; tıklanan belgeler tarayıcıda kanonik URL açar:
+
+- Üyelik ve Abonelik Sözleşmesi → `/legal/uyelik-ve-abonelik-sozlesmesi`
+- Gizlilik Politikası → `/legal/gizlilik-politikasi` (web checkbox’ta yok; mobilde tıklanır)
+- KVKK Aydınlatma Metni → `/legal/kvkk`
+
+Kutuya basınca onay değişir; belge adına basınca web açılır.
 
 ---
 

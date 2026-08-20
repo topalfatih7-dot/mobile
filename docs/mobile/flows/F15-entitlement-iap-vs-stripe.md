@@ -15,8 +15,10 @@ UI never trusts a store client. After login / web purchase return:
 |-----------|-----------|----------|
 | Web Stripe | Mobile login | Paid features on |
 | Historical mobile IAP (legacy row) | Mobile login | Paid until expiry (no new IAP) |
-| Refund/revoke (Stripe) | Either | Downgrade on Stripe webhook |
+| Refund/revoke (Stripe) | Either | Downgrade **that** `stripeSubscriptionId` package on webhook; sibling packages stay |
 
 Acceptance: single source of truth = Supabase row.
 
 Mobile CTA for new purchase: `/(member)/profile/payments` → web `/auth/callback?next=/plans&src=mobile` (hash session) → `/plans` Stripe `flow=change`. No auto-return to the app.
+
+Mobile cancel: native warning → Portal URL (`intent: 'cancel'`). Resume: `{ action: 'resume-subscription' }`. See F16.

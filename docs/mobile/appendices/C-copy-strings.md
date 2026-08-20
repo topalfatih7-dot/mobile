@@ -101,4 +101,23 @@
 | Forgot email | Geçerli bir e-posta girin |
 | Reset link fail | Bağlantı gönderilemedi |
 
+## Üyelik iptali (`src/data/membershipCancelCopy.ts`)
+
+| Context | String |
+|---------|--------|
+| Packages title | Aktif paketleriniz |
+| Independent note | Her paket ayrı faturalanır. Birini kapatmak diğerinin çekimini durdurmaz. |
+| Card invoice | Kart ve fatura |
+| Close renewal | Otomatik yenilemeyi kapat |
+| Close now | Hemen kapat |
+| Keep renewal | Yenilemeyi açık tut |
+| Buy CTA | Web’den paket ekle |
+| Renewal off badge | Yenileme kapalı |
+| Period CTA | Portal’da onayla |
+| Immediate CTA | Portal’da hemen kapat |
+| Resume toast | Yenileme yeniden açıldı. |
+| Portal fail | Portal açılamadı. |
+| Profile manage | Ödeme Yönetimi |
+| Profile compare | Planları karşılaştır / paket ekle |
+
 Kaynak: locked screen files. Çakışmada screen LOCK dosyası kazanır.

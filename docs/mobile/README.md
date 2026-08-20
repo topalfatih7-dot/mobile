@@ -24,7 +24,7 @@ Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygul
 | Path | İçerik |
 |------|--------|
 | `domains/` | membership, health catalog, chat, programs, media, realtime, AI, notifications |
-| `flows/` | F01–F15 uçtan uca senaryolar |
+| `flows/` | F01–F16 uçtan uca senaryolar |
 | `screens/member\|staff\|admin\|public/` | Ekran spesifikasyonları |
 | `contracts/` | API + DB + env |
 | `appendices/` | inventory, roadmap, handoff, legal, copy |

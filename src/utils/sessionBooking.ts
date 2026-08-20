@@ -40,7 +40,7 @@ export const SESSION_TABS: {
     title: 'Doktor Randevuları',
     subtitle: 'Online sağlık görüşmeleriniz',
     lockedTitle: 'Doktor randevuları paketinizde yok',
-    lockedDescription: 'Online doktor görüşmesi için Doktor Paketi veya VIP pakete geçin.',
+    lockedDescription: 'Online doktor görüşmesi için Doktor Paketi satın alın. Diğer abonelik planlarına dahil değildir.',
     icon: 'medkit',
   },
 ];

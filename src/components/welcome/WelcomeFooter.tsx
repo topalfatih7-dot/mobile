@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -6,8 +6,9 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { AuthLegalNote } from '@/components/auth/AuthLegalNote';
 import { Button } from '@/components/ui/Button';
-import { colors, fonts, spacing } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 
 type WelcomeFooterProps = {
   scrollX: SharedValue<number>;
@@ -70,11 +71,7 @@ export function WelcomeFooter({
         />
       </View>
 
-      {!isLandscape ? (
-        <Text style={styles.legal}>
-          Devam ederek Kullanım Koşulları ve Gizlilik Politikası&apos;nı kabul edersin.
-        </Text>
-      ) : null}
+      {!isLandscape ? <AuthLegalNote variant="onDark" /> : null}
     </View>
   );
 }
@@ -111,13 +108,5 @@ const styles = StyleSheet.create({
   },
   secondary: {
     marginTop: spacing.sm,
-  },
-  legal: {
-    marginTop: spacing.md,
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    color: 'rgba(255,255,255,0.78)',
   },
 });

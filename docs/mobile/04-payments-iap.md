@@ -6,9 +6,10 @@
 
 | Katman | Yol |
 |--------|-----|
-| Satın alma | Web Stripe → `https://www.yeniform.com/membership` |
-| Mobil UI | `/(member)/profile/payments` — plan/status + web CTA |
-| Entitlement | Supabase `members` (Stripe webhook / admin) |
+| Satın alma | Web Stripe Checkout → `/plans` (JWT handoff) |
+| İptal / kart | Native uyarı + Stripe Customer Portal (`contracts/api-stripe.md`) |
+| Mobil UI | `/(member)/profile/payments` — paket kartları + Portal + web satın alma CTA |
+| Entitlement | Supabase `members` (Stripe webhook / admin premium atama) |
 | Webhook | `api/stripe-webhook.js` (web). `api/revenuecat-webhook.js` **silindi** |
 
 ## Kaldırılanlar

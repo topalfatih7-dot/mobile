@@ -55,14 +55,14 @@ Hayır.
 
 Üye test hesabı ver. Giriş: e-posta/şifre (Google/Apple kapalı).
 
-## Hesap silme (zorunlu)
+## Hesap silme (zorunlu — Submit öncesi)
 
 Play: “URL to account deletion” veya uygulama içi yol.
 
-Mobilde silme ekranı **yok** (spec yok). Web’de hesap/üye silme sayfası yoksa Submit öncesi web’e eklet.
+**2026-08-20:** Web silme sayfası henüz yok; birlikte tasarlanacak. Şimdilik URL yapıştırma. Production Submit bu adres olmadan reddedilebilir.
 
-Aday (sayfa gerçekten varsa): destek / KVKK talebi — `https://www.yeniform.com` veya gizlilik sayfasındaki silme talimatı. **Çalışmayan URL yapıştırma.**
+Mobilde silme ekranı **yok** (spec yok). Çalışmayan URL yapıştırma.
 
 ## Privacy policy URL
 
-https://www.yeniform.com/gizlilik-politikasi
+https://www.yeniform.com/legal/gizlilik-politikasi

@@ -17,7 +17,7 @@ Bu klasör + `.cursor/skills/` seti, Expo mobil uygulamanın **uydurmadan** yaz�
 |------|--------|
 | Skills (9) | tamam |
 | Foundations 00–05 | tamam |
-| Flows F01–F15 | tamam |
+| Flows F01–F16 | tamam |
 | Member LOCK screens | tamam (+ session-booker) |
 | Staff LOCK screens | tamam |
 | Admin LOCK screens | **MOBILE DIFF:** web-only (`/(auth)/admin-web`) |
@@ -29,6 +29,7 @@ Bu klasör + `.cursor/skills/` seti, Expo mobil uygulamanın **uydurmadan** yaz�
 ## Bilinçli sapmalar (MOBILE DIFF)
 
 - Paid purchase: web Stripe `/plans` — uygulama içi IAP/RevenueCat yok
+- Membership cancel: native/web uyarı + Stripe Portal; stacking bağımsız fatura; admin dondur/iptal yok
 - Sosyal giriş (Google/Apple) kapalı — yalnız e-posta/şifre
 - Native Turnstile yok — mobil API secret bypass
 - Kayıt: tek adım ücretsiz üyelik; paket web’de

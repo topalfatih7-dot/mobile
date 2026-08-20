@@ -7,11 +7,14 @@ import { Platform } from 'react-native';
 
 import { isUiOnly } from '@/config/runtime';
 import { isCoreHealthTestComplete } from '@/data/coreHealthTest';
+import { pickFallbackTip } from '@/data/dailyTipFallback';
 import {
+  pickDailyTipCopy,
   pickHabitCopy,
   type HabitAction,
 } from '@/data/engagementReminderCopy';
 import { isPaidMembership } from '@/data/membershipPlans';
+import { fetchDailyTip } from '@/services/dailyTip';
 import { isReminderNotificationsEnabled } from '@/services/notificationSound';
 import { ensureNotificationChannel } from '@/services/push';
 import {
@@ -46,14 +49,26 @@ async function loadNotifications(): Promise<NotificationsMod | null> {
   }
 }
 
-type SlotKind = 'motivation' | 'water' | 'midday' | 'water_pm' | 'evening' | 'streak';
+type SlotKind =
+  | 'motivation'
+  | 'daily_tip'
+  | 'water'
+  | 'midday'
+  | 'water_mid'
+  | 'water_pm'
+  | 'evening'
+  | 'evening_motivation'
+  | 'streak';
 
 const SLOT_HOURS: { kind: SlotKind; hour: number; minute: number }[] = [
   { kind: 'motivation', hour: 8, minute: 30 },
+  { kind: 'daily_tip', hour: 9, minute: 0 },
   { kind: 'water', hour: 10, minute: 30 },
   { kind: 'midday', hour: 12, minute: 30 },
+  { kind: 'water_mid', hour: 14, minute: 0 },
   { kind: 'water_pm', hour: 16, minute: 0 },
   { kind: 'evening', hour: 18, minute: 30 },
+  { kind: 'evening_motivation', hour: 20, minute: 0 },
   { kind: 'streak', hour: 21, minute: 0 },
 ];
 
@@ -101,8 +116,9 @@ export function resolveSlotAction(
   day: DayTaskState,
   middaySubstituteFired: boolean,
 ): HabitAction | null {
-  if (kind === 'motivation') return 'habit_motivation';
-  if (kind === 'water' || kind === 'water_pm') return 'habit_water';
+  if (kind === 'motivation' || kind === 'evening_motivation') return 'habit_motivation';
+  if (kind === 'daily_tip') return 'habit_daily_tip';
+  if (kind === 'water' || kind === 'water_mid' || kind === 'water_pm') return 'habit_water';
   if (kind === 'midday') {
     if (!unpaid && day.hasMeal && day.mealIncomplete) return 'habit_meal';
     if (unpaid && day.coreHealthIncomplete) return 'habit_health';
@@ -173,6 +189,15 @@ export async function syncEngagementReminders(opts: {
 
   await ensureNotificationChannel();
 
+  const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
+  let todayTip = '';
+  try {
+    const tipResult = await fetchDailyTip();
+    if (tipResult.tip) todayTip = String(tipResult.tip).trim();
+  } catch {
+    todayTip = '';
+  }
+
   const Schedulable = Notifications.SchedulableTriggerInputTypes;
 
   for (let i = 0; i < HORIZON_DAYS; i += 1) {
@@ -193,7 +218,13 @@ export async function syncEngagementReminders(opts: {
       if (!action) continue;
       if (slot.kind === 'midday' && unpaid) middaySubstituteFired = true;
 
-      const copy = pickHabitCopy(action, dateStr);
+      const copy =
+        action === 'habit_daily_tip'
+          ? pickDailyTipCopy(
+              dateStr,
+              dateStr === todayStr ? todayTip : pickFallbackTip(dateStr),
+            )
+          : pickHabitCopy(action, dateStr);
       const identifier = habitIdentifier(action, dateStr, slot.kind);
       try {
         await Notifications.scheduleNotificationAsync({

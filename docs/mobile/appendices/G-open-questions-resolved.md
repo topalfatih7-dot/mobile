@@ -15,6 +15,7 @@
 | Public SKIP | stories / corporate / team-apply — uygulamada rota yok |
 | Auth | Password only (Google/Apple kapalı) |
 | Onboarding | Tek adım ücretsiz üyelik; paket web `/plans` |
+| Membership cancel | Uyarı ekranlarımız + Stripe Portal onay; üye dönem sonu veya hemen kapatır (hemen = iade yok). Paketler bağımsız faturalanır. Doktor self-servis iptal yok (`info@yeniform.com`). Admin Dondur/İptal kaldırıldı. Resume: API `cancel_at_period_end: false`. |
 
 ## IMPLEMENTATION LOCK — complete
 

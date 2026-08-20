@@ -17,7 +17,9 @@ duration default = 30
 
 ## Props
 
-`open, onClose, type, staff, existingSessions, monthlyLimit, duration=30, accent, onBook(iso, duration), getBookedSlots(staffId, type, fromISO, toISO)`
+`open, onClose, type, staff, existingSessions, monthlyLimit, limitScope='month'|'all', duration=30, accent, onBook(iso, duration), getBookedSlots(staffId, type, fromISO, toISO)`
+
+`limitScope === 'all'` (doktor tek seferlik): kota tüm aktif + completed/no_show seanslar; metin **Kalan hakkınız**. Aylık: **Bu ay kalan hakkınız**.
 
 ## Steps UX
 

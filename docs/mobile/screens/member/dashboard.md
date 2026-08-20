@@ -46,6 +46,11 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
    - `Deneme süreniz: {hLeft} saat kaldı.`
    - Button: **Üye Ol** → membership
 
+4b. **Yenileme kapalı banner** — `listCancelAtPeriodEndPackages(member).length > 0`
+   - Title: `Yenileme kapalı`
+   - Sub: `MEMBERSHIP_CANCEL_COPY.renewalOffBanner(date, planLabel)` (paketler boşlukla birleşir)
+   - CTA: **Ödeme Yönetimi** → `/(member)/profile/payments`
+
 5. **Expiring banner** — `showExpiringBanner` (paid && (status expiring OR remainingDays 1..7))
    - Title: `Paket süreniz bitmek üzere` + optional `— {n} gün kaldı`
    - Sub: `Kesintisiz devam için planınızı yenileyin. Son gün dahil erişiminiz sürer.`
@@ -89,7 +94,7 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 ## Acceptance
 
 - [ ] FreeTrialExpiredGate short-circuit  
-- [ ] Banner koşulları birebir  
+- [ ] Banner koşulları birebir (deneme, yenileme kapalı, expiring, expired, upsell)  
 - [ ] String’ler birebir  
 - [ ] StatsCard 4 veya doktor kartıyla 5; HealthScoreCard ayrı blok
 - [ ] ActivationChecklist + scoresOnly unpaid  

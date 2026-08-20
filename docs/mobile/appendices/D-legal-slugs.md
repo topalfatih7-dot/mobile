@@ -17,6 +17,8 @@
 | antrenor-hizmet-standartlari | Antrenör Hizmet Standartları |
 | diyetisyen-hizmet-standartlari | Diyetisyen Hizmet Standartları |
 
-Redirects: `/kvkk` → kvkk, `/privacy` → gizlilik-politikasi, `/terms` → uyelik-ve-abonelik-sozlesmesi.
+Redirects: `/kvkk` → `/legal/kvkk`, `/privacy` → `/legal/gizlilik-politikasi`, `/terms` → `/legal/uyelik-ve-abonelik-sozlesmesi`.
+
+Kanonik web yolu: `https://www.yeniform.com/legal/{slug}` (Play listing bu adresi kullanır).
 
 Onboarding must surface required consents (KVKK açık rıza, sağlık, üyelik) before submit.

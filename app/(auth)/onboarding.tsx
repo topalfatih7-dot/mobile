@@ -2,7 +2,6 @@ import { Link, router, type Href } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthBackButton } from '@/components/auth/AuthBackButton';
 import { AuthSceneBackground } from '@/components/auth/AuthSceneBackground';
+import { LegalConsentCheckbox } from '@/components/auth/LegalConsentCheckbox';
 import { Button } from '@/components/ui/Button';
-import { CheckboxRow } from '@/components/ui/CheckboxRow';
 import { GenderSelect } from '@/components/ui/GenderSelect';
 import { PasswordRules } from '@/components/ui/PasswordRules';
 import { PhoneField } from '@/components/ui/PhoneField';
@@ -26,7 +25,6 @@ import {
   isValidNationalNumber,
   toE164,
 } from '@/data/countryCodes';
-import { legalUrl } from '@/data/legalSlugs';
 import { registerFreeMember } from '@/services/authRegister';
 import { isValidEmailAddress, sanitizeEmailInput } from '@/utils/email';
 import { isPasswordValid } from '@/utils/password';
@@ -51,10 +49,6 @@ export default function OnboardingScreen() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-
-  const openLegal = (slug: string) => {
-    void Linking.openURL(legalUrl(slug));
-  };
 
   if (registeredMember) {
     return (
@@ -224,25 +218,11 @@ export default function OnboardingScreen() {
               secureTextEntry
               value={confirmPassword}
             />
-            <CheckboxRow
-              checked={termsAccepted}
-              label="Kullanım koşulları ve gizlilik politikasını kabul ediyorum"
+            <LegalConsentCheckbox
+              accepted={termsAccepted}
+              error={fieldErrors.terms}
               onChange={setTermsAccepted}
             />
-            <View style={styles.legalLinks}>
-              <Pressable onPress={() => openLegal('uyelik-ve-abonelik-sozlesmesi')}>
-                <Text style={styles.legalLink}>Üyelik sözleşmesi</Text>
-              </Pressable>
-              <Text style={styles.legalDot}>·</Text>
-              <Pressable onPress={() => openLegal('gizlilik-politikasi')}>
-                <Text style={styles.legalLink}>Gizlilik</Text>
-              </Pressable>
-              <Text style={styles.legalDot}>·</Text>
-              <Pressable onPress={() => openLegal('kvkk')}>
-                <Text style={styles.legalLink}>KVKK</Text>
-              </Pressable>
-            </View>
-            {fieldErrors.terms ? <Text style={styles.err}>{fieldErrors.terms}</Text> : null}
             <Button
               label="Ücretsiz kayıt ol"
               loading={loading}
@@ -293,16 +273,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   form: { gap: spacing.md },
-  err: { fontFamily: fonts.sans, fontSize: 12, color: '#c2410c' },
-  legalLinks: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: -4,
-  },
-  legalLink: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.brand[600] },
-  legalDot: { fontFamily: fonts.sans, fontSize: 12, color: colors.cream[300] },
   linkBtn: { alignItems: 'center', paddingVertical: 8 },
   link: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.brand[600] },
   planChangeCard: {

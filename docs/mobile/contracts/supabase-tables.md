@@ -23,7 +23,7 @@ RLS enabled; mobile uses user JWT only. Details in `supabase/setup.sql` + migrat
 ## members.data (important keys)
 
 - Profile: `photo`, `city`, `district`, `birthDate`, `gender`, `age`, `weight`, `height`, `waist`, `goals[]`, `fitnessLevel`, `nutritionPrefs[]`, `phoneCountry`
-- Packages: `packageConfig`, `activePackages`, `premiumExpiresAt`, …
+- Packages: `packageConfig`, `activePackages` (`stripeSubscriptionId`, `cancelAtPeriodEnd`, `currentPeriodEnd`, `expiresAt`, `provider`), `premiumExpiresAt`, `stripeSubscriptionId` (legacy tek id)
 - Health / progress: `healthTest`, `completedActivities`, `progress`, `healthAnalysis`, …
 - Sessions: `coachSessions`, `dietitianSessions`, `doctorSessions` (or mapper equivalents)
 - Settings: `settings` — `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`

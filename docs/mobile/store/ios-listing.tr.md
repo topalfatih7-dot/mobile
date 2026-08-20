@@ -37,11 +37,11 @@ https://www.yeniform.com
 
 ## Privacy Policy URL
 
-https://www.yeniform.com/gizlilik-politikasi
+https://www.yeniform.com/legal/gizlilik-politikasi
 
 ## Terms URL
 
-https://www.yeniform.com/uyelik-ve-abonelik-sozlesmesi
+https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi
 
 ## Kategori
 

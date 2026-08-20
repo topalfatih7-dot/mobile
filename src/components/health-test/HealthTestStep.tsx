@@ -326,7 +326,7 @@ function FileUploadInput({
   };
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 16 }}>
       <Pressable
         disabled={uploading || !userId}
         onPress={() => void handlePick()}
@@ -408,7 +408,7 @@ function OptionGrid({
 
   if (q.type === 'single') {
     return (
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: 16 }}>
         {(q.options || []).map((o) => {
           const sel = healthTest[q.key] === o.value;
           return (
@@ -452,7 +452,7 @@ function OptionGrid({
         ? [String(healthTest[q.key])]
         : [];
     return (
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: 16 }}>
         {(q.options || []).map((o) => {
           const sel = selected.includes(o.value);
           return (
@@ -545,7 +545,7 @@ function FollowUpBlock({
       {followUp.hint ? (
         <Text style={styles.hint}>{followUp.hint}</Text>
       ) : null}
-      <View style={{ marginTop: 10 }}>
+      <View style={{ gap: 16 }}>
         {(followUp.type === 'emoji' ||
           followUp.type === 'single' ||
           followUp.type === 'multi') && (
@@ -756,7 +756,7 @@ export function HealthTestStep({
             </View>
           ) : null}
 
-          <View style={{ marginTop: spacing.md }}>
+          <View style={{ gap: 16 }}>
             {(q.type === 'emoji' ||
               q.type === 'single' ||
               q.type === 'multi') && (
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     marginTop: 2,
   },
-  cardBody: { padding: spacing.lg, gap: 4 },
+  cardBody: { padding: spacing.lg, gap: spacing.md },
   label: {
     fontFamily: fonts.displayExtra,
     fontSize: 20,
@@ -986,7 +986,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.cream[800],
     opacity: 0.6,
-    marginTop: 6,
     lineHeight: 18,
   },
   optionalBadge: {
@@ -998,7 +997,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    marginTop: 8,
   },
   optionalText: {
     fontFamily: fonts.sans,
@@ -1009,7 +1007,7 @@ const styles = StyleSheet.create({
   emojiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 16,
   },
   emojiOpt: {
     width: '47%',
@@ -1188,12 +1186,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.danger[50],
   },
   followUp: {
-    marginTop: 14,
+    marginTop: 0,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.cream[200],
     backgroundColor: colors.cream[50],
     padding: spacing.md,
+    gap: 16,
   },
   followUpTitle: {
     fontFamily: fonts.sansSemi,

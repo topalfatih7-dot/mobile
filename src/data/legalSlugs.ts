@@ -1,4 +1,6 @@
-/** LOCK: appendices/D-legal-slugs.md */
+/** LOCK: appendices/D-legal-slugs.md — kanonik web yolu `/legal/{slug}` */
+import { Linking } from 'react-native';
+
 import { env } from '@/config/env';
 
 export const LEGAL_DOCUMENTS: Record<string, { label: string; path: string }> = {
@@ -14,14 +16,14 @@ export const LEGAL_DOCUMENTS: Record<string, { label: string; path: string }> = 
     label: 'İptal ve İade Politikası',
     path: '/legal/iptal-ve-iade-politikasi',
   },
-  kvkk: { label: 'KVKK Aydınlatma Metni', path: '/kvkk' },
+  kvkk: { label: 'KVKK Aydınlatma Metni', path: '/legal/kvkk' },
   'kvkk-acik-riza-metni': {
     label: 'KVKK Açık Rıza Metni',
     path: '/legal/kvkk-acik-riza-metni',
   },
   'gizlilik-politikasi': {
     label: 'Gizlilik Politikası',
-    path: '/privacy',
+    path: '/legal/gizlilik-politikasi',
   },
   'cerez-politikasi': { label: 'Çerez Politikası', path: '/legal/cerez-politikasi' },
   'saglik-verisi-isleme-bilgilendirmesi': {
@@ -69,4 +71,8 @@ export function legalUrl(slug: string) {
   const doc = LEGAL_DOCUMENTS[slug];
   if (!doc) return `${env.apiBaseUrl}/`;
   return `${env.apiBaseUrl}${doc.path}`;
+}
+
+export function openLegalDocument(slug: string) {
+  return Linking.openURL(legalUrl(slug));
 }

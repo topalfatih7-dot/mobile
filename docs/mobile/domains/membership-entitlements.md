@@ -65,14 +65,24 @@ Kütüphane: UnpaidMemberGate + program-scoped. Tam katalog: fullLibraryAccess /
 | vip | 2 | 2 | 0 |
 | kurucu (legacy) | 2 | 2 | 0 |
 
-Helpers: `packageIncludesCoach`, `packageIncludesDietitian`, `sanitizeStaffForPackage`, `memberNeedsStaffAssignment`.
+Helpers: `packageIncludesCoach`, `packageIncludesDietitian`, `packageIncludesDoctor` (remaining kota kapıyı kapatmaz), `sanitizeStaffForPackage`, `memberNeedsStaffAssignment`.
 
 ## Süre / expiry
 
 - `durationMonths` 1|3|6  
-- `premiumExpiresAt` = start + N calendar months  
-- Expiry sync → membership `free`  
+- `premiumExpiresAt` = **aktif paketlerin en geç** `expiresAt` değeri (tek paket max’ı değil; stacking)  
+- Expiry sync → membership `free` yalnız **hiç aktif paket kalmazsa**  
+- Doktor tek seferlik: paket `consumed` yalnız görüşme `completed` / `no_show` olunca (onay = `scheduled` tüketmez)
+
+## Stripe stacking / iptal
+
+- Her ücretli Stripe aboneliği ayrı `activePackages[]` satırı: `stripeSubscriptionId`, `cancelAtPeriodEnd`, `currentPeriodEnd`
+- Yeni Checkout **mevcut abonelikleri kapatmaz**
+- `customer.subscription.deleted` yalnız eşleşen paketi expire eder
+- Hemen kapat: iade yok; o paketin kota/randevuları `sanitizeStaffForPackage` ile kesilir
+- Doktor: self-servis iptal yok
+- Admin `paused` / `cancelled` **yok** (migration: `active`)
 
 ## Staff assignment
 
-Paid plans with meeting quotas get `assigned_coach_id` / `assigned_dietitian_id` / `assigned_doctor_id`. Plan değişince `sanitizeStaffForPackage` paket dışı rolleri temizler.
+Paid plans with meeting quotas get `assigned_coach_id` / `assigned_dietitian_id` / `assigned_doctor_id`. Plan değişince `sanitizeStaffForPackage` koç/diyetisyen atamasını paket dışındaysa temizler. **Doktor ataması yalnız admin ile kalkar.**

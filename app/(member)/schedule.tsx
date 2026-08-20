@@ -26,7 +26,7 @@ import {
   packageIncludesDietitian,
   packageIncludesDoctor,
 } from '@/data/membershipPlans';
-import { resolveMemberEntitlements } from '@/utils/memberPackages';
+import { resolveMemberEntitlements, doctorBookingLimit, doctorLimitIsOneTime } from '@/utils/memberPackages';
 import {
   canMemberModifySession,
   memberCancelBlockedCopy,
@@ -81,17 +81,25 @@ export default function ScheduleScreen() {
 
   const tabMeta = SESSION_TABS.find((t) => t.id === tab) || SESSION_TABS[0];
 
+  const doctorIsOneTime = doctorLimitIsOneTime(packageConfig);
+  const doctorLimit = doctorIsOneTime
+    ? Number(packageConfig?.doctorSessionsTotal) || 0
+    : Number(packageConfig?.doctorMeetingsPerMonth) || 0;
+
   const canBook = useMemo(() => {
     if (tab === 'coach') return packageIncludesCoach(packageConfig);
     if (tab === 'dietitian') return packageIncludesDietitian(packageConfig);
-    return packageIncludesDoctor(packageConfig);
-  }, [tab, packageConfig]);
+    return (
+      packageIncludesDoctor(packageConfig) &&
+      doctorBookingLimit(packageConfig, member as never) > 0
+    );
+  }, [tab, packageConfig, member]);
 
   const monthlyLimit = useMemo(() => {
     if (tab === 'coach') return coachMonthlyLimit(packageConfig);
     if (tab === 'dietitian') return dietitianMonthlyLimit(packageConfig);
-    return 1;
-  }, [tab, packageConfig]);
+    return doctorLimit;
+  }, [tab, packageConfig, doctorLimit]);
 
   const sessions = useMemo(() => {
     const key = sessionsKey(tab);
@@ -120,6 +128,17 @@ export default function ScheduleScreen() {
   }, [sessions, listFilter]);
 
   const usedThisMonth = countSessionsThisMonth(sessions);
+  const usedDoctorAll = sessions.filter((s) => {
+    const st = s.status || 'scheduled';
+    return (
+      UPCOMING_STATUSES.includes(st) ||
+      st === 'completed' ||
+      st === 'no_show'
+    );
+  }).length;
+  const quotaUsed = tab === 'doctor' && doctorIsOneTime ? usedDoctorAll : usedThisMonth;
+  const hasSessions = sessions.length > 0;
+  const showLocked = !canBook && !hasSessions;
   const rescheduleDays = tab === 'coach' ? 3 : 5;
 
   const assignedKey =
@@ -179,7 +198,7 @@ export default function ScheduleScreen() {
               style={styles.heroSwap}>
               <Text style={styles.title}>{tabMeta.title}</Text>
               <Text style={styles.sub}>{tabMeta.subtitle}</Text>
-              {canBook && staff ? (
+              {staff ? (
                 <View style={styles.heroMeta}>
                   <Ionicons color="rgba(255,255,255,0.9)" name="person-circle" size={18} />
                   <Text style={styles.heroMetaText} numberOfLines={1}>
@@ -216,7 +235,7 @@ export default function ScheduleScreen() {
           })}
         </View>
 
-        {!canBook ? (
+        {showLocked ? (
           <FadeIn delay={80}>
             <View style={styles.locked}>
               <Ionicons color={colors.warm[500]} name="lock-closed" size={28} />
@@ -234,14 +253,17 @@ export default function ScheduleScreen() {
             <FadeIn delay={60}>
               <View style={styles.quotaRow}>
                 <Text style={styles.quotaText}>
-                  Bu ay: {usedThisMonth}/{monthlyLimit || '—'}
+                  {tab === 'doctor' && doctorIsOneTime ? 'Toplam' : 'Bu ay'}:{' '}
+                  {quotaUsed}/{monthlyLimit || '—'}
                 </Text>
-                <Button
-                  label="Randevu Al"
-                  onPress={() => setBookOpen(true)}
-                  size="md"
-                  style={styles.bookBtn}
-                />
+                {canBook ? (
+                  <Button
+                    label="Randevu Al"
+                    onPress={() => setBookOpen(true)}
+                    size="md"
+                    style={styles.bookBtn}
+                  />
+                ) : null}
               </View>
             </FadeIn>
 
@@ -254,6 +276,8 @@ export default function ScheduleScreen() {
                 ] as const
               ).map((f) => (
                 <Pressable
+                  accessibilityLabel={`${f.label} filtresi`}
+                  accessibilityRole="button"
                   key={f.id}
                   onPress={() => setListFilter(f.id)}
                   style={[styles.listChip, listFilter === f.id && styles.listChipOn]}>
@@ -271,7 +295,11 @@ export default function ScheduleScreen() {
             {filteredSessions.length === 0 ? (
               <FadeIn delay={100}>
                 <EmptyState
-                  description="Uzmanınızın müsait olduğu gün ve saatlerden Randevu Al ile yeni görüşme planlayabilirsiniz."
+                  description={
+                    canBook
+                      ? 'Uzmanınızın müsait olduğu gün ve saatlerden Randevu Al ile yeni görüşme planlayabilirsiniz.'
+                      : tabMeta.lockedDescription || 'Bu pakette yeni randevu hakkı kalmadı.'
+                  }
                   title="Randevu bulunamadı"
                 />
               </FadeIn>
@@ -473,13 +501,14 @@ export default function ScheduleScreen() {
       <SessionBooker
         existingSessions={sessions}
         getBookedSlots={fetchBookedSlots}
+        limitScope={tab === 'doctor' && doctorIsOneTime ? 'all' : 'month'}
         monthlyLimit={monthlyLimit}
         onBook={(iso, duration) => bookStaffSession(tab, iso, duration)}
         onClose={() => setBookOpen(false)}
-        open={bookOpen}
+        open={canBook && bookOpen}
         staff={staff}
         type={tab}
-        usedThisMonth={usedThisMonth}
+        usedThisMonth={quotaUsed}
       />
     </MeshBackground>
   );
@@ -606,17 +635,30 @@ const styles = StyleSheet.create({
   },
   quotaText: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.cream[800] },
   bookBtn: { minWidth: 140 },
-  listFilters: { flexDirection: 'row', gap: 8 },
+  listFilters: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: spacing.lg,
+  },
   listChip: {
-    borderRadius: radius.full,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.cream[200],
     backgroundColor: colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    minHeight: 40,
   },
   listChipOn: { backgroundColor: colors.brand[600], borderColor: colors.brand[600] },
-  listChipText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[800] },
+  listChipText: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 12,
+    color: colors.cream[800],
+    textAlign: 'center',
+  },
   listChipTextOn: { color: colors.white },
   card: {
     backgroundColor: colors.white,

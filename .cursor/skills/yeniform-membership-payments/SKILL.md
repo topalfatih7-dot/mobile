@@ -10,9 +10,10 @@ description: >-
 
 ## Locked model
 
-- **Mobile:** No App Store / Play IAP. Payments screen shows Supabase plan/status + CTA to logged-in web `/plans` via `/auth/callback?next=/plans&src=mobile` (same JWT hash; web Stripe).
-- **Web:** Stripe Checkout + `api/stripe-webhook.js` (web repo).
-- **Source of truth:** Supabase `members.membership`, `membership_status`, package/expiry in `members.data`.
+- **Mobile:** No App Store / Play IAP. Payments screen shows packages + Stripe Portal cancel/manage; new purchase CTA is logged-in web `/plans` via `/auth/callback?next=/plans&src=mobile`.
+- **Web:** Stripe Checkout + Customer Portal (`api/stripe-checkout.js`) + `api/stripe-webhook.js`.
+- **Source of truth:** Supabase `members.membership`, `membership_status`, `activePackages` (per `stripeSubscriptionId`).
+- **Cancel:** Our warning UI → Portal confirm. Resume: `{ action: 'resume-subscription' }`. Stacking: independent billing. Doktor: mailto `info@yeniform.com`. Admin pause/cancel removed.
 - **Removed:** RevenueCat SDK, `api/revenuecat-webhook.js`, mobil satın alma / restore / Customer Center.
 
 ## Plan IDs

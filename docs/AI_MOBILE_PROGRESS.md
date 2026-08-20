@@ -1,8 +1,41 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-19 — Android Play Store AAB profili + listing/runbook (Submit kullanıcı)  
+> **Son güncelleme:** 2026-08-20 — Üyelik iptali (Stripe Portal + stacking)  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-20 Üyelik iptali
+
+| Madde | Durum |
+|-------|--------|
+| Stripe paket stacking (`stripeSubscriptionId`); webhook yalnız o sub’u expire eder | ✅ |
+| Portal: manage / dönem sonu / hemen (`proration none`); resume API | ✅ |
+| Web + mobil Ödeme Yönetimi uyarı modalı; dashboard yenileme-kapalı banner | ✅ |
+| Doktor: mailto `info@yeniform.com`; admin Dondur/İptal kaldırıldı | ✅ |
+| Legal iptal/iade + sözleşme § (web) | ✅ |
+| Stripe Dashboard: `customer.subscription.updated` event (Live+Test) | ⬜ ops |
+| `paused`/`cancelled` satır | ✅ DB’de 0; SQL no-op |
+| İki abonelik QA (biri kapanır, diğeri çekilir) | ⬜ |
+
+## 2026-08-20 Doktor randevu kilidi
+
+| Madde | Durum |
+|-------|--------|
+| `scheduled` doktor seansı paketi `consumed` yapmıyordu (web: yalnız completed/no_show) | ✅ |
+| `packageIncludesDoctor` remaining kota ile kilitleniyordu | ✅ |
+| Randevu listesi: seans varken kilit yok; katıl görünür | ✅ |
+
+## 2026-08-20 Play Store UI / bildirim
+
+| Madde | Durum |
+|-------|--------|
+| Giriş/kayıt yasal belgeler → `yeniform.com/legal/...` | ✅ |
+| Habit: 09:00 günün ipucu, 14:00 su, 20:00 motivasyon | ✅ |
+| Sağlık analizi soru kartı boşlukları | ✅ |
+| Randevu / program filtre butonları (az rounded) | ✅ |
+| Listing gizlilik/sözleşme kanonik `/legal/` | ✅ |
+| Hesap silme sayfası (Play Submit öncesi) | ⬜ tasarlanacak |
+| Kullanıcı: Play app, testers, SHA, screenshot, EAS AAB, Submit | ⬜ |
 
 ## 2026-08-19 Android Play Store hazırlık
 

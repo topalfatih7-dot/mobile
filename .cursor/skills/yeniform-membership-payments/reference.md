@@ -27,7 +27,8 @@
 ## Key web files
 
 - `src/data/membershipPlans.js`
-- `src/services/stripePayment.js`, `api/stripe-checkout.js`, `api/stripe-webhook.js`
+- `src/services/stripePayment.js`, `api/stripe-checkout.js`, `api/_stripePortal.js`, `api/stripe-webhook.js`
+- `src/data/membershipCancelCopy.js`
 - `src/services/premiumMembership.js`
 - `src/services/supabaseDb.js` → `changeMemberPlan`, `adminUpdatePremiumMembership`, `registerWithPlan`
 - Mobil handoff: `src/services/webCheckoutHandoff.ts` → web `/auth/callback?next=/plans&src=mobile`

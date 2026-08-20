@@ -30,6 +30,7 @@ Başlık: Giriş Yap (veya web parity kısa başlık)
 **MOBILE DIFF:** SocialAuthButtons yok (Google/Apple kapalı — yalnız e-posta/şifre)
 Link: Şifremi unuttum → forgot-password
 Link: Kayıt ol → onboarding
+**MOBILE DIFF:** Altta tıklanır Kullanım Koşulları + Gizlilik Politikası → web `/legal/...`
 [FormErrorModal when error]
 ```
 

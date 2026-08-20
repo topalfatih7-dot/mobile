@@ -28,7 +28,7 @@ Force password when `tempPasswordIssued`. Clients via `getStaffClients()` (assig
 
 ## Admin critical flows (web only)
 
-Premium, başvurular, kütüphane CRUD, audit mesajlar — **web admin**. Mobilde bu ekranlar yok.
+Premium atama web admin. **Dondur / İptal paneli yok** — üye Stripe Portal (F16).
 
 ## Related
 

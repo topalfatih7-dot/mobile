@@ -8,7 +8,8 @@ export type HabitAction =
   | 'habit_streak'
   | 'habit_health'
   | 'habit_upsell'
-  | 'habit_winback';
+  | 'habit_winback'
+  | 'habit_daily_tip';
 
 export type HabitCopy = { title: string; body: string };
 
@@ -59,6 +60,10 @@ const WINBACK: HabitCopy[] = [
   { title: '👋 Seni özledik', body: 'Kaldığın yerden devam — değişim seni bekliyor.' },
 ];
 
+const DAILY_TIP: HabitCopy[] = [
+  { title: '💡 Günün ipucu', body: 'Bugün küçük bir adım yeter — panele bir bak.' },
+];
+
 const POOLS: Record<HabitAction, HabitCopy[]> = {
   habit_motivation: MOTIVATION,
   habit_water: WATER,
@@ -68,6 +73,7 @@ const POOLS: Record<HabitAction, HabitCopy[]> = {
   habit_health: HEALTH,
   habit_upsell: UPSELL,
   habit_winback: WINBACK,
+  habit_daily_tip: DAILY_TIP,
 };
 
 function dayIndex(dateStr: string, len: number) {
@@ -81,6 +87,13 @@ function dayIndex(dateStr: string, len: number) {
 export function pickHabitCopy(action: HabitAction, dateStr: string): HabitCopy {
   const pool = POOLS[action] || MOTIVATION;
   return pool[dayIndex(dateStr, pool.length)] || pool[0];
+}
+
+/** Günün ipucu bildirimi: başlık sabit, gövde API/yedek metin. */
+export function pickDailyTipCopy(dateStr: string, tipBody?: string | null): HabitCopy {
+  const base = pickHabitCopy('habit_daily_tip', dateStr);
+  const body = String(tipBody || '').trim();
+  return { title: base.title, body: body || base.body };
 }
 
 export function isHabitAction(action?: string | null): action is HabitAction {

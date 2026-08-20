@@ -19,6 +19,10 @@
 5. Quick links 2×2: **Programlarım**, **Takvim**, **Kalori**, **Destek**
 6. `PersonalInfoSection` — full field grid + “Düzenle” modal (see fields)
 7. Üyelik Planınız card — `migrateLegacyToPackages` + `isPackageEntryActive`; multi-package chip picker; remaining days / one-time doctor session counter (`isOneTimePlan`, `countUsedDoctorSessions`, `getRemainingDays`)
+   - Expiring copy: `Bu paketin süresi yakında doluyor — kesintisiz devam için Planlar’dan yenileyin. İptal için Ödeme Yönetimi.`
+   - Expired copy: `Bu paketin süresi doldu — yenilemek için Planlar sayfasını kullanın.`
+   - **Ödeme Yönetimi** → `/(member)/profile/payments`
+   - **Planları karşılaştır / paket ekle** → web `/plans` handoff (`openWebCheckoutHandoff`)
 8. Bildirimler — settings keys: `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`  
    `reminderNotifs` ayrıca günlük habit OS hatırlatmalarını keser (`domains/engagement-reminders.md`). Yeni anahtar yok.
 9. `VerificationSection` — email verify actions; phone only if `EXPO_PUBLIC_PHONE_VERIFY_ENABLED=true`

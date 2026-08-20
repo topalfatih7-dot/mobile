@@ -36,7 +36,7 @@ Multiple signals → read router targets **in parallel**, then execute in depend
 - First read `docs/mobile/IMPLEMENTATION-LOCK.md` on any mobile task.
 - Do not invent product rules; use `docs/mobile/` + web code at `/Users/mac/Desktop/Serenova-F-t/Adsız`.
 - Before coding a screen: open the matching web `src/pages/**` (and its components/services) and mirror layout + data/actions — no invented fields.
-- Payments: web Stripe only; mobile CTA → login’li `/plans` (`/auth/callback?next=/plans&src=mobile`); entitlement in Supabase `members`. No RevenueCat/IAP.
+- Payments: web Stripe only. Purchase CTA → login’li `/plans`. Cancel/manage → native warning + Portal (`yeniform-membership-payments`). Entitlement in Supabase `members`. No RevenueCat/IAP.
 - Panels: member + staff native. **Admin web-only** (`/(auth)/admin-web`).
 - Turkish UI copy parity with web — locked strings win over “better” copy.
 - If conflict between imagination and LOCK file → LOCK wins; if conflict between LOCK and live web → ask user / GAP protocol.
