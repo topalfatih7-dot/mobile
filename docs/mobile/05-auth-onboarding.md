@@ -91,4 +91,5 @@ Production’da anonymous brute-force’a açık raw password endpoint kullanma.
 - [flows/F01-register-pay-member.md](flows/F01-register-pay-member.md)  
 - [flows/F02-oauth-complete-profile.md](flows/F02-oauth-complete-profile.md)  
 - [flows/F03-password-reset.md](flows/F03-password-reset.md)  
-- [flows/F10-staff-force-password.md](flows/F10-staff-force-password.md)  
+- [flows/F10-staff-force-password.md](flows/F10-staff-force-password.md)
+- [flows/F17-account-delete.md](flows/F17-account-delete.md)  

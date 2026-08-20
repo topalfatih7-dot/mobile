@@ -62,7 +62,8 @@ export default function PaymentsScreen() {
   const expires = member?.premiumExpiresAt ? String(member.premiumExpiresAt) : null;
 
   const packages = useMemo(
-    () => migrateLegacyToPackages(member).filter((p) => isPackageEntryActive(p)),
+    () =>
+      migrateLegacyToPackages(member).filter((p: { status?: string }) => isPackageEntryActive(p)),
     [member],
   );
 
@@ -179,7 +180,14 @@ export default function PaymentsScreen() {
           {packages.length === 0 ? (
             <Text style={styles.emptyPkg}>Aktif ücretli paketiniz yok.</Text>
           ) : (
-            packages.map((pkg) => {
+            packages.map(
+              (pkg: {
+                id?: string;
+                planId?: string;
+                currentPeriodEnd?: string | null;
+                expiresAt?: string | null;
+                cancelAtPeriodEnd?: boolean;
+              }) => {
               const subId = packageBillingSubscriptionId(pkg, member);
               const oneTime = isOneTimePackage(pkg);
               const access = pkg.currentPeriodEnd || pkg.expiresAt;

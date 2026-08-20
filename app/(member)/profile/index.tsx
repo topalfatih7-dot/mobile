@@ -32,6 +32,7 @@ import { useActions } from '@/context/ActionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useData, useMember } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
+import { ACCOUNT_DELETE_COPY } from '@/data/accountDeleteCopy';
 import { CITY_NAMES, getDistricts } from '@/data/turkeyCities';
 import {
   getPlanLabel,
@@ -48,7 +49,7 @@ import {
 } from '@/services/authVerification';
 import { uploadMemberFile } from '@/services/memberMedia';
 import { getRemainingDays } from '@/services/premiumMembership';
-import { openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
+import { openWebAccountDeleteHandoff, openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
 import {
   countUsedDoctorSessions,
   isOneTimePlan,
@@ -610,6 +611,18 @@ export default function ProfileScreen() {
           }}
         />
 
+        <FadeIn delay={190}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={async () => {
+              const result = await openWebAccountDeleteHandoff();
+              if (!result.ok) toast(result.error, 'error');
+            }}
+            style={styles.deleteAccountBtn}>
+            <Text style={styles.deleteAccountText}>{ACCOUNT_DELETE_COPY.profileLink}</Text>
+          </Pressable>
+        </FadeIn>
+
         <FadeIn delay={200}>
           <Button
             label={loggingOut ? 'Çıkış yapılıyor…' : 'Çıkış Yap'}
@@ -1049,5 +1062,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 15,
     color: colors.cream[900],
+  },
+  deleteAccountBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  deleteAccountText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: colors.cream[800],
+    opacity: 0.55,
+    textDecorationLine: 'underline',
   },
 });

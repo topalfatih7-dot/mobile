@@ -1,25 +1,32 @@
 ---
-description: Push/FCM — dosyalar yerelde; canlı push için EAS rebuild gerekir
+description: Push/FCM — dosyalar yerelde; test binary Play Internal AAB
 alwaysApply: true
 ---
 
-# Push / FCM — dosyalar yerelde (2026-08-17)
+# Push / FCM — dosyalar yerelde (2026-08-20)
 
-Kullanıcı FCM dosyalarını koydu. Git’e girmez. Uydurma “push canlı” deme — **yeni EAS preview binary** olmadan arka plan bildirimi gelmez.
+Kullanıcı FCM dosyalarını koydu. Git’e girmez. Uydurma “push canlı” deme.
 
 ## Bu makinede var (kök, gitignore)
 
 - `google-services.json` — Android, paket `com.yeniform.app`
 - `GoogleService-Info.plist` — iOS, bundle `com.yeniform.app`
 
-`app.config.js` preview/production’da `googleServicesFile` bağlar (dev variant `.dev` paketinde yok). `.easignore` bu iki dosyayı EAS’e yükler.
+`app.config.js` preview/production/play-store’da `googleServicesFile` bağlar (dev variant `.dev` paketinde yok). `.easignore` bu iki dosyayı EAS’e yükler.
+
+## Test dağıtımı (2026-08-20)
+
+Sideload **preview APK yok**. Test: `play-store` **AAB** → Play Internal/Closed → opt-in. Kullanıcı açıkça `build:play:android` / Submit demeden **eas build başlatma**.
+
+Canlı arka plan push: Expo **FCM V1** bağlı; EAS SHA Firebase’de. Play App Signing SHA ilk Internal AAB sonrası. Onaysız build yok.
 
 ## Her sohbette
 
-Kısa hatırlat: **açık iş — FCM dosyaları yerelde; canlı push için onaylı EAS preview rebuild** (`build:preview:android` / `build:preview:ios`). iOS ayrıca cihaz kaydı + Apple Developer.
+Kısa hatırlat: FCM istemci git’e girmez; **AAB engeli değil** (EAS `.easignore` ile yükler). Test binary = Play AAB. Onaysız build yok.
 
 ## Yapma
 
-- Rebuild olmadan push’u tamamlandı sayma
+- Preview APK / otomatik `eas build`
+- Rebuild + FCM V1 + SHA olmadan push’u tamamlandı sayma
 - Firebase/Gradle snippet yapıştırma (Expo managed)
 - Dosyaları git’e ekleme / commit etme

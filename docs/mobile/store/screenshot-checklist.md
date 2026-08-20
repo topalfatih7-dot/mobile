@@ -13,16 +13,19 @@
 | Tip | Öneri | Durum |
 |-----|-------|-------|
 | Feature graphic | 1024×500 — `assets/store/google-play-feature-graphic.png` | ✅ |
-| Telefon screenshot | 1080×1920 veya 1080×2340 | ⬜ sen çekersin |
+| Telefon screenshot | 1080×2160 — `assets/store/play-phone/` | ✅ Play 2:1 |
+| Yüksek çözünürlük ikon | 512×512 — `assets/store/google-play-icon-512.png` | ✅ |
 | 7" tablet (opsiyonel) | — | ⬜ |
 
 ## Ekran önerisi (üye)
 
-1. Dashboard  
-2. Mesajlar (presence görünür)  
-3. Program / takvim  
-4. Sağlık testi hub  
-5. Kalori  
-6. Üyelik / ödemeler  
+Screenshot sırası (Play’e yükle, 07 tekrar):
+
+1. `01-panel-saglik-skoru.jpg` — panel  
+2. `02-panel-takip.jpg` — takip  
+3. `03-programlarim.jpg` — programlar  
+4. `04-program-takvimi.jpg` — takvim  
+5. `05-hareket-kutuphanesi.jpg` — kütüphane  
+6. `06-kalori.jpg` — kalori  
 
 Filigran / mock telefon çerçevesi: mağaza kurallarına uy.

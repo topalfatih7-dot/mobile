@@ -30,6 +30,8 @@
 | Web checkout no session | Oturum bulunamadı. Lütfen tekrar giriş yapın. |
 | Web checkout browser fail | Web sayfası açılamadı. |
 | Web checkout login fallback | Tarayıcıda giriş yapmanız gerekebilir. |
+| Account delete profile | Hesabımı sil |
+| Account delete done | Hesabınız silindi |
 | Web checkout demo | Satın alma demo modda kapalı. Giriş ekranından demo hesapla devam edin. |
 | Web checkout callback fail | Oturum tarayıcıda açılamadı. Giriş yaparak paket sayfasına devam edebilirsiniz. |
 | Cart empty | En az bir hareket ekleyin |

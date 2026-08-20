@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { router, type Href } from 'expo-router';
 
 import {
   isColdBootCompleted,
@@ -16,8 +17,10 @@ import {
 } from '@/boot/coldBoot';
 import { BrandedBootScreen } from '@/components/welcome/BrandedBootScreen';
 import { isUiOnly } from '@/config/runtime';
+import { ACCOUNT_DELETE_COPY } from '@/data/accountDeleteCopy';
 import { buildDemoAuth } from '@/data/uiDemo';
 import { resetChatUi } from '@/data/uiChat';
+import { useToast } from '@/context/ToastContext';
 import { hydrateAuth, routeForHydrated, type HydratedAuth, type SessionRole } from '@/services/authHydrate';
 import { passwordLogin } from '@/services/authLogin';
 import {
@@ -50,12 +53,15 @@ export type AuthContextValue = {
     turnstileToken?: string;
   }) => Promise<{ success: boolean; error?: string; route?: string }>;
   logout: () => Promise<void>;
+  /** F17: members satırı silindi — yerel oturum + landing. Ağ/timeout çağırmaz. */
+  endSessionAfterAccountPurge: () => Promise<void>;
   routeForRole: () => string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { toast } = useToast();
   const [booting, setBooting] = useState(true);
   const [showColdBoot, setShowColdBoot] = useState(() => !isColdBootCompleted());
   const [auth, setAuth] = useState<HydratedAuth | null>(null);
@@ -67,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authEventGenRef = useRef(0);
   const loginLockRef = useRef(false);
   const loginEpochRef = useRef(0);
+  const accountPurgeLockRef = useRef(false);
 
   const refreshAuth = useCallback(async () => {
     if (isUiOnly()) {
@@ -175,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (await hydrateAuth(result.session)) || (await hydrateAuth());
         setAuth(next);
         loginEpochRef.current = authEventGenRef.current;
+        accountPurgeLockRef.current = false;
         if (!next) {
           return { success: false as const, error: 'Oturum açılamadı. Lütfen tekrar deneyin.' };
         }
@@ -196,10 +204,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuth(null);
       return;
     }
-    if (supabase) await supabase.auth.signOut();
+    try {
+      if (supabase) await supabase.auth.signOut();
+    } catch {
+      try {
+        await supabase?.auth.signOut({ scope: 'local' });
+      } catch {
+        /* already gone */
+      }
+    }
     setStaffOverride(null);
     setAuth(null);
   }, []);
+
+  const endSessionAfterAccountPurge = useCallback(async () => {
+    if (isUiOnly()) return;
+    if (!authRef.current?.registeredMember) return;
+    if (accountPurgeLockRef.current) return;
+    accountPurgeLockRef.current = true;
+    try {
+      if (supabase) await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      /* server user already deleted */
+    }
+    setStaffOverride(null);
+    setAuth(null);
+    toast(ACCOUNT_DELETE_COPY.doneTitle, 'info');
+    router.replace('/(public)/landing' as Href);
+  }, [toast]);
 
   const routeForRole = useCallback(() => (auth ? routeForHydrated(auth) : null), [auth]);
 
@@ -234,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applyRemoteStaff,
       login,
       logout,
+      endSessionAfterAccountPurge,
       routeForRole,
     }),
     [
@@ -246,6 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applyRemoteStaff,
       login,
       logout,
+      endSessionAfterAccountPurge,
       routeForRole,
     ],
   );

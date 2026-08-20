@@ -10,6 +10,14 @@ expo-env.d.ts
 .env
 .env*.local
 
+# FCM V1 admin key — Expo credentials'a yüklenir, EAS tarball'a girmez
+*firebase-adminsdk*.json
+firebase-service-account*.json
+
+# Store listing / kamera dump — AAB’ye girmez
+assets/WhatsApp Image *
+assets/store/play-phone/
+
 .DS_Store
 *.pem
 *.jks

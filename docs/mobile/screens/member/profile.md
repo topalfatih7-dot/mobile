@@ -26,7 +26,8 @@
 8. Bildirimler — settings keys: `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`  
    `reminderNotifs` ayrıca günlük habit OS hatırlatmalarını keser (`domains/engagement-reminders.md`). Yeni anahtar yok.
 9. `VerificationSection` — email verify actions; phone only if `EXPO_PUBLIC_PHONE_VERIFY_ENABLED=true`
-10. Logout (`loggingOut` spinner) → `/(public)/landing` + toast **Çıkış yapıldı**
+10. **Hesabımı sil** (web `/hesap-silme` JWT handoff) — `openWebAccountDeleteHandoff`
+11. Logout (`loggingOut` spinner) → `/(public)/landing` + toast **Çıkış yapıldı**
 
 ## Hero edit modal (Profili Düzenle)
 
@@ -72,3 +73,5 @@ Save toast: **Ölçüleriniz kaydedildi.**
 - [ ] Email verification send / refresh / code confirm  
 - [ ] Notification toggles ×4  
 - [ ] Logout loading + landing redirect + toast  
+- [ ] **Hesabımı sil** web `/hesap-silme` handoff; native silme formu yok  
+- [ ] Hesap silme sonrası ön plana dönüşte yerel çıkış + landing + toast **Hesabınız silindi**  

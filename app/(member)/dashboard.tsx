@@ -325,15 +325,20 @@ export default function MemberDashboard() {
                 <Text style={styles.bannerTitle}>Yenileme kapalı</Text>
                 <Text style={styles.bannerSub}>
                   {cancelPendingPackages
-                    .map((pkg) =>
-                      MEMBERSHIP_CANCEL_COPY.renewalOffBanner(
-                        pkg.currentPeriodEnd || pkg.expiresAt
-                          ? format(new Date(pkg.currentPeriodEnd || pkg.expiresAt), 'd MMMM yyyy', {
-                              locale: tr,
-                            })
-                          : 'dönem sonu',
-                        getPlanLabel(pkg.planId),
-                      ),
+                    .map(
+                      (pkg: {
+                        currentPeriodEnd?: string | null;
+                        expiresAt?: string | null;
+                        planId?: string;
+                      }) => {
+                        const periodEnd = pkg.currentPeriodEnd || pkg.expiresAt;
+                        return MEMBERSHIP_CANCEL_COPY.renewalOffBanner(
+                          periodEnd
+                            ? format(new Date(periodEnd), 'd MMMM yyyy', { locale: tr })
+                            : 'dönem sonu',
+                          getPlanLabel(pkg.planId),
+                        );
+                      },
                     )
                     .join(' ')}
                 </Text>

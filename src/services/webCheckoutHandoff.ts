@@ -1,6 +1,6 @@
 /**
- * Member payments CTA → logged-in web /plans.
- * LOCK: docs/mobile/screens/member/payments.md — never throws; never wipes app session.
+ * Logged-in web handoff (JWT hash). Never throws; never wipes app session.
+ * LOCK: payments.md (/plans) · profile.md (/hesap-silme)
  */
 import { Linking } from 'react-native';
 
@@ -20,6 +20,7 @@ export type WebCheckoutHandoffResult =
   | { ok: false; error: string; fallback?: 'plans-login' };
 
 const MAX_HANDOFF_URL_LEN = 1800;
+const ALLOWED_NEXT = new Set(['/plans', '/hesap-silme']);
 
 async function openBrowser(url: string): Promise<WebCheckoutHandoffResult> {
   try {
@@ -35,6 +36,7 @@ async function sessionForHandoff() {
   /*
    * refreshSession() çağırma — geçersiz/paylaşılan refresh token SIGNED_OUT üretir
    * (ödeme CTA sonrası uygulama içi giriş düşer). LOCK: hata oturumu silmez.
+   * Hesap silme sonrası çıkış: DataContext ön plan `members` missing (F17).
    */
   try {
     const { data } = await supabase.auth.getSession();
@@ -46,14 +48,19 @@ async function sessionForHandoff() {
   return null;
 }
 
-function buildHandoffUrl(accessToken: string, refreshToken: string, expiresIn: number): string {
+function buildHandoffUrl(
+  accessToken: string,
+  refreshToken: string,
+  expiresIn: number,
+  nextPath: string,
+): string {
   const hash = new URLSearchParams({
     access_token: accessToken,
     refresh_token: refreshToken,
     token_type: 'bearer',
     expires_in: String(Math.max(0, Math.floor(expiresIn))),
   });
-  return `${env.apiBaseUrl}/auth/callback?next=${encodeURIComponent('/plans')}&src=mobile#${hash.toString()}`;
+  return `${env.apiBaseUrl}/auth/callback?next=${encodeURIComponent(nextPath)}&src=mobile#${hash.toString()}`;
 }
 
 function expiresInSeconds(session: {
@@ -69,8 +76,11 @@ function expiresInSeconds(session: {
   return 3600;
 }
 
-/** Opens web /plans with the current app session. Never throws. */
-export async function openWebCheckoutHandoff(): Promise<WebCheckoutHandoffResult> {
+/** Opens a locked web path with the current app session. Never throws. */
+export async function openWebHandoff(
+  nextPath: string = '/plans',
+): Promise<WebCheckoutHandoffResult> {
+  const next = ALLOWED_NEXT.has(nextPath) ? nextPath : '/plans';
   try {
     if (isUiOnly() || !supabase) {
       return { ok: false, error: WEB_CHECKOUT_COPY.demo };
@@ -85,10 +95,11 @@ export async function openWebCheckoutHandoff(): Promise<WebCheckoutHandoffResult
       session.access_token,
       session.refresh_token,
       expiresInSeconds(session),
+      next,
     );
 
     if (url.length > MAX_HANDOFF_URL_LEN) {
-      const opened = await openBrowser(`${env.apiBaseUrl}/plans`);
+      const opened = await openBrowser(`${env.apiBaseUrl}${next}`);
       if (!opened.ok) return opened;
       return {
         ok: false,
@@ -101,4 +112,13 @@ export async function openWebCheckoutHandoff(): Promise<WebCheckoutHandoffResult
   } catch {
     return { ok: false, error: WEB_CHECKOUT_COPY.browserFail };
   }
+}
+
+/** Opens web /plans with the current app session. Never throws. */
+export async function openWebCheckoutHandoff(): Promise<WebCheckoutHandoffResult> {
+  return openWebHandoff('/plans');
+}
+
+export async function openWebAccountDeleteHandoff(): Promise<WebCheckoutHandoffResult> {
+  return openWebHandoff('/hesap-silme');
 }

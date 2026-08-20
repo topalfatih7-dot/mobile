@@ -2,7 +2,7 @@
 
 These files are **not committed to git** (they are in `.gitignore`). You must obtain and place them manually before running a native build that needs push.
 
-> **2026-08-17:** Dosyalar proje kökünde (`com.yeniform.app`). Git’e girmez. Canlı push için yeni EAS preview binary gerekir — `.cursor/rules/push-fcm-deferred.mdc`.
+> **2026-08-20:** İstemci dosyaları kökte (`com.yeniform.app`). Git’e girmez. Expo FCM V1 bağlı. EAS SHA Firebase’de. Test binary = onaylı Play AAB. Gradle yok.
 
 ---
 
@@ -47,25 +47,48 @@ Do not add `googleServicesFile` without the file — Expo config parse fails and
 
 ---
 
-## 3. Expo Push Notification Setup
+## 3. Firebase SHA
 
-After placing the Android file (and iOS plist when targeting iOS):
+Firebase `yeniform-aa5c1` → Android `com.yeniform.app` — **EAS fingerprint 2026-08-20 konsolda var** (üç SHA-1 / dört SHA-256 içinde):
 
-1. Run a new EAS build so the native project picks up the credentials (**yalnızca kullanıcı onayıyla**). iOS ad hoc sıra ve cihaz kaydı: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md).
-   ```bash
-   npm run build:preview:android
-   npm run build:preview:ios
-   ```
-2. Member login on a physical device → allow notifications. The app calls `Notifications.getExpoPushTokenAsync()` and upserts `device_push_tokens`.
+| | |
+|--|--|
+| SHA-1 | `E0:CF:D4:B5:1F:86:1F:BA:D6:41:A5:53:42:7E:70:4F:A2:D7:AE:23` |
+| SHA-256 | `2E:B6:44:C6:A2:B7:E8:21:B4:04:BD:DE:E2:A9:03:FB:53:F7:BC:13:C4:DA:86:DB:F0:DA:8B:2E:79:6F:B1:5E` |
+
+Play Internal sonrası ayrıca Play Console → App integrity → **App signing key** SHA-1/256 (upload key değil) eklenir. SHA eklemek AAB’yi yenilemez.
+
+---
+
+## 4. Expo FCM V1 (gönderme anahtarı)
+
+`google-services.json` yalnız **cihazın** FCM’e kaydı. Expo Push gönderimi: FCM V1 Expo’da **bağlı** (`yeniform-aa5c1` / `firebase-adminsdk-fbsvc@…`, 2026-08-20).
+
+JSON git’e girmez. Yeni anahtar gerekirse aynı Firebase sayfasından üret; sohbette ver veya Expo Credentials’a yükle. Gradle yok.
+
+---
+
+## 5. Expo Push — binary
+
+Dosyalar yereldeyken EAS `play-store` AAB FCM’i gömer (`app.config.js`). Sideload preview APK yok. Metro yetmez. Onaysız `eas build` yok.
+
+```bash
+npm run build:play:android
+```
+
+iOS: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md) + APNs `.p8` Firebase Cloud Messaging.
+
+Play’den kur → üye login → bildirim izni **İzin Ver** → `device_push_tokens` (`ExponentPushToken[...]`).
 
 ---
 
 ## Summary Checklist
 
-| File | Platform | Location |
-|------|----------|----------|
-| `google-services.json` | Android | project root |
-| `GoogleService-Info.plist` | iOS | project root |
-| APNs `.p8` key (optional) | iOS | Upload to Firebase Console only — do NOT commit |
-
-All three are already in `.gitignore` and will never be accidentally committed.
+| | Platform | Durum |
+|--|----------|--------|
+| `google-services.json` | Android istemci | yerelde, git’e girmez |
+| `GoogleService-Info.plist` | iOS istemci | yerelde, git’e girmez |
+| EAS SHA Firebase’de | Android Play test | ✅ 2026-08-20 (EAS fingerprint listede) |
+| Play App Signing SHA | Play AAB | Play’e yükledikten sonra |
+| FCM V1 JSON → Expo | gönderim | ✅ 2026-08-20 `yeniforms-team` / `com.yeniform.app` |
+| APNs `.p8` | iOS | Firebase’e; git’e girmez |

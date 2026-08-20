@@ -4,7 +4,11 @@ Kaynak: gizlilik / KVKK / sağlık metinleri (`appendices/D-legal-slugs.md`). Uy
 
 ## Data safety (özet)
 
-Reklam SDK’sı yok. `AD_ID` bloklu.
+Play Console **Veri güvenliği** → sağ üst **CSV'yi içe aktar**:
+[`play-data-safety.csv`](play-data-safety.csv)
+(`assets/store/play-data-safety.csv` aynı dosya).
+
+Reklam SDK’sı yok. `AD_ID` bloklu. Play hesap silme URL: `https://www.yeniform.com/hesap-silme`
 
 | Veri | Toplanır | Paylaşılır | Amaç |
 |------|----------|------------|------|
@@ -55,13 +59,13 @@ Hayır.
 
 Üye test hesabı ver. Giriş: e-posta/şifre (Google/Apple kapalı).
 
-## Hesap silme (zorunlu — Submit öncesi)
+## Hesap silme (Play)
 
-Play: “URL to account deletion” veya uygulama içi yol.
+Play: “Hesap silme URL’si” → `https://www.yeniform.com/hesap-silme`
 
-**2026-08-20:** Web silme sayfası henüz yok; birlikte tasarlanacak. Şimdilik URL yapıştırma. Production Submit bu adres olmadan reddedilebilir.
+Self-servis: giriş + şifre + onay. Stripe paketleri hemen kapanır (iade yok). Personel/admin: `info@yeniform.com`.
 
-Mobilde silme ekranı **yok** (spec yok). Çalışmayan URL yapıştırma.
+Mobilde native silme formu yok; profil **Hesabımı sil** web’e gider.
 
 ## Privacy policy URL
 

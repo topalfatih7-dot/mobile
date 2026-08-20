@@ -2,33 +2,17 @@
 
 Expo SDK **56** (`expo-router`). Ürün kilidi: `docs/mobile/IMPLEMENTATION-LOCK.md`.
 
-## Play Store (Android AAB)
+## Play Store test (Android AAB)
 
-Sideload APK Play’e gitmez. Yayın adımları (senin işin): [`docs/mobile/store/android-play-store.md`](docs/mobile/store/android-play-store.md)
+Sideload / preview APK **yok**. Test kurulumu Play Internal/Closed opt-in. Adımlar: [`docs/mobile/store/android-play-store.md`](docs/mobile/store/android-play-store.md)
 
 ```bash
 npm run build:play:android
 ```
 
-Onaysız `eas build` / Submit yok.
+Onaysız `eas build` / Submit yok. Telefonda sideload **Yeni Form** varsa Play kurulumundan **önce sil** (imza farklı).
 
-## Telefonda test (Metro / `expo start` YOK)
-
-İndirdiğiniz APK kendi başına açılır. Development client (QR + Metro) bu yol değildir.
-
-1. Telefonda eski **Yeni Form** uygulamasını silin (imza/paket çakışması).
-2. Bilinmeyen kaynaklardan kurulum izni verin.
-3. EAS **preview** APK indirin (`.apk` — Play `.aab` değil):
-
-```bash
-npm install
-npm run build:preview:android
-```
-
-4. expo.dev’deki **Install** linkinden APK’yı telefona indirip kurun.
-5. **Yeni Form** ikonunu açın — `expo start` çalıştırmayın.
-
-Gerekli ortam (EAS **preview** environment, binary’ye gömülür):
+Gerekli ortam (EAS **preview** env, `play-store` profili bunu kullanır; binary’ye gömülür):
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (veya `ANON_KEY`)
@@ -36,7 +20,7 @@ Gerekli ortam (EAS **preview** environment, binary’ye gömülür):
 - `EXPO_PUBLIC_YENIFORM_MOBILE_API_SECRET` = Vercel `YENIFORM_MOBILE_API_SECRET`
 - isteğe bağlı: `EXPO_PUBLIC_DAILY_DOMAIN`
 
-Push için kökte `google-services.json` (`com.yeniform.app`). Yoksa APK yine kurulur; bildirim token’ı çalışmaz.
+Push: kökte `google-services.json` + Expo FCM V1 + Firebase SHA. `SETUP_REQUIRED.md`.
 
 ## iOS preview (ad hoc)
 

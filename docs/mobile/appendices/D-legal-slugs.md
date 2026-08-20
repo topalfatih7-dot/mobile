@@ -17,6 +17,8 @@
 | antrenor-hizmet-standartlari | Antrenör Hizmet Standartları |
 | diyetisyen-hizmet-standartlari | Diyetisyen Hizmet Standartları |
 
+Hesap silme (Play / KVKK self-servis): `https://www.yeniform.com/hesap-silme` (`/account-deletion` → aynı sayfa). Legal slug değil.
+
 Redirects: `/kvkk` → `/legal/kvkk`, `/privacy` → `/legal/gizlilik-politikasi`, `/terms` → `/legal/uyelik-ve-abonelik-sozlesmesi`.
 
 Kanonik web yolu: `https://www.yeniform.com/legal/{slug}` (Play listing bu adresi kullanır).

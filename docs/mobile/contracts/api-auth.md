@@ -147,6 +147,26 @@ Optional alternate on profile UI: user pastes 6-digit OTP → client `supabase.a
 
 Follow ForgotPasswordPage + AuthCallbackPage; do not invent alternate recovery API.
 
+## delete-account
+
+Web `/hesap-silme` + mobil profil handoff. Auth required.
+
+```json
+{
+  "action": "delete-account",
+  "ack": true,
+  "password": "Secret1!",
+  "emailConfirm": "user@example.com"
+}
+```
+
+Success: `{ "ok": true }`  
+Errors: 401 oturum/şifre, 400 `ack`/e-posta, 403 personel/admin, 502 Stripe iptal.
+
+Stripe abonelikleri hemen kapanır (`prorate: false`). Native silme formu yok — [F17](../flows/F17-account-delete.md).
+
+Mobil: silme tarayıcıda biter; uygulamaya dönüşte `members` yoksa yerel oturum kapanır (JWT tek başına paneli açık tutmaz).
+
 ## Mobile PROD rule
 
 No fallback to raw `signInWithPassword` when API unreachable (web only allows fallback in non-PROD).

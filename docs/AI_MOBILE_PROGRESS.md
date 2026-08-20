@@ -1,8 +1,28 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-20 — Üyelik iptali (Stripe Portal + stacking)  
+> **Son güncelleme:** 2026-08-20 — Test dağıtımı Play Internal AAB (preview APK kapalı)  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-20 Play test yolu
+
+| Madde | Durum |
+|-------|--------|
+| Sideload preview APK durduruldu; test = `play-store` AAB + Internal opt-in | ✅ kural + README + P6 |
+| Onaysız / otomatik `eas build` yok | ✅ |
+| Screenshot 1080×2160 + feature graphic + 512 ikon | ✅ `assets/store/` |
+| Hesap silme URL canlı | ✅ `https://www.yeniform.com/hesap-silme` |
+| FCM istemci dosyaları yerelde | ✅ gitignore |
+| Expo FCM V1 + Firebase EAS SHA | ✅ V1 Expo’da; EAS SHA Firebase’de (Play App Signing SHA ⬜ ilk AAB sonrası) |
+| Onaylı `build:play:android` → Play Internal | 🔄 [9f52417c](https://expo.dev/accounts/yeniforms-team/projects/yeniform/builds/9f52417c-c307-4986-aaed-728008b9a912) `1.0.1` / versionCode **5** |
+
+## 2026-08-20 Hesap silme — mobil çıkış
+
+| Madde | Durum |
+|-------|--------|
+| Web `/hesap-silme` hesabı siliyordu; mobil JWT + önbellek paneli açık tutuyordu | ✅ ön plan `members` missing → yerel signOut + landing |
+| Timeout/ağ ile boş satır karışmasın (ödeme kartı stale kalsın) | ✅ `probeMemberRow` ok / missing / unavailable |
+| Cold boot: JWT var, GoTrue user yok → hydrate null | ✅ `getUser(access_token)` (refresh yok) |
 
 ## 2026-08-20 Üyelik iptali
 
@@ -34,8 +54,8 @@
 | Sağlık analizi soru kartı boşlukları | ✅ |
 | Randevu / program filtre butonları (az rounded) | ✅ |
 | Listing gizlilik/sözleşme kanonik `/legal/` | ✅ |
-| Hesap silme sayfası (Play Submit öncesi) | ⬜ tasarlanacak |
-| Kullanıcı: Play app, testers, SHA, screenshot, EAS AAB, Submit | ⬜ |
+| Hesap silme sayfası (Play Submit öncesi) | ✅ web `/hesap-silme` + mobil profil handoff |
+| Kullanıcı: Play app, testers, FCM V1, SHA, Internal AAB | ⬜ |
 
 ## 2026-08-19 Android Play Store hazırlık
 

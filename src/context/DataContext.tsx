@@ -35,7 +35,7 @@ import {
   type PlatformBundle,
 } from '@/services/platformDb';
 import { isMemberWriteInFlight } from '@/services/memberWriteGate';
-import { fetchMemberRowQuiet } from '@/services/memberRowRefresh';
+import { probeMemberRow } from '@/services/memberRowRefresh';
 import { fetchStaffDirectory } from '@/services/staffDirectory';
 import { requireSupabase, supabase } from '@/services/supabase';
 import { isPaidMembership, setPlanCatalog } from '@/data/membershipPlans';
@@ -129,7 +129,8 @@ function demoPlatform(role: string | null): PlatformBundle {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { userId, role, member, staff, refreshAuth, applyRemoteMember } = useAuth();
+  const { userId, role, member, staff, refreshAuth, applyRemoteMember, endSessionAfterAccountPurge } =
+    useAuth();
   const { bump: bumpChatUnread } = useChatUnread();
   const [loading, setLoading] = useState(false);
   const [programs, setPrograms] = useState<ProgramRecord[]>([]);
@@ -377,9 +378,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (state !== 'active') return;
       void (async () => {
         try {
-          if (isMemberWriteInFlight()) return;
-          const row = await fetchMemberRowQuiet(userId);
-          if (row) applyRemoteMember(row);
+          const probe = await probeMemberRow(userId);
+          if (probe.status === 'missing') {
+            await endSessionAfterAccountPurge();
+            return;
+          }
+          if (probe.status === 'ok' && !isMemberWriteInFlight()) {
+            applyRemoteMember(probe.member);
+          }
         } catch {
           /* keep stale membership card */
         }
@@ -387,7 +393,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     const sub = AppState.addEventListener('change', onChange);
     return () => sub.remove();
-  }, [role, userId, applyRemoteMember]);
+  }, [role, userId, applyRemoteMember, endSessionAfterAccountPurge]);
 
   const myPrograms = useMemo(() => {
     if (!effectiveMember?.id) return [];

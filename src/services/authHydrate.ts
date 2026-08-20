@@ -4,6 +4,7 @@
 import type { Session } from '@supabase/supabase-js';
 
 import { env } from '@/config/env';
+import { probeAuthUser } from '@/services/authUserProbe';
 import { rowToMember, rowToStaff } from '@/services/mappers';
 import { requireSupabase, supabase } from '@/services/supabase';
 import { hasRegisteredMember } from '@/utils/memberProfile';
@@ -42,6 +43,7 @@ export async function hydrateAuth(sessionOverride?: Session | null): Promise<Hyd
 
     let staffRow: Record<string, unknown> | null = null;
     let memberRow: Record<string, unknown> | null = null;
+    let memberSelectFailed = false;
     try {
       const [staffRes, memberRes] = await Promise.all([
         client.from('staff').select('*').eq('id', userId).maybeSingle(),
@@ -49,8 +51,27 @@ export async function hydrateAuth(sessionOverride?: Session | null): Promise<Hyd
       ]);
       staffRow = (staffRes.data as Record<string, unknown> | null) || null;
       memberRow = (memberRes.data as Record<string, unknown> | null) || null;
+      memberSelectFailed = Boolean(memberRes.error);
     } catch {
       /* Oturum var; satır okuma sonraki hydrate’de denenecek */
+      memberSelectFailed = true;
+    }
+
+    /*
+     * Hesap silindi: JWT süresi dolana kadar getSession yerelde dolu kalır.
+     * members/staff boş + GoTrue user yok → yerel oturumu kapat (F17).
+     * Satır okuma hata/timeout ise dokunma (ödeme handoff / ağ).
+     */
+    if (!memberSelectFailed && !staffRow && !memberRow) {
+      const userProbe = await probeAuthUser(session.access_token);
+      if (userProbe === 'gone') {
+        try {
+          await client.auth.signOut({ scope: 'local' });
+        } catch {
+          /* already gone */
+        }
+        return null;
+      }
     }
 
     if (staffRow) {

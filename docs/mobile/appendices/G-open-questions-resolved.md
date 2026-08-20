@@ -16,12 +16,13 @@
 | Auth | Password only (Google/Apple kapalı) |
 | Onboarding | Tek adım ücretsiz üyelik; paket web `/plans` |
 | Membership cancel | Uyarı ekranlarımız + Stripe Portal onay; üye dönem sonu veya hemen kapatır (hemen = iade yok). Paketler bağımsız faturalanır. Doktor self-servis iptal yok (`info@yeniform.com`). Admin Dondur/İptal kaldırıldı. Resume: API `cancel_at_period_end: false`. |
+| Account deletion | Web `https://www.yeniform.com/hesap-silme`. Üye giriş + şifre + onay. Stripe hemen kapanır, iade yok. Mobil: profil handoff; silme sonrası dönüşte `members` yoksa yerel çıkış. Personel/admin mailto. |
 
 ## IMPLEMENTATION LOCK — complete
 
 All planned screens and contracts marked LOCK, WebView, or explicit MOBILE DIFF. See `COMPLETE.md`.
 
-Remaining as **ops / store** (not product invention): FCM credential files, iOS preview, store listing.
+Remaining as **ops / store** (not product invention): Expo FCM V1 + Firebase SHA, Play Internal AAB (onaylı), iOS preview.
 
 ## Gap protocol
 

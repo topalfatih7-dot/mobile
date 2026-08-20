@@ -34,6 +34,7 @@ Portal iptal/kart **handoff değil**; native API + tarayıcıda Stripe URL.
 | Handoff URL longer than ~1800 | open `${apiBase}/plans` (no tokens) + `Tarayıcıda giriş yapmanız gerekebilir.` | unchanged |
 | Portal / resume fail | toast API `error` | unchanged |
 | Foreground member refresh fail | keep stale plan card | unchanged |
+| Foreground members row **missing** (registered, not timeout) | F17 hesap silindi | local signOut + landing |
 
 Foreground: `members` row `select` + `applyRemoteMember` only.
 
