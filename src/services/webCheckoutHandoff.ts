@@ -1,8 +1,9 @@
 /**
  * Logged-in web handoff (JWT hash). Never throws; never wipes app session.
  * LOCK: payments.md (/plans) · profile.md (/hesap-silme)
+ * iOS 3.1.3(f): checkout handoff kapalı (`canOfferWebPurchase`).
  */
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { env } from '@/config/env';
 import { isUiOnly } from '@/config/runtime';
@@ -13,7 +14,13 @@ export const WEB_CHECKOUT_COPY = {
   noSession: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.',
   browserFail: 'Web sayfası açılamadı.',
   loginFallback: 'Tarayıcıda giriş yapmanız gerekebilir.',
+  iosUnavailable: 'Üyelik bu uygulamada satılmaz.',
 } as const;
+
+/** App Store 3.1.3(f) — iOS’ta web checkout / membership satın alma CTA yok. */
+export function canOfferWebPurchase(): boolean {
+  return Platform.OS !== 'ios';
+}
 
 export type WebCheckoutHandoffResult =
   | { ok: true }
@@ -114,8 +121,11 @@ export async function openWebHandoff(
   }
 }
 
-/** Opens web /plans with the current app session. Never throws. */
+/** Opens web /plans with the current app session. Never throws. iOS: no-op error. */
 export async function openWebCheckoutHandoff(): Promise<WebCheckoutHandoffResult> {
+  if (!canOfferWebPurchase()) {
+    return { ok: false, error: WEB_CHECKOUT_COPY.iosUnavailable };
+  }
   return openWebHandoff('/plans');
 }
 

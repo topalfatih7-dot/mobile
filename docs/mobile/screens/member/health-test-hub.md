@@ -46,6 +46,10 @@ Hard block until `hasCompleteAnalysisProfile`.
 6. **Retake:** `canRetake` → “Testi Yeniden Çöz” → `healthTest: { retakeAt }`
 7. **No separate finish screen**
 
+## MOBILE DIFF (2026-08-21) iOS
+
+Ücretsiz + analiz hazır: **Plan seç ve uzman raporunu aç** pressable **yok** (3.1.3(f)). Metin: C-copy `Health unpaid pitch` iOS satırı. Android’de pressable durur.
+
 ## Scoring
 
 - 8 boyut + `overallScore` + `analysisStage: 'core' | 'detailed'`

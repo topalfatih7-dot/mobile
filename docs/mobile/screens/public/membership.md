@@ -18,9 +18,11 @@
 - Logged-in registered member → onboarding PlanChangeView or `/onboarding?plan=`
 - Do not invent plan ids beyond free|eko|eko_diyet|eko_spor|diyet|spor|doktor|vip
 
-## Mobile paid
+## MOBILE DIFF — native rota
 
-Purchase CTA on this page for logged-in users may deep-link to IAP flow (MOBILE DIFF) — still same plan/duration ids as `04-payments-iap.md`.
+Android: sayfa tarayıcıda `https://www.yeniform.com/membership` açar (paket karşılaştırma web).
+
+**iOS (2026-08-21):** tarayıcıya gitmez (satın alma CTA). Native bilgi: üyelik bu uygulamada satılmaz; Giriş / Kayıt (ücretsiz). IAP yok.
 
 ## Copy / layout
 

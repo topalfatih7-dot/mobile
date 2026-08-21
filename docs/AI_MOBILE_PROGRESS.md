@@ -1,8 +1,31 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-21 — Android Play taraması: Daily FGS + izin temizliği; test için yeni AAB (onaylı)  
+> **Son güncelleme:** 2026-08-21 — iOS App Store hazırlık (CTA gizle, TestFlight doküman); build yok  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-21 iOS App Store hazırlık
+
+| Madde | Durum |
+|-------|--------|
+| `ios-app-store.md` + `ios-asc-forms.md` + dolu `ios-listing.tr.md` | ✅ App Privacy = Play CSV türleri; yaş anketi; tanıtım/copyright |
+| iOS 3.1.3(f): web checkout CTA yok; Android CTA durur | ✅ kod |
+| Plist: `audio`+`voip`, Bluetooth, tablet false, PHPicker, PrivacyInfo | ✅ |
+| Daily plugin `enableScreenShare: false` | ℹ️ plugin yok (Expo 55 peer / 16 KB); plist + mevcut FGS plugin |
+| `build:ios:store` / `submit:ios` script | ✅ komut; **onaysız build yok** |
+| TestFlight IPA + 6.7" screenshot + ASC uygulama | ⬜ sen |
+
+## 2026-08-21 Play Android 15 + OS bildirim sesi
+
+| Madde | Durum |
+|-------|--------|
+| `expo-notifications` `BOOT_COMPLETED` / `RECEIVE_BOOT_COMPLETED` strip | ✅ plugin |
+| `expo-audio` kaldırıldı (`mediaPlayback` FGS kaynağı) | ✅ |
+| Bildirim sesi OS `default` (`yeniform-alerts-v3`); web wav yok | ✅ |
+| Daily FGS `camera\|microphone` durur | ✅ dokunulmadı |
+| `resizeableActivity=true` | ✅ plugin |
+| Edge-to-edge Play tavsiyesi (Expo/AndroidX) | ℹ️ yayın engellemez |
+| Onaylı yeni `play-store` AAB | ⬜ sen — `build:play:android` |
 
 ## 2026-08-21 Android Play tarama (Expo 56 + Play politika)
 
@@ -11,11 +34,11 @@
 | SDK 56 = compile/target **API 36** (Play 31 Ağu 2026) | ✅ varsayılan |
 | Daily FGS `camera\|microphone` + TR in-call bildirim | ✅ plugin + `useDailyCall` |
 | Webrtc `MediaProjection` / `MEDIA_PROJECTION` AAB’den çıkarıldı | ✅ Play ekran paylaşımı formu olmasın |
-| Kullanılmayan `MEDIA_PLAYBACK` FGS kaldırıldı (expo-video arka plan kapalı) | ✅ |
+| Kullanılmayan `MEDIA_PLAYBACK` FGS kaldırıldı (`expo-audio` yok + expo-video arka plan kapalı) | ✅ |
 | Photo Picker; `READ_MEDIA_*` + `AD_ID` blocked | ✅ |
 | Bildirim ikonu beyaz + şeffaf | ✅ |
 | Listing tıbbi cihaz uyarısı + Health/FGS/UGC form şablonu | ✅ docs |
-| Onaylı yeni `play-store` AAB (Daily FGS) | ⬜ sen — `build:play:android` |
+| Onaylı yeni `play-store` AAB (Daily FGS + Android 15 + OS ses) | ⬜ sen — `build:play:android` |
 | Play Internal testers, listing, formlar, App signing SHA | ⬜ sen |
 
 ## 2026-08-20 Play test yolu
@@ -28,7 +51,7 @@
 | Hesap silme URL canlı | ✅ `https://www.yeniform.com/hesap-silme` |
 | FCM istemci dosyaları yerelde | ✅ gitignore |
 | Expo FCM V1 + Firebase EAS SHA | ✅ V1 Expo’da; EAS SHA Firebase’de (Play App Signing SHA ⬜ ilk AAB sonrası) |
-| Onaylı `build:play:android` → Play Internal | 🔄 [9f52417c](https://expo.dev/accounts/yeniforms-team/projects/yeniform/builds/9f52417c-c307-4986-aaed-728008b9a912) `1.0.1` / versionCode **5** |
+| Onaylı `build:play:android` → Play Internal/Closed | 🔄 [bf63eb60](https://expo.dev/accounts/yeniforms-team/projects/yeniform/builds/bf63eb60-1a06-4c46-95cc-fcf79fe93802) `1.0.1` / versionCode **6** (FGS camera+mic). Android 15 + OS ses + `expo-audio` yok = **yeni AAB** (versionCode 7+) |
 
 ## 2026-08-20 Hesap silme — mobil çıkış
 

@@ -43,7 +43,7 @@ Do not add `googleServicesFile` without the file — Expo config parse fails and
 3. Click **Download GoogleService-Info.plist**.
 4. Place the file at the **project root**: `GoogleService-Info.plist` (same folder as `package.json`).
 
-> **Optional but recommended:** Also upload your APNs Auth Key (`.p8`) to Firebase Console under **Project settings → Cloud Messaging → Apple app configuration**. Get the key from [Apple Developer → Certificates, IDs & Profiles → Keys](https://developer.apple.com/account/resources/authkeys/list).
+> **Optional:** Firebase Console → Cloud Messaging → Apple app configuration’a APNs `.p8` yüklemek Expo Push için **zorunlu değil**. Expo iOS gönderimi EAS APNs key kullanır. Git’e `.p8` konmaz.
 
 ---
 
@@ -76,7 +76,7 @@ Dosyalar yereldeyken EAS `play-store` AAB FCM’i gömer (`app.config.js`). Side
 npm run build:play:android
 ```
 
-iOS: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md) + APNs `.p8` Firebase Cloud Messaging.
+Onaysız `eas build` yok. iOS TestFlight komutu (yalnız açık onay): `npm run build:ios:store` — runbook [`docs/mobile/store/ios-app-store.md`](docs/mobile/store/ios-app-store.md). Ad hoc: [`docs/mobile/store/ios-preview-build.md`](docs/mobile/store/ios-preview-build.md).
 
 Play’den kur → üye login → bildirim izni **İzin Ver** → `device_push_tokens` (`ExponentPushToken[...]`).
 
@@ -91,4 +91,4 @@ Play’den kur → üye login → bildirim izni **İzin Ver** → `device_push_t
 | EAS SHA Firebase’de | Android Play test | ✅ 2026-08-20 (EAS fingerprint listede) |
 | Play App Signing SHA | Play AAB | Play’e yükledikten sonra |
 | FCM V1 JSON → Expo | gönderim | ✅ 2026-08-20 `yeniforms-team` / `com.yeniform.app` |
-| APNs `.p8` | iOS | Firebase’e; git’e girmez |
+| APNs `.p8` | iOS | EAS credentials (max 2 key); git’e girmez. Firebase’e kopya opsiyonel |

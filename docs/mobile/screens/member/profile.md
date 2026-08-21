@@ -22,7 +22,8 @@
    - Expiring copy: `Bu paketin süresi yakında doluyor — kesintisiz devam için Planlar’dan yenileyin. İptal için Ödeme Yönetimi.`
    - Expired copy: `Bu paketin süresi doldu — yenilemek için Planlar sayfasını kullanın.`
    - **Ödeme Yönetimi** → `/(member)/profile/payments`
-   - **Planları karşılaştır / paket ekle** → web `/plans` handoff (`openWebCheckoutHandoff`)
+   - **Planları karşılaştır / paket ekle** → **Android** web `/plans` handoff (`openWebCheckoutHandoff`). **iOS:** yok.
+   - Ücretsiz “Premium özellikler için plan yükseltin” → Android ödemeler (checkout CTA orada). iOS: yükseltme linki yok; yalnız Ödeme Yönetimi.
 8. Bildirimler — settings keys: `emailNotifs`, `pushNotifs`, `soundNotifs`, `reminderNotifs`  
    `reminderNotifs` ayrıca günlük habit OS hatırlatmalarını keser (`domains/engagement-reminders.md`). Yeni anahtar yok.
 9. `VerificationSection` — email verify actions; phone only if `EXPO_PUBLIC_PHONE_VERIFY_ENABLED=true`
@@ -73,5 +74,6 @@ Save toast: **Ölçüleriniz kaydedildi.**
 - [ ] Email verification send / refresh / code confirm  
 - [ ] Notification toggles ×4  
 - [ ] Logout loading + landing redirect + toast  
-- [ ] **Hesabımı sil** web `/hesap-silme` handoff; native silme formu yok  
+- [ ] **Hesabımı sil** web `/hesap-silme` handoff; native silme formu yok (5.1.1(v) uygulama içinden)
+- [ ] iOS: “Planları karşılaştır / paket ekle” yok
 - [ ] Hesap silme sonrası ön plana dönüşte yerel çıkış + landing + toast **Hesabınız silindi**  

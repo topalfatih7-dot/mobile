@@ -8,16 +8,26 @@ import { AppState, Platform } from 'react-native';
 import { isUiOnly } from '@/config/runtime';
 import { getActiveChatThreadId } from '@/services/activeChatThread';
 import { isHabitAction } from '@/data/engagementReminderCopy';
-import { playNotificationSoundThrottled } from '@/services/notificationSound';
+import { isNotificationSoundEnabled } from '@/services/notificationSound';
 import { requireSupabase, supabase } from '@/services/supabase';
 
 /**
- * v2: Android kanalı bir kez oluşunca ses ayarı kilitlenir.
- * Eski `yeniform-alerts` sessiz kalmış olabilir → yeni id + bundled wav.
+ * v3: cihaz varsayılan bildirimi. Android 8+ kanal sesi kilitlenir —
+ * v2 `notification.wav` (web klibi, yarıda kesiliyordu) bu id ile durur.
  */
-const CHANNEL_ID = 'yeniform-alerts-v2';
-/** app.json expo-notifications.sounds → native resource adı */
-const CHANNEL_SOUND = 'notification.wav';
+export const ANDROID_ALERTS_CHANNEL = 'yeniform-alerts-v3';
+export const ANDROID_ALERTS_CHANNEL_SILENT = 'yeniform-alerts-v3-silent';
+
+export function androidNotificationChannelId(): string {
+  return isNotificationSoundEnabled()
+    ? ANDROID_ALERTS_CHANNEL
+    : ANDROID_ALERTS_CHANNEL_SILENT;
+}
+
+/** iOS content.sound / Android kanal `default`. Kapalıysa null. */
+export function notificationContentSound(): 'default' | null {
+  return isNotificationSoundEnabled() ? 'default' : null;
+}
 
 type NotificationsMod = typeof import('expo-notifications');
 
@@ -51,7 +61,7 @@ async function loadNotifications(): Promise<NotificationsMod | null> {
           }
           return {
             shouldShowAlert: true,
-            shouldPlaySound: true,
+            shouldPlaySound: isNotificationSoundEnabled(),
             shouldSetBadge: true,
             shouldShowBanner: true,
             shouldShowList: true,
@@ -73,15 +83,22 @@ export async function ensureNotificationChannel(): Promise<void> {
       const Notifications = await loadNotifications();
       if (!Notifications) return;
       try {
-        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-          name: 'Yeni Form Bildirimler',
+        const base = {
           importance: Notifications.AndroidImportance.HIGH,
-          // Android 8+: ses kanalda tanımlanmalı; content.sound tek başına yetmez.
-          sound: CHANNEL_SOUND,
-          vibrationPattern: [0, 250, 120, 250],
+          vibrationPattern: [0, 250, 120, 250] as number[],
           enableVibrate: true,
           lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
           bypassDnd: false,
+        };
+        await Notifications.setNotificationChannelAsync(ANDROID_ALERTS_CHANNEL, {
+          ...base,
+          name: 'Yeni Form Bildirimler',
+          sound: 'default',
+        });
+        await Notifications.setNotificationChannelAsync(ANDROID_ALERTS_CHANNEL_SILENT, {
+          ...base,
+          name: 'Yeni Form Bildirimler (sessiz)',
+          sound: null,
         });
       } catch {
         /* ignore */
@@ -289,8 +306,10 @@ export async function presentSystemNotification(opts: {
         title: opts.title,
         body: opts.message || '',
         data,
-        sound: Platform.OS === 'android' ? CHANNEL_SOUND : 'default',
-        ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+        sound: notificationContentSound(),
+        ...(Platform.OS === 'android'
+          ? { channelId: androidNotificationChannelId() }
+          : {}),
       },
       trigger: null,
     });
@@ -320,7 +339,7 @@ export function addNotificationReceivedListener(
   };
 }
 
-/** Foreground’da gelen remote/local push → ses */
+/** Foreground’da gelen remote/local push (ses: OS handler shouldPlaySound). */
 export function addForegroundNotificationListener(
   onReceive?: (data: PushNavigatePayload) => void,
 ) {
@@ -330,11 +349,6 @@ export function addForegroundNotificationListener(
     if (!Notifications || cancelled) return;
     sub = Notifications.addNotificationReceivedListener((notification) => {
       const data = (notification.request.content.data || {}) as PushNavigatePayload;
-      if (isHabitAction(data.action) && AppState.currentState === 'active') {
-        onReceive?.(data);
-        return;
-      }
-      void playNotificationSoundThrottled();
       onReceive?.(data);
     });
   });

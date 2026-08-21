@@ -49,7 +49,7 @@ import {
 } from '@/services/authVerification';
 import { uploadMemberFile } from '@/services/memberMedia';
 import { getRemainingDays } from '@/services/premiumMembership';
-import { openWebAccountDeleteHandoff, openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
+import { openWebAccountDeleteHandoff, openWebCheckoutHandoff, canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import {
   countUsedDoctorSessions,
   isOneTimePlan,
@@ -77,6 +77,7 @@ export default function ProfileScreen() {
   const [districtOpen, setDistrictOpen] = useState(false);
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const [openingPlans, setOpeningPlans] = useState(false);
+  const offerWebPurchase = canOfferWebPurchase();
 
   const [name, setName] = useState(String(member?.name || ''));
   const [city, setCity] = useState(String(member?.city || ''));
@@ -511,14 +512,18 @@ export default function ProfileScreen() {
                 (selectedRemainingDays != null && selectedRemainingDays <= 0)) && (
                 <Text style={styles.expireWarn}>
                   {selectedRemainingDays != null && selectedRemainingDays <= 0
-                    ? 'Bu paketin süresi doldu — yenilemek için Planlar sayfasını kullanın.'
-                    : 'Bu paketin süresi yakında doluyor — kesintisiz devam için Planlar’dan yenileyin. İptal için Ödeme Yönetimi.'}
+                    ? offerWebPurchase
+                      ? 'Bu paketin süresi doldu — yenilemek için Planlar sayfasını kullanın.'
+                      : 'Bu paketin süresi doldu.'
+                    : offerWebPurchase
+                      ? 'Bu paketin süresi yakında doluyor — kesintisiz devam için Planlar’dan yenileyin. İptal için Ödeme Yönetimi.'
+                      : 'Bu paketin süresi yakında doluyor. İptal için Ödeme Yönetimi.'}
                 </Text>
               )}
             </View>
           ) : null}
 
-          {membership === 'free' ? (
+          {membership === 'free' && offerWebPurchase ? (
             <Text style={styles.freeNote}>
               Ücretsiz plandasınız.{' '}
               <Text
@@ -527,6 +532,8 @@ export default function ProfileScreen() {
                 Premium özellikler için plan yükseltin
               </Text>
             </Text>
+          ) : membership === 'free' ? (
+            <Text style={styles.freeNote}>Ücretsiz plandasınız.</Text>
           ) : null}
 
           <View style={styles.planActions}>
@@ -535,6 +542,7 @@ export default function ProfileScreen() {
               style={styles.manageBtn}>
               <Text style={styles.manageBtnText}>Ödeme Yönetimi</Text>
             </Pressable>
+            {offerWebPurchase ? (
             <Pressable
               disabled={openingPlans}
               onPress={() => {
@@ -559,6 +567,7 @@ export default function ProfileScreen() {
                 {openingPlans ? 'Açılıyor…' : 'Planları karşılaştır / paket ekle'}
               </Text>
             </Pressable>
+            ) : null}
           </View>
         </ProfileSectionCard>
 

@@ -9,7 +9,7 @@
 - [x] Navigate map data: chat / program / availability / support
 - [x] Program create + support admin reply → notify + push
 - [x] Foreground yerel OS banner (`presentSystemNotification` — in-app notif gelince)
-- [x] iOS `UIBackgroundModes: remote-notification`
+- [x] iOS `UIBackgroundModes: audio + voip + remote-notification`
 
 ## Kritik
 

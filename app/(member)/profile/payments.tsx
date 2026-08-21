@@ -19,7 +19,10 @@ import { MEMBERSHIP_CANCEL_COPY, MEMBERSHIP_CANCEL_SUPPORT_EMAIL } from '@/data/
 import { getPlanLabel } from '@/data/membershipPlans';
 import { fetchMemberRowQuiet } from '@/services/memberRowRefresh';
 import { resumeStripeSubscription, startStripePortal } from '@/services/stripePortal';
-import { openWebCheckoutHandoff } from '@/services/webCheckoutHandoff';
+import {
+  canOfferWebPurchase,
+  openWebCheckoutHandoff,
+} from '@/services/webCheckoutHandoff';
 import {
   isOneTimePackage,
   isPackageEntryActive,
@@ -53,6 +56,7 @@ export default function PaymentsScreen() {
   const { userId, applyRemoteMember } = useAuth();
   const { toast } = useToast();
   const copy = MEMBERSHIP_CANCEL_COPY;
+  const offerWebPurchase = canOfferWebPurchase();
   const [openingWeb, setOpeningWeb] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -143,7 +147,9 @@ export default function PaymentsScreen() {
             <Text style={styles.backText}>Geri</Text>
           </Pressable>
           <Text style={styles.title}>Ödemeler & Üyelik</Text>
-          <Text style={styles.sub}>Paketleriniz, iptal ve web üzerinden satın alma</Text>
+          <Text style={styles.sub}>
+            {offerWebPurchase ? 'Paketleriniz, iptal ve web üzerinden satın alma' : copy.iosPaymentsSub}
+          </Text>
         </FadeIn>
 
         <FadeIn delay={60}>
@@ -289,7 +295,9 @@ export default function PaymentsScreen() {
         <FadeIn delay={130} style={styles.actions}>
           <View style={styles.note}>
             <Ionicons color={colors.gold[500]} name="information-circle" size={20} />
-            <Text style={styles.noteText}>{copy.manageNote}</Text>
+            <Text style={styles.noteText}>
+              {offerWebPurchase ? copy.manageNote : copy.iosManageNote}
+            </Text>
           </View>
           <Button
             disabled={busy}
@@ -299,12 +307,14 @@ export default function PaymentsScreen() {
             size="lg"
             variant="secondary"
           />
-          <Button
-            label={copy.buyCta}
-            loading={openingWeb}
-            onPress={() => void openWebMembership()}
-            size="lg"
-          />
+          {offerWebPurchase ? (
+            <Button
+              label={copy.buyCta}
+              loading={openingWeb}
+              onPress={() => void openWebMembership()}
+              size="lg"
+            />
+          ) : null}
         </FadeIn>
       </ScrollView>
 

@@ -54,7 +54,8 @@
 | Notifications empty desc | Yeni bildirimler burada görünecek. |
 | Unpaid gate default title | Bu özellik paket gerektirir |
 | Unpaid gate default desc | Sayfayı gezebilirsiniz; mesaj, randevu, program ve benzeri ücretli işlemler için bir plan seçin. |
-| Unpaid gate CTA | Plan Seç |
+| Unpaid gate CTA | Plan Seç (Android). iOS: buton yok |
+| Unpaid gate iOS desc | Bu özellik ücretli üyelik gerektirir. |
 | Unpaid programs title | Programlar paket gerektirir |
 | Unpaid programs desc | Ücretsiz hesapla bu sayfayı gezebilirsiniz. Size özel antrenman ve beslenme programları ücretli paketle açılır. |
 | Unpaid calendar title | Takvim paket gerektirir |
@@ -85,7 +86,8 @@
 | Activation dismiss | Listeyi kapat |
 | Logout done | Çıkış yapıldı |
 | Health unpaid subtitle | Opsiyonel kategorilerle analizi derinleştirin — uzman raporu paketle açılır |
-| Health unpaid pitch | Plan seç ve uzman raporunu aç |
+| Health unpaid pitch | Plan seç ve uzman raporunu aç (Android). iOS: Uzman raporu ücretli üyelik gerektirir. |
+| Activation plan | Paket seç (Android). iOS: adım yok |
 | Book CTA | Randevu Al |
 | Appointments empty title | Randevu bulunamadı |
 | Cancel appointment | Randevu iptal edildi |
@@ -113,13 +115,16 @@
 | Close renewal | Otomatik yenilemeyi kapat |
 | Close now | Hemen kapat |
 | Keep renewal | Yenilemeyi açık tut |
-| Buy CTA | Web’den paket ekle |
+| Buy CTA | Web’den paket ekle (Android; iOS yok) |
+| iOS manage note | Üyelik bu uygulamada satılmaz. Mevcut paketlerinizi görürsünüz; iptal ve kart Stripe Portalı’ndadır. |
 | Renewal off badge | Yenileme kapalı |
 | Period CTA | Portal’da onayla |
 | Immediate CTA | Portal’da hemen kapat |
 | Resume toast | Yenileme yeniden açıldı. |
 | Portal fail | Portal açılamadı. |
 | Profile manage | Ödeme Yönetimi |
-| Profile compare | Planları karşılaştır / paket ekle |
+| Profile compare | Planları karşılaştır / paket ekle (Android; iOS yok) |
+| Landing plans | Planları İncele (Android; iOS yok) |
+| Membership iOS body | Üyelik bu uygulamada satılmaz. Ücretsiz hesap için Kayıt Ol. |
 
 Kaynak: locked screen files. Çakışmada screen LOCK dosyası kazanır.

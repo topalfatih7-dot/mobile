@@ -22,7 +22,7 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 
 ## Layout order (zorunlu)
 
-0. **ActivationChecklist** (web `ActivationChecklist.jsx`) — kapatılmadıysa ve adımlar bitmediyse, welcome’dan önce. Ücretsizde `myPrograms=[]`. MOBILE DIFF: paket CTA `/(member)/profile/payments`.
+0. **ActivationChecklist** (web `ActivationChecklist.jsx`) — kapatılmadıysa ve adımlar bitmediyse, welcome’dan önce. Ücretsizde `myPrograms=[]`. MOBILE DIFF: paket CTA `/(member)/profile/payments` (**Android**). **iOS:** “Paket seç” adımı yok.
 
 1. **Welcome banner**
    - Date: `format(today, 'd MMMM yyyy, EEEE', { locale: tr })`
@@ -59,12 +59,9 @@ Bölüm sırası ve metinler web ile kilitli. Yeni KPI kartı / farklı slogan e
 6. **Paid expired banner** — free && premiumStartedAt && !freeTrialExpiresAt && !isFreeTrialExpired
    - `Paket süreniz doldu`
    - `Ücretli özellikler kapandı. Devam etmek için bir plan seçip yenileyin.`
-   - **Planı Yenile**
+   - **Planı Yenile** (**Android** → ödemeler/checkout). **iOS:** buton yok.
 
-7. **Upsell** — free && !showPaidExpiredBanner
-   - `Daha fazlasını keşfedin`
-   - `Birebir koç & diyetisyen desteği için ücretli planlarımız`
-   - **Planları İncele**
+7. **Upsell** — free && !showPaidExpiredBanner — **Android** `Planları İncele`. **iOS:** banner metni kalabilir; satın alma butonu yok.
 
 8. MembershipBadge + link **Destek Alanı** → `/support`
 

@@ -28,6 +28,7 @@ Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygul
 | `screens/member\|staff\|admin\|public/` | Ekran spesifikasyonları |
 | `contracts/` | API + DB + env |
 | `appendices/` | inventory, roadmap, handoff, legal, copy |
+| `store/` | Play + iOS mağaza: [`store/ios-app-store.md`](store/ios-app-store.md), [`store/ios-asc-forms.md`](store/ios-asc-forms.md), [`store/ios-listing.tr.md`](store/ios-listing.tr.md), Android eşleri |
 
 ## Yazım standardı
 
@@ -40,4 +41,4 @@ Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygul
 
 - Expo + Expo Router  
 - Üye + Staff + Admin  
-- Ödeme: web Stripe (mobil IAP yok); entitlement Supabase  
+- Ödeme: web Stripe (mobil IAP yok); **iOS’ta satın alma CTA yok**; entitlement Supabase  

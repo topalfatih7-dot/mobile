@@ -40,6 +40,7 @@ En fazla 9; atlamalarla çoğu gün 6–8. Günün ipucu **günde bir** (09:00);
 - `now + 20dk` içindeki slot kurulmaz (uygulama açıkken rahatsız etme).
 - Uygulama önde iken habit OS banner gösterilmez (`setNotificationHandler`).
 - Geçmiş saatler kurulmaz. 7 gün ileri DATE trigger; her açılışta iptal + yeniden kur.
+- **MOBILE DIFF (2026-08-21):** Ses OS `default` (`yeniform-alerts-v3`). `BOOT_COMPLETED` yok — reboot sonrası yerel DATE slot’ları uygulama açılana kadar kurulmaz; FCM `habit_winback` + açılışta sync durur.
 
 ## Tap haritası
 

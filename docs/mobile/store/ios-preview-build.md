@@ -143,14 +143,14 @@ Aynı anda Android: `npm run build:preview:android` (APK; UDID yok). İkisi: `np
 - Plist veya APNs `.p8` commit
 - Gradle / Android snippet
 
-Mağaza yayını ayrı: `production` profili + App Store Connect. Listing: `ios-listing.tr.md`.
+Mağaza / TestFlight: [`ios-app-store.md`](ios-app-store.md) (`npm run build:ios:store`, preview env, store imza). Listing: `ios-listing.tr.md`. Formlar: `ios-asc-forms.md`.
 
 ---
 
 ## Proje durumu (2026-08-17)
 
-Hazır: `eas.json` preview iOS, bundle ID, privacy string’ler, `UIBackgroundModes: remote-notification`, `expo-notifications`, `ITSAppUsesNonExemptEncryption`. `GoogleService-Info.plist` yerelde (`BUNDLE_ID` = `com.yeniform.app`); `app.config.js` preview/production’da `ios.googleServicesFile` bağlar; `.easignore` plist’i EAS’e yükler (git’e girmez).
+Hazır: `eas.json` preview + `play-store` iOS, bundle ID, privacy string’ler, `UIBackgroundModes: audio+voip+remote-notification`, `expo-notifications`, `ITSAppUsesNonExemptEncryption`. `GoogleService-Info.plist` yerelde (`BUNDLE_ID` = `com.yeniform.app`); `app.config.js` preview/production’da `ios.googleServicesFile` bağlar; `.easignore` plist’i EAS’e yükler (git’e girmez).
 
-Canlı iOS push: kayıtlı cihaz + onaylı `npm run build:preview:ios` + EAS APNs. Rebuild olmadan eski IPA’da native Firebase bağlanmaz.
+Canlı iOS push (ad hoc): kayıtlı cihaz + onaylı `npm run build:preview:ios` + EAS APNs. Yayınlama testi: onaylı `npm run build:ios:store` → TestFlight. Rebuild olmadan eski IPA’da native Firebase bağlanmaz.
 
 Kaynak: [Expo internal distribution](https://docs.expo.dev/build/internal-distribution/), [App credentials](https://docs.expo.dev/app-signing/app-credentials/), [Push setup](https://docs.expo.dev/push-notifications/push-notifications-setup/).

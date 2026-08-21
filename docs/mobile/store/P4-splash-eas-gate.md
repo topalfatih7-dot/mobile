@@ -37,7 +37,7 @@ iOS preview: ücretli Apple Developer + **önce** cihaz kaydı (`eas device:crea
 1. Soğuk açılış → native splash (mavi + logo) → süslü JS boot (~1.5–2s) → panel veya welcome
 2. Fontlar Inter / Plus Jakarta
 3. Üye login → `device_push_tokens` satırı (projectId ile token) — FCM dosyası yoksa atlanır
-4. Ödeme: native IAP yok — `/(member)/profile/payments` web `/plans` CTA
+4. Ödeme: native IAP yok. Android: `/(member)/profile/payments` web `/plans` CTA. iOS: satın alma CTA yok.
 5. Daily join native path (cihaz)
 
 ## Sonraki

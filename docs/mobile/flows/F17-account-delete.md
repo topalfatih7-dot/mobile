@@ -2,7 +2,7 @@
 
 Play URL: `https://www.yeniform.com/hesap-silme`  
 Web: `DeleteAccountPage.jsx` (public)  
-Mobil: profil linki → JWT handoff (`openWebAccountDeleteHandoff`). Native silme formu yok.
+Mobil: profil linki → JWT handoff (`openWebAccountDeleteHandoff`). Native silme formu yok. Apple 5.1.1(v): silme **uygulama içinden başlar** (Profil → Hesabımı sil); form web’dedir.
 
 ## Actors
 

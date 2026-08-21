@@ -6,9 +6,10 @@
 
 | Katman | Yol |
 |--------|-----|
-| Satın alma | Web Stripe Checkout → `/plans` (JWT handoff) |
+| Satın alma (Android) | Web Stripe Checkout → `/plans` (JWT handoff) |
+| Satın alma (iOS) | **Yok** — 3.1.3(f); `canOfferWebPurchase()` false |
 | İptal / kart | Native uyarı + Stripe Customer Portal (`contracts/api-stripe.md`) |
-| Mobil UI | `/(member)/profile/payments` — paket kartları + Portal + web satın alma CTA |
+| Mobil UI | `/(member)/profile/payments` — paket kartları + Portal; web CTA yalnız Android |
 | Entitlement | Supabase `members` (Stripe webhook / admin premium atama) |
 | Webhook | `api/stripe-webhook.js` (web). `api/revenuecat-webhook.js` **silindi** |
 

@@ -83,6 +83,13 @@ Helpers: `packageIncludesCoach`, `packageIncludesDietitian`, `packageIncludesDoc
 - Doktor: self-servis iptal yok
 - Admin `paused` / `cancelled` **yok** (migration: `active`)
 
+## MOBILE DIFF — satın alma (2026-08-21)
+
+- IAP / StoreKit / RevenueCat **yok**
+- **Android:** login’li web `/plans` (`canOfferWebPurchase`)
+- **iOS:** satın alma CTA yok (3.1.3(f)). UnpaidMemberGate / FreeTrialExpiredGate **Plan Seç** yok. Mevcut paket + Stripe Portal durur
+- Runbook: `store/ios-app-store.md` · formlar: `store/ios-asc-forms.md`
+
 ## Staff assignment
 
 Paid plans with meeting quotas get `assigned_coach_id` / `assigned_dietitian_id` / `assigned_doctor_id`. Plan değişince `sanitizeStaffForPackage` koç/diyetisyen atamasını paket dışındaysa temizler. **Doktor ataması yalnız admin ile kalkar.**

@@ -32,7 +32,7 @@ import { colors, fonts, radius, spacing } from '@/theme';
 
 /**
  * MOBILE DIFF: kayıt yalnızca ücretsiz üyelik (tek adım).
- * Ücretli paketler panel içinden web Stripe `/plans` CTA.
+ * Ücretli paketler Android’de panel içinden web Stripe `/plans`. iOS’ta satın alma CTA yok.
  */
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();

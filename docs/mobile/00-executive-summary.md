@@ -20,7 +20,7 @@ Tek Expo uygulaması, üç rol paneli:
 |------|--------|
 | Framework | Expo + Expo Router |
 | Backend | Mevcut Supabase + Vercel `api/` |
-| Ödeme | Mobil: login’li web `/plans` CTA · iptal: native uyarı + Stripe Portal · Web: Stripe · Entitlement: Supabase (IAP yok) |
+| Ödeme | Android: login’li web `/plans` CTA · iOS: satın alma CTA yok (3.1.3(f)) · iptal: native uyarı + Stripe Portal · Web: Stripe · Entitlement: Supabase (IAP yok) |
 | Dil | Türkçe UI |
 | State | `useAuth` / `useData` / `useActions` dilim modeli |
 
@@ -30,8 +30,8 @@ Web reposuna erişimi olmayan ekibin uygulamayı yazabilmesi. Her ekran, akış,
 
 ## Ana riskler
 
-1. Mobilde IAP yok — satın alma web Stripe; mağaza inceleme politikası ayrı değerlendirilir  
-2. iOS: Apple Sign-In  
+1. Mobilde IAP yok — Android web Stripe CTA; iOS satın alma CTA yok (3.1.3(f)); iptal/kart Portal  
+2. Sosyal giriş kapalı — Sign in with Apple gerekmez  
 3. Exercise video: private bucket + 15 dk signed URL  
 4. Auth: `members` satırı ödeme webhook sonrası oluşur  
 5. Admin yoğun CRUD’nin telefonda sheet’lere indirgenmesi  

@@ -2,7 +2,7 @@
 
 Kaynak: gizlilik / KVKK / sağlık metinleri (`appendices/D-legal-slugs.md`). Uydurma veri türü yok.
 
-AAB izinleri (2026-08-21): FGS **yalnız kamera + mikrofon** (Daily). `MEDIA_PLAYBACK` / `MEDIA_PROJECTION` **blocked** — o formları doldurma. Eski AAB’de mediaPlayback gördüysen yeni AAB yükle, form kaybolur.
+AAB izinleri (2026-08-21): FGS **yalnız kamera + mikrofon** (Daily). `MEDIA_PLAYBACK` (`expo-audio` yok) / `MEDIA_PROJECTION` **blocked** — o formları doldurma. Eski AAB’de mediaPlayback gördüysen yeni AAB yükle, form kaybolur.
 
 ## Data safety (özet)
 
@@ -18,8 +18,8 @@ Reklam SDK’sı yok. `AD_ID` bloklu. Play hesap silme URL: `https://www.yenifor
 | Sağlık (test, program, öğün) | Evet | Hayır | Uygulama işlevi |
 | Foto (profil, kalori, belge) | Evet | Hayır | Uygulama işlevi |
 | Mesaj içeriği | Evet | Hayır (atanmış uzman / sistem) | Mesajlaşma |
-| Cihaz push token | Evet | Expo Push | Bildirim |
-| Ödeme kartı | **Uygulamada yok** | Stripe **web** | Satın alma web’de |
+| Cihaz push token | Evet | Hayır (CSV: yalnız toplanır; Expo gönderim işlemcisi) | Bildirim |
+| Ödeme kartı / Play satın alma geçmişi | **Uygulamada yok** | Stripe **web** | Satın alma web’de; Data safety’te purchase history işaretleme |
 | Konum, rehber, reklam ID | Hayır | — | — |
 
 Şifreleme: transit (HTTPS). Hesap silme: Play’e **web URL** (aşağı).

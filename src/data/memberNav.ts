@@ -5,6 +5,8 @@
 import type { ComponentProps } from 'react';
 import type { Ionicons } from '@expo/vector-icons';
 
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
+
 export type IonName = ComponentProps<typeof Ionicons>['name'];
 
 export type MemberNavItem = {
@@ -79,7 +81,9 @@ export function buildMemberNavItems(opts: MemberNavBadges = {}): ResolvedNavItem
   } = opts;
 
   const base =
-    membership === 'free' ? [...MEMBER_NAV, MEMBER_UPGRADE_NAV] : MEMBER_NAV;
+    membership === 'free' && canOfferWebPurchase()
+      ? [...MEMBER_NAV, MEMBER_UPGRADE_NAV]
+      : MEMBER_NAV;
 
   return base.map((item) => ({
     ...item,

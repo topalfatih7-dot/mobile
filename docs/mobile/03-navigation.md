@@ -74,7 +74,7 @@ Profil → Panel → Sağlık Testleri → Takvim → Kalori Hesapla → Mesajla
 
 Badge kaynakları: chatUnread, notificationUnread, openSupportTickets, healthTestIncomplete.
 
-`membership === 'free'` → sonda “Planları İncele” (`/(public)/membership`).
+`membership === 'free'` → **Android** sonda “Planları İncele” (`/(public)/membership`). **iOS:** yok (`canOfferWebPurchase`).
 
 ## Staff drawer (sıra — `src/data/staffNav.ts`)
 

@@ -13,7 +13,7 @@
 | member | library | LOCK | screens/member/library.md | native |
 | member | messages | LOCK | screens/member/messages.md | native |
 | member | notifications | LOCK | screens/member/notifications.md | native |
-| member | payments | LOCK | screens/member/payments.md | native + web `/plans` |
+| member | payments | LOCK | screens/member/payments.md | native + Android web `/plans`; iOS CTA yok |
 | member | profile | LOCK | screens/member/profile.md | native |
 | member | programs | LOCK | screens/member/programs.md | native |
 | member | schedule | LOCK | screens/member/schedule.md | native |

@@ -81,7 +81,8 @@
         "track": "internal",
         "releaseStatus": "completed",
         "changesNotSentForReview": true
-      }
+      },
+      "ios": {}
     }
   }
 }

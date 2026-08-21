@@ -39,6 +39,7 @@ import { useDailyTip } from '@/hooks/useDailyTip';
 import { useHealthAnalysisSync } from '@/hooks/useHealthAnalysisSync';
 import { getHealthTestLockState } from '@/services/healthScoreAnalysis';
 import { getRemainingDays } from '@/services/premiumMembership';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { blogPostHref, resolveBlogCover } from '@/utils/blog';
 import { resolveFirstName } from '@/utils/displayName';
 import { buildWeeklyAdherence } from '@/utils/memberProgress';
@@ -85,6 +86,7 @@ export default function MemberDashboard() {
   const [storyDuration, setStoryDuration] = useState('');
   const [storyConsent, setStoryConsent] = useState(false);
   const [storySaving, setStorySaving] = useState(false);
+  const offerWebPurchase = canOfferWebPurchase();
 
   const membership = String(member?.membership || 'free');
   const membershipStatus = String(member?.membershipStatus || 'active');
@@ -308,11 +310,13 @@ export default function MemberDashboard() {
                 </Text>{' '}
                 kaldı.
               </Text>
+              {offerWebPurchase ? (
               <Pressable
                 onPress={() => router.push('/(member)/profile/payments')}
                 style={styles.bannerBtn}>
                 <Text style={styles.bannerBtnText}>Üye Ol</Text>
               </Pressable>
+              ) : null}
             </View>
           </FadeIn>
         ) : null}
@@ -367,14 +371,24 @@ export default function MemberDashboard() {
                   ) : null}
                 </Text>
                 <Text style={styles.bannerSub}>
-                  Kesintisiz devam için planınızı yenileyin. Son gün dahil erişiminiz sürer.
+                  {offerWebPurchase
+                    ? 'Kesintisiz devam için planınızı yenileyin. Son gün dahil erişiminiz sürer.'
+                    : 'Son gün dahil erişiminiz sürer. İptal için Ödeme Yönetimi.'}
                 </Text>
               </View>
+              {offerWebPurchase ? (
               <Pressable
                 onPress={() => router.push('/(member)/profile/payments')}
                 style={[styles.bannerBtn, { backgroundColor: colors.warm[500] }]}>
                 <Text style={styles.bannerBtnText}>Yenile</Text>
               </Pressable>
+              ) : (
+              <Pressable
+                onPress={() => router.push('/(member)/profile/payments')}
+                style={[styles.bannerBtn, { backgroundColor: colors.warm[500] }]}>
+                <Text style={styles.bannerBtnText}>Ödeme Yönetimi</Text>
+              </Pressable>
+              )}
             </View>
           </FadeIn>
         ) : null}
@@ -385,14 +399,18 @@ export default function MemberDashboard() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerTitleDark}>Paket süreniz doldu</Text>
                 <Text style={styles.bannerSubDark}>
-                  Ücretli özellikler kapandı. Devam etmek için bir plan seçip yenileyin.
+                  {offerWebPurchase
+                    ? 'Ücretli özellikler kapandı. Devam etmek için bir plan seçip yenileyin.'
+                    : MEMBERSHIP_CANCEL_COPY.iosExpiredBanner}
                 </Text>
               </View>
+              {offerWebPurchase ? (
               <Pressable
                 onPress={() => router.push('/(member)/profile/payments')}
                 style={styles.pillBrand}>
                 <Text style={styles.pillBrandText}>Planı Yenile</Text>
               </Pressable>
+              ) : null}
             </View>
           </FadeIn>
         ) : null}
@@ -403,14 +421,18 @@ export default function MemberDashboard() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerTitleDark}>Daha fazlasını keşfedin</Text>
                 <Text style={styles.bannerSubDark}>
-                  Birebir koç & diyetisyen desteği için ücretli planlarımız
+                  {offerWebPurchase
+                    ? 'Birebir koç & diyetisyen desteği için ücretli planlarımız'
+                    : MEMBERSHIP_CANCEL_COPY.iosUpsellSub}
                 </Text>
               </View>
+              {offerWebPurchase ? (
               <Pressable
                 onPress={() => router.push('/(member)/profile/payments')}
                 style={styles.pillBrand}>
                 <Text style={styles.pillBrandText}>Planları İncele</Text>
               </Pressable>
+              ) : null}
             </View>
           </FadeIn>
         ) : null}

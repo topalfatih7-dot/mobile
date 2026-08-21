@@ -34,6 +34,8 @@ See `screens/member/notifications.md`.
 
 ## Push (mobile)
 
+**MOBILE DIFF (2026-08-21):** Native bildirim sesi web `notification.wav` değil — cihazın varsayılan OS bildirimi (`default`). Android kanal `yeniform-alerts-v3` (v2 wav kilitli kalır). `soundNotifs === false` → sessiz kanal + `shouldPlaySound: false`. In-app `expo-audio` çalma yok.
+
 1. Client: `registerForPushNotifications(userId)` → Expo token → upsert `device_push_tokens` (RLS own row).
 2. On `append_member_notification` + `POST /api/application-notify` `{ memberId, notification }`:
    - WhatsApp fan-out (program/chat, existing)

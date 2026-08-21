@@ -1,6 +1,6 @@
 /**
  * Web parity: Adsız ActivationChecklist.jsx
- * MOBILE DIFF: paket CTA → /(member)/profile/payments
+ * MOBILE DIFF: Android paket CTA → /(member)/profile/payments. iOS: adım yok.
  */
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isHealthTestComplete } from '@/data/healthTest';
 import { isPaidMembership } from '@/data/membershipPlans';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 function storageKey(userId: string) {
@@ -95,7 +96,7 @@ export function ActivationChecklist({
       },
     ];
 
-    if (!paid) {
+    if (!paid && canOfferWebPurchase()) {
       list.push({
         id: 'plan',
         label: 'Paket seç',
@@ -104,7 +105,7 @@ export function ActivationChecklist({
         href: '/(member)/profile/payments' as Href,
         icon: 'diamond',
       });
-    } else {
+    } else if (paid) {
       list.push({
         id: 'session',
         label: 'İlk randevunu al',

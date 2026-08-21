@@ -43,8 +43,8 @@ Sağlık ve Fitness
 | Varlık | Dosya | Boyut |
 |--------|--------|--------|
 | Feature graphic | `assets/store/google-play-feature-graphic.png` | 1024×500 |
-| Yüksek çözünürlük ikon | `assets/icon.png` | kare (Play 512+) |
-| Telefon screenshot | sen çekersin | 1080×1920 veya 1080×2340 |
+| Yüksek çözünürlük ikon | `assets/store/google-play-icon-512.png` | 512×512 |
+| Telefon screenshot | `assets/store/play-phone/01`–`06` | 1080×2160; **07 yükleme** |
 
 Screenshot sırası: [screenshot-checklist.md](screenshot-checklist.md)
 

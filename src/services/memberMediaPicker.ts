@@ -79,8 +79,9 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-/** Android 13+ system photo picker — broad READ_MEDIA izni yok (Play Photos policy). */
-function androidUsesSystemPhotoPicker(): boolean {
+/** iOS PHPicker / Android 13+ sistem Photo Picker — geniş galeri izni yok. */
+function usesSystemPhotoPicker(): boolean {
+  if (Platform.OS === 'ios') return true;
   if (Platform.OS !== 'android') return false;
   const api =
     typeof Platform.Version === 'number'
@@ -152,7 +153,7 @@ export async function pickWithLibraryDetailed(
   const { ImagePicker } = loaded;
   const wantBase64 = Boolean(options.base64);
   try {
-    if (!androidUsesSystemPhotoPicker()) {
+    if (!usesSystemPhotoPicker()) {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         return {

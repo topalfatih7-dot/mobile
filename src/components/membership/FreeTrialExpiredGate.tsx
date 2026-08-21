@@ -5,9 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { MEMBERSHIP_CANCEL_COPY } from '@/data/membershipCancelCopy';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 export function FreeTrialExpiredGate() {
+  const offerWebPurchase = canOfferWebPurchase();
   return (
     <MeshBackground style={styles.root}>
       <FadeIn style={styles.card}>
@@ -16,13 +19,16 @@ export function FreeTrialExpiredGate() {
         </View>
         <Text style={styles.title}>48 Saatlik Deneme Süreniz Doldu</Text>
         <Text style={styles.body}>
-          Ücretsiz deneme süreniz sona erdi. Devam etmek için bir üyelik planı seçerek tüm
-          özelliklere erişin.
+          {offerWebPurchase
+            ? 'Ücretsiz deneme süreniz sona erdi. Devam etmek için bir üyelik planı seçerek tüm özelliklere erişin.'
+            : MEMBERSHIP_CANCEL_COPY.iosTrialBody}
         </Text>
-        <Button
-          label="Plan Seç & Devam Et"
-          onPress={() => router.push('/(public)/membership')}
-        />
+        {offerWebPurchase ? (
+          <Button
+            label="Plan Seç & Devam Et"
+            onPress={() => router.push('/(public)/membership')}
+          />
+        ) : null}
         <Text style={styles.foot}>
           Soru ve sorunlar için{' '}
           <Text style={styles.link} onPress={() => router.push('/(member)/support')}>
@@ -35,6 +41,7 @@ export function FreeTrialExpiredGate() {
 }
 
 export function FreeTrialExpiredProfileAlert() {
+  const offerWebPurchase = canOfferWebPurchase();
   return (
     <View style={styles.alert}>
       <View style={styles.alertIcon}>
@@ -43,15 +50,18 @@ export function FreeTrialExpiredProfileAlert() {
       <View style={styles.alertText}>
         <Text style={styles.alertKicker}>Dikkat — deneme süreniz doldu</Text>
         <Text style={styles.alertBody}>
-          48 saatlik Basic denemeniz sona erdi. Panel özelliklerine devam etmek için hemen bir
-          plan seçin.
+          {offerWebPurchase
+            ? '48 saatlik Basic denemeniz sona erdi. Panel özelliklerine devam etmek için hemen bir plan seçin.'
+            : MEMBERSHIP_CANCEL_COPY.iosTrialBody}
         </Text>
       </View>
-      <Button
-        label="Plan Seç"
-        onPress={() => router.push('/(public)/membership')}
-        style={styles.alertBtn}
-      />
+      {offerWebPurchase ? (
+        <Button
+          label="Plan Seç"
+          onPress={() => router.push('/(public)/membership')}
+          style={styles.alertBtn}
+        />
+      ) : null}
     </View>
   );
 }

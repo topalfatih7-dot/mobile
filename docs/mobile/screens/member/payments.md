@@ -11,9 +11,10 @@
 3. İptal: native uyarı (dönem sonu / hemen kapat) → `POST /api/stripe-checkout` `{ action: 'create-portal-session', intent: 'cancel', mode, subscriptionId }` → Stripe Portal URL
 4. Yenilemeyi açık tut: `{ action: 'resume-subscription', subscriptionId }` (Portal yok)
 5. Kart/fatura: `{ action: 'create-portal-session', intent: 'manage' }`
-6. Paket ekle: mevcut JWT handoff → web `/plans`
-7. Doktor: self-servis iptal yok; `mailto:info@yeniform.com`
-8. **No** IAP / RevenueCat
+6. Paket ekle (**Android**): mevcut JWT handoff → web `/plans`
+7. **MOBILE DIFF (2026-08-21) iOS:** paket ekle / `buyCta` / `openWebCheckoutHandoff` **yok**. `manageNote` yerine `iosManageNote` (URL’siz). Mevcut paket + iptal/kart/resume durur.
+8. Doktor: self-servis iptal yok; `mailto:info@yeniform.com`
+9. **No** IAP / RevenueCat
 
 Hemen kapat: onay kutusu zorunlu; iade yok; erişim ve o pakete bağlı gelecek randevular kesilir.
 
@@ -43,7 +44,8 @@ Foreground: `members` row `select` + `applyRemoteMember` only.
 Kilit: `src/data/membershipCancelCopy.ts` (web `membershipCancelCopy.js` ile aynı).
 
 - Title: `Ödemeler & Üyelik`
-- Satın alma CTA: `Web’den paket ekle`
+- Satın alma CTA (Android): `Web’den paket ekle`
+- iOS not: `Üyelik bu uygulamada satılmaz. Mevcut paketlerinizi görürsünüz; iptal ve kart Stripe Portalı’ndadır.`
 - Kart: `Kart ve fatura`
 - Dönem sonu: `Otomatik yenilemeyi kapat`
 - Hemen: `Hemen kapat`
@@ -56,5 +58,6 @@ Kilit: `src/data/membershipCancelCopy.ts` (web `membershipCancelCopy.js` ile ayn
 - [ ] Hemen kapat: onay’sız Portal yok; iade yok copy görünür
 - [ ] Yenilemeyi açık tut satırı günceller (`cancelAtPeriodEnd` kalkar)
 - [ ] Doktor’da iptal CTA yok
-- [ ] Satın alma CTA `/plans` handoff; oturum silinmez
+- [ ] Android: satın alma CTA `/plans` handoff; oturum silinmez
+- [ ] iOS: `buyCta` yok; handoff çağrılmaz
 - [ ] No RevenueCat

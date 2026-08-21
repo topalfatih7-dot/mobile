@@ -25,13 +25,15 @@ Kaynak: [Expo SDK 56](https://docs.expo.dev/versions/v56.0.0/), [Play target API
 | 16 KB sayfa | SDK 56 + RN 0.85; native Daily/WebRTC AAB sonrası Play App bundle explorer |
 | Paket formatı | Yalnız **AAB** (`play-store`); APK mağazaya gitmez |
 | FGS AAB’de | Daily `camera\|microphone` + kalıcı “Görüşme devam ediyor” |
-| FGS **yok** | `MEDIA_PLAYBACK`, `MEDIA_PROJECTION` (blocked; Webrtc ekran paylaşımı servisi silinir) |
+| FGS **yok** | `MEDIA_PLAYBACK` (`expo-audio` yok), `MEDIA_PROJECTION` (blocked; Webrtc servisi silinir) |
+| `BOOT_COMPLETED` | Yok — Play Android 15 boot+FGS tarayıcısı; habit DATE açılışta yeniden kurulur |
+| Bildirim sesi | OS `default` (`yeniform-alerts-v3`); web wav yok |
 | Galeri | Android 13+ Photo Picker; `READ_MEDIA_*` blocked |
 | Reklam ID | `AD_ID` blocked |
-| Yön | `orientation: default` (API 36 büyük ekranda kilit yok) |
+| Yön | `orientation: default` + `resizeableActivity=true` (API 36 büyük ekranda kilit yok) |
 | Bildirim ikonu | Beyaz glif, şeffaf zemin (`assets/notification-icon.png`) |
 
-Önceki Internal AAB `1.0.1` / versionCode **5** bu FGS/izin temizliğini **içermez**. Test ve inceleme için **yeni** `play-store` AAB gerekir (onayınla `npm run build:play:android`).
+Önceki Internal AAB `1.0.1` / versionCode **5–6** bu Android 15 + OS ses düzeltmesini **içermez**. Test için **yeni** `play-store` AAB gerekir (onayınla `npm run build:play:android`).
 
 ---
 
@@ -120,5 +122,6 @@ Stripe ile dijital üyelik Google tarafından reddedilebilir; IAP eklenmez.
 3. Daily: önizleme → katıl → **Home** → bildirim “Görüşme devam ediyor” → karşı taraf görüntü+ses alır → Ayrıl
 4. Bildirim izni → `device_push_tokens` (FCM V1 + SHA sonrası arka plan push)
 5. Play Console: target API 36, 16 KB uyarısı yok, FGS yalnız camera+microphone
+6. Bildirim: telefonun kendi zili (web wav değil; yarıda kesilmez)
 
 IAP / RevenueCat yok.

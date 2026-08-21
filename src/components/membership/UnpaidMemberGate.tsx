@@ -1,21 +1,32 @@
 /**
  * Web parity: Adsız UnpaidMemberGate.jsx
- * MOBILE DIFF: CTA → /(member)/profile/payments (web /plans)
+ * MOBILE DIFF: Android CTA → /(member)/profile/payments (web /plans).
+ * iOS 3.1.3(f): satın alma butonu yok.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { MEMBERSHIP_CANCEL_COPY } from '@/data/membershipCancelCopy';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { colors, fonts, radius, spacing } from '@/theme';
+
+const DEFAULT_DESC =
+  'Sayfayı gezebilirsiniz; mesaj, randevu, program ve benzeri ücretli işlemler için bir plan seçin.';
 
 export function UnpaidMemberGate({
   title = 'Bu özellik paket gerektirir',
-  description = 'Sayfayı gezebilirsiniz; mesaj, randevu, program ve benzeri ücretli işlemler için bir plan seçin.',
+  description,
 }: {
   title?: string;
   description?: string;
 }) {
+  const offerWebPurchase = canOfferWebPurchase();
+  const desc = offerWebPurchase
+    ? description || DEFAULT_DESC
+    : MEMBERSHIP_CANCEL_COPY.iosUnpaidDesc;
+
   return (
     <View style={styles.wrap}>
       <View style={styles.card}>
@@ -23,13 +34,15 @@ export function UnpaidMemberGate({
           <Ionicons color={colors.gold[500]} name="diamond" size={28} />
         </View>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.desc}>{description}</Text>
-        <Button
-          label="Plan Seç"
-          onPress={() => router.push('/(member)/profile/payments' as Href)}
-          rightIcon="diamond"
-          style={{ alignSelf: 'stretch' }}
-        />
+        <Text style={styles.desc}>{desc}</Text>
+        {offerWebPurchase ? (
+          <Button
+            label="Plan Seç"
+            onPress={() => router.push('/(member)/profile/payments' as Href)}
+            rightIcon="diamond"
+            style={{ alignSelf: 'stretch' }}
+          />
+        ) : null}
       </View>
     </View>
   );

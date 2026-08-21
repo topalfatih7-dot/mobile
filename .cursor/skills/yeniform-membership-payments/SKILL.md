@@ -10,7 +10,7 @@ description: >-
 
 ## Locked model
 
-- **Mobile:** No App Store / Play IAP. Payments screen shows packages + Stripe Portal cancel/manage; new purchase CTA is logged-in web `/plans` via `/auth/callback?next=/plans&src=mobile`.
+- **Mobile:** No App Store / Play IAP. Android payments: packages + Stripe Portal + logged-in web `/plans`. **iOS:** no purchase CTA (`canOfferWebPurchase`); existing membership + Portal only (3.1.3(f)).
 - **Web:** Stripe Checkout + Customer Portal (`api/stripe-checkout.js`) + `api/stripe-webhook.js`.
 - **Source of truth:** Supabase `members.membership`, `membership_status`, `activePackages` (per `stripeSubscriptionId`).
 - **Cancel:** Our warning UI → Portal confirm. Resume: `{ action: 'resume-subscription' }`. Stacking: independent billing. Doktor: mailto `info@yeniform.com`. Admin pause/cancel removed.

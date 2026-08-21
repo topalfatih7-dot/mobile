@@ -14,6 +14,17 @@ export const MEMBERSHIP_CANCEL_COPY = {
   buyCta: 'Web’den paket ekle',
   manageNote:
     'Satın alma web üzerinden yapılır. İptal için aşağıdaki uyarıları okuyup Stripe Müşteri Portalı’nda onaylarsınız.',
+  iosManageNote:
+    'Üyelik bu uygulamada satılmaz. Mevcut paketlerinizi görürsünüz; iptal ve kart Stripe Portalı’ndadır.',
+  iosUnpaidDesc: 'Bu özellik ücretli üyelik gerektirir.',
+  iosMembershipBody: 'Üyelik bu uygulamada satılmaz. Ücretsiz hesap için Kayıt Ol.',
+  iosLandingLead:
+    'Koç, diyetisyen ve doktor desteği tek uygulamada. Ücretsiz başla.',
+  iosTrialBody: 'Ücretsiz deneme süreniz sona erdi. Ücretli özellikler kapandı.',
+  iosExpiredBanner: 'Ücretli özellikler kapandı.',
+  iosUpsellSub: 'Birebir koç ve diyetisyen desteği ücretli üyelikle açılır.',
+  iosPaymentsSub: 'Paketleriniz, iptal ve kart',
+  iosHealthPitch: 'Uzman raporu ücretli üyelik gerektirir.',
   doctorTitle: 'Doktor Paketi tek seferliktir',
   doctorBody:
     'Bu paket abonelik değildir; self-servis iptal yoktur. İptal veya iade için info@yeniform.com adresine yazın.',

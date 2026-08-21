@@ -21,7 +21,7 @@
 
 ## Unpaid
 
-`isUnpaidMember` → header + `UnpaidMemberGate` (title/desc C-copy-strings unpaid programs). Liste yok.
+`isUnpaidMember` → header + `UnpaidMemberGate` (title/desc C-copy-strings unpaid programs). Liste yok. **iOS:** kapıda Plan Seç / web checkout yok.
 
 ## Empty (ücretli)
 

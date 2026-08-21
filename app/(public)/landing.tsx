@@ -6,11 +6,14 @@ import { BrandLogo } from '@/components/ui/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { MeshBackground } from '@/components/ui/MeshBackground';
+import { MEMBERSHIP_CANCEL_COPY } from '@/data/membershipCancelCopy';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 /** LOCK: docs/mobile/screens/public/landing.md — native summary + CTA */
 export default function LandingScreen() {
   const insets = useSafeAreaInsets();
+  const offerWebPurchase = canOfferWebPurchase();
 
   return (
     <MeshBackground style={styles.root}>
@@ -26,7 +29,9 @@ export default function LandingScreen() {
         <FadeIn delay={100}>
           <Text style={styles.hero}>Sağlıklı forma{'\n'}birlikte</Text>
           <Text style={styles.lead}>
-            Koç, diyetisyen ve doktor desteği tek uygulamada. Ücretsiz başla veya paketini seç.
+            {offerWebPurchase
+              ? 'Koç, diyetisyen ve doktor desteği tek uygulamada. Ücretsiz başla veya paketini seç.'
+              : MEMBERSHIP_CANCEL_COPY.iosLandingLead}
           </Text>
         </FadeIn>
 
@@ -38,12 +43,16 @@ export default function LandingScreen() {
             onPress={() => router.push('/(auth)/onboarding')}
             variant="secondary"
           />
-          <View style={styles.gap} />
-          <Button
-            label="Planları İncele"
-            onPress={() => router.push('/(public)/membership')}
-            variant="ghost"
-          />
+          {offerWebPurchase ? (
+            <>
+              <View style={styles.gap} />
+              <Button
+                label="Planları İncele"
+                onPress={() => router.push('/(public)/membership')}
+                variant="ghost"
+              />
+            </>
+          ) : null}
         </FadeIn>
 
         <FadeIn delay={260} style={styles.chips}>

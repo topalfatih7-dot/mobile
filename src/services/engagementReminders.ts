@@ -16,7 +16,11 @@ import {
 import { isPaidMembership } from '@/data/membershipPlans';
 import { fetchDailyTip } from '@/services/dailyTip';
 import { isReminderNotificationsEnabled } from '@/services/notificationSound';
-import { ensureNotificationChannel } from '@/services/push';
+import {
+  androidNotificationChannelId,
+  ensureNotificationChannel,
+  notificationContentSound,
+} from '@/services/push';
 import {
   completionKey,
   getProgramEntriesForDate,
@@ -28,8 +32,6 @@ import {
 const HABIT_PREFIX = 'yf-habit-';
 const HORIZON_DAYS = 7;
 const SKIP_AHEAD_MS = 20 * 60 * 1000;
-const CHANNEL_ID = 'yeniform-alerts-v2';
-const CHANNEL_SOUND = 'notification.wav';
 
 type NotificationsMod = typeof import('expo-notifications');
 let notificationsMod: NotificationsMod | null | undefined;
@@ -233,13 +235,17 @@ export async function syncEngagementReminders(opts: {
             title: copy.title,
             body: copy.body,
             data: { type: 'reminder', action },
-            sound: Platform.OS === 'android' ? CHANNEL_SOUND : 'default',
-            ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+            sound: notificationContentSound(),
+            ...(Platform.OS === 'android'
+              ? { channelId: androidNotificationChannelId() }
+              : {}),
           },
           trigger: {
             type: Schedulable.DATE,
             date: fire,
-            ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+            ...(Platform.OS === 'android'
+              ? { channelId: androidNotificationChannelId() }
+              : {}),
           },
         });
       } catch {

@@ -33,6 +33,8 @@ import {
 } from '@/services/healthScoreAnalysis';
 import { hasCompleteAnalysisProfile } from '@/utils/healthProfile';
 import { resolveMemberEntitlements } from '@/utils/memberPackages';
+import { MEMBERSHIP_CANCEL_COPY } from '@/data/membershipCancelCopy';
+import { canOfferWebPurchase } from '@/services/webCheckoutHandoff';
 import { colors, fonts, radius, spacing } from '@/theme';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -467,11 +469,17 @@ export default function HealthTestHubScreen() {
                   </View>
                 ) : null}
                 {isUnpaidMember && analysisReady ? (
+                  canOfferWebPurchase() ? (
                   <Pressable
                     onPress={() => router.push('/(member)/profile/payments' as Href)}
                     style={{ marginTop: spacing.sm }}>
                     <Text style={styles.briefTitle}>Plan seç ve uzman raporunu aç</Text>
                   </Pressable>
+                  ) : (
+                    <Text style={[styles.briefTitle, { marginTop: spacing.sm }]}>
+                      {MEMBERSHIP_CANCEL_COPY.iosHealthPitch}
+                    </Text>
+                  )
                 ) : null}
               </>
             ) : null}

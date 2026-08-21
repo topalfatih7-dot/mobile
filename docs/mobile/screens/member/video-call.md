@@ -68,7 +68,8 @@ Status for token: **`scheduled` only** (not `rescheduled` / `pending`).
 - Exit / Geri dön: `destroy()` (kamera kapanır)
 - Empty `sessionId` → client: `Randevu bulunamadı.` (no API call)
 - MOBILE DIFF: cihaz seçici dropdown yok (web desktop)
-- **MOBILE DIFF (2026-08-20):** Görüşme ekranındayken Android’de Ana Ekran / başka uygulama: Daily ön plan servisi ile kamera+mikrofon akışı sürer (Play `FOREGROUND_SERVICE_CAMERA` = arka planda kamera görüntü akışı). Uygulama içinde başka rotaya çıkmak unmount → `destroy()`; canlı yayın dosya yüklemesi değildir. iOS arka planda kamera kapalı (Apple); ses `voip` ile sürebilir.
+- **MOBILE DIFF (2026-08-20):** Görüşme ekranındayken Android’de Ana Ekran / başka uygulama: Daily ön plan servisi ile kamera+mikrofon akışı sürer (Play `FOREGROUND_SERVICE_CAMERA` = arka planda kamera görüntü akışı). Uygulama içinde başka rotaya çıkmak unmount → `destroy()`; canlı yayın dosya yüklemesi değildir.
+- **MOBILE DIFF (2026-08-21) iOS:** arka planda kamera kapalı (Apple). Ses `audio` + `voip` background mode (Daily WebRTC). PushKit gelen arama yok. Ekran paylaşımı yok. Daily Expo config plugin kullanılmaz (SDK 55 peer + Android 16 KB / overlay riski); plist + `withDailyForegroundService`.
 
 ## Acceptance
 
