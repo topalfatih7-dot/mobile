@@ -2,6 +2,8 @@
 
 Kaynak: gizlilik / KVKK / sağlık metinleri (`appendices/D-legal-slugs.md`). Uydurma veri türü yok.
 
+AAB izinleri (2026-08-21): FGS **yalnız kamera + mikrofon** (Daily). `MEDIA_PLAYBACK` / `MEDIA_PROJECTION` **blocked** — o formları doldurma. Eski AAB’de mediaPlayback gördüysen yeni AAB yükle, form kaybolur.
+
 ## Data safety (özet)
 
 Play Console **Veri güvenliği** → sağ üst **CSV'yi içe aktar**:
@@ -22,13 +24,15 @@ Reklam SDK’sı yok. `AD_ID` bloklu. Play hesap silme URL: `https://www.yenifor
 
 Şifreleme: transit (HTTPS). Hesap silme: Play’e **web URL** (aşağı).
 
+CSV’de ses/video işaretli: canlı Daily seansı (kayıt dosyası yok) + egzersiz kütüphanesi (uzman içeriği). Kullanıcı galeriden video yüklemez.
+
 ## Content rating (IARC)
 
-Anket: sağlık/fitness, kullanıcı üretimi mesaj, şiddet/kumar yok. Beklenen ~12+ / PEGI eşdeğeri — anket sonucu geçerli.
+Anket: sağlık/fitness, kullanıcı üretimi mesaj (atanmış uzman), şiddet/kumar/uyuşturucu yok. Beklenen ~12+ / PEGI eşdeğeri — anket sonucu geçerli. Hedef kitle yine **18+**.
 
 ## Hedef kitle
 
-18+ (sağlık koçluğu). Çocuklara yönelik değil. Families Policy’ye girme.
+18+ (sağlık koçluğu). Çocuklara yönelik değil. **Designed for Families’e girme.**
 
 ## Ads
 
@@ -36,21 +40,55 @@ Hayır.
 
 ## Financial features
 
-Uygulama içi ödeme yok. Abonelik **web Stripe**. Play ürünü oluşturma.
+**Uygulama içi ödeme / Play Billing yok.** Dijital üyelik **web Stripe** (`yeniform.com/plans`). Play’de abonelik ürünü oluşturma.
 
-## Health
+Konsol: Financial features → uygulama ödeme işlemi sunmuyor / in-app digital goods satılmıyor.
 
-Sağlık ve Fitness. Tıbbi cihaz değil. Sorumluluk reddi web’de: `/saglik-sorumluluk-reddi`.
+Listing cümlesi zorunlu: “Uygulama içi satın alma yoktur.”
+
+## Health apps (Uygulama içeriği)
+
+Zorunlu. Kaynak: [Health Content and Services](https://support.google.com/googleplay/android-developer/answer/16679511).
+
+| Soru | Cevap |
+|------|--------|
+| Uygulama sağlık/fitness özelliği sunuyor mu? | Evet — Sağlık ve Fitness |
+| Tıbbi cihaz / Medical Device? | **Hayır.** Onay, CE, FDA yok. |
+| Health Connect / sağlık izinleri (ACTIVITY_RECOGNITION, BODY_SENSORS, …)? | Hayır |
+| Donanım (glikoz ölçer vb.)? | Hayır |
+| Kamera ile tıbbi ölçüm (oksimetre vb.)? | Hayır — kamera yalnız seans + kalori/profil foto |
+| İnsan araştırması / IRB? | Hayır |
+| Contact tracing / resmi sağlık durumu? | Hayır |
+
+**Listing’e yapıştırılan uyarı** (Play: tıbbi cihaz olmayan sağlık uygulaması):
+
+```
+Bu uygulama tıbbi cihaz değildir; herhangi bir hastalığı teşhis, tedavi, iyileştirme veya önleme iddiası taşımaz. Tıbbi tavsiye, teşhis veya tedavi için bir sağlık uzmanına danışın.
+```
+
+Uygulama içi: sağlık testi onay kutuları + gizlilik/sözleşme (kayıt). Tam metin: `https://www.yeniform.com/legal/saglik-sorumluluk-reddi`
+
+## User-generated content
+
+Mesajlar atanmış koç / diyetisyen / doktor ile **1:1** (herkese açık feed yok). Web’de de ayrı “şikayet/engelle” butonu yok — uydurma UI yok.
+
+Konsol (UGC var mı? **Evet**, özel mesaj):
+
+```
+Kullanıcı içeriği yalnız atanmış uzmanla özel mesajdır; herkese açık paylaşım yok. Kayıtta üyelik sözleşmesi ve gizlilik kabul edilir. İlk mesajdan önce mesajlaşma bilgilendirmesi onaylanır. Telefon/e-posta paylaşımı otomatik engellenir. İtiraz veya kötüye kullanım Destek Merkezi veya info@yeniform.com ile iletilir; personel ve admin thread’i kapatabilir. Hedef kitle 18+.
+```
+
+Topluluk kuralları: `https://www.yeniform.com/legal/topluluk-kurallari`
 
 ## Foreground services
 
-Play **Uygulama içeriği → Ön plan hizmeti izinleri**. İzin AAB’de varsa form zorunlu.
+Play **Uygulama içeriği → Ön plan hizmeti izinleri**. Yalnız AAB’de duran tipler.
 
-**Video bağlantısı kutusuna metin yapıştırma.** Oraya yalnızca herkese açık / gizli YouTube (veya incelemenin açabildiği Drive) URL’si. Açıklama ayrı kutuya.
+Bu AAB: **camera + microphone**. Media playback ve media projection **yok** (blocked). Formda çıkarsa yeni AAB yükle; eski `1.0.1` / versionCode 5 mediaPlayback içerebilir.
 
-Aynı YouTube videosu kamera + mikrofon için kullanılabilir. Medya oynatma ayrı video.
+**Video bağlantısı kutusuna metin yapıştırma.** Yalnız YouTube veya incelemenin açabildiği Drive URL’si. Açıklama ayrı kutu.
 
-Demo’yu Daily FGS’li `play-store` AAB’de çek (önceki sohbet: servis + Android’de otomatik kamera kapatma). Eski AAB’de Home’da kamera düşebilir; inceleme reddeder.
+Aynı video kamera + mikrofon için. Demo’yu **Daily FGS’li yeni** `play-store` AAB’de çek.
 
 ### Camera (`FOREGROUND_SERVICE_CAMERA`)
 
@@ -88,27 +126,13 @@ Karşı taraf sesi duymaz. Kullanıcı uygulamaya dönünce mikrofon yeniden ba�
 
 **Demo video:** Kamera videosu ile aynı (Home’da konuş, karşı taraf duysun).
 
-### Media playback (`FOREGROUND_SERVICE_MEDIA_PLAYBACK`)
-
-**Görev:** yalnız **Medya oynatma**. **Pencere içinde pencere gösterme işaretleme** (sistem PiP açık değil). Diğer işaretleme.
-
-**İşlev açıklaması:**
-
-```
-Üye egzersiz kütüphanesinde koç hareket videolarını native oynatıcıyla izler (expo-video). Android medya oynatma ön plan hizmeti, kullanıcı videoyu başlattıktan sonra tam ekran / kısa süre uygulama dışına çıkınca oynatmanın kesilmemesi içindir. Kullanıcı videoyu uygulama içinden başlatır. Görüntülü seans bu izinle yapılmaz (kamera + mikrofon FGS).
-```
-
-**Ertelenir / kesilirse kullanıcı etkisi:**
-
-```
-Hareket videosu duraklar. Kullanıcı kütüphaneye dönünce yeniden oynatır.
-```
-
-**Demo video:** Giriş → Hareket kütüphanesi → bir hareket aç → video oynasın → Home veya tam ekran → (varsa) medya bildirimi → uygulamaya dön.
-
 ## Photos and videos
 
-Android 13+: sistem seçici. Amaç: profil, kalori foto, sağlık belgesi. Fotoğraf galerisinin tamamına sürekli erişim yok.
+[Sensitive permissions](https://support.google.com/googleplay/android-developer/answer/16324062): Android 13+ **sistem Photo Picker**. `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` **blocked**.
+
+Konsol: geniş galeri izni istenmiyor; Photo Picker yeterli.
+
+Amaç: profil, kalori foto, sağlık belgesi. Sürekli galeri erişimi yok.
 
 ## Government / News
 
@@ -116,7 +140,7 @@ Hayır.
 
 ## App access (inceleme)
 
-Üye test hesabı ver. Giriş: e-posta/şifre (Google/Apple kapalı).
+Üye test hesabı ver. Giriş: e-posta/şifre (Google/Apple kapalı). Şifreyi inceleme bitene kadar değiştirme.
 
 ## Hesap silme (Play)
 
@@ -129,3 +153,5 @@ Mobilde native silme formu yok; profil **Hesabımı sil** web’e gider.
 ## Privacy policy URL
 
 https://www.yeniform.com/legal/gizlilik-politikasi
+
+Uygulama içi (Play Health): kayıt/giriş yasal linkleri + `/(public)/legal/*`.

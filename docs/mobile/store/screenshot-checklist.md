@@ -19,7 +19,7 @@
 
 ## Ekran önerisi (üye)
 
-Screenshot sırası (Play’e yükle, 07 tekrar):
+Screenshot sırası (Play’e yükle — **07 yükleme**, 01’in kopyası):
 
 1. `01-panel-saglik-skoru.jpg` — panel  
 2. `02-panel-takip.jpg` — takip  

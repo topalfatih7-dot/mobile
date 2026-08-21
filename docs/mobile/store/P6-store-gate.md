@@ -16,15 +16,17 @@
 
 Preview APK **yok**. Onaylı `play-store` AAB → Play Internal/Closed opt-in.
 
+Kod (2026-08-21): Daily FGS camera+mic, Webrtc `MEDIA_PROJECTION` ve kullanılmayan `MEDIA_PLAYBACK` blocked, Photo Picker, API 36 (SDK 56). Eski versionCode **5** AAB bunları taşımaz — test için **yeni** AAB.
+
 ## Senin işin
 
 - [x] Expo FCM V1 (`yeniform-aa5c1`) — 2026-08-20
 - [x] Firebase EAS SHA (`com.yeniform.app`) — 2026-08-20
 - [ ] Play uygulaması + Internal testers + opt-in
-- [ ] Listing + Data safety CSV + hesap silme URL yapıştır
-- [x] Onaylı `npm run build:play:android` (kuyruk) — Play’e yükle; eski sideload Yeni Form’u sil
+- [ ] Listing (tıbbi cihaz uyarısı) + Data safety CSV + Health form + FGS camera/mic + hesap silme URL
+- [ ] Onaylı **yeni** `npm run build:play:android` (Daily FGS + izin temizliği) — Play’e yükle; eski sideload Yeni Form’u sil
 - [ ] Play **App signing key** SHA → Firebase
-- [ ] Smoke: login, web `/plans`, push, Daily, health/calendar — **IAP yok**
+- [ ] Smoke: login, web `/plans`, push, Daily **Home’da akış**, health/calendar — **IAP yok**
 
 ## Legal
 

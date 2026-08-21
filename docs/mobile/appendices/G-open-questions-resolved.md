@@ -22,7 +22,7 @@
 
 All planned screens and contracts marked LOCK, WebView, or explicit MOBILE DIFF. See `COMPLETE.md`.
 
-Remaining as **ops / store** (not product invention): Expo FCM V1 + Firebase SHA, Play Internal AAB (onaylı), iOS preview.
+Remaining as **ops / store** (not product invention): Play Internal **yeni** AAB (Daily FGS + FGS izin temizliği, onaylı), Play listing/formlar, App signing SHA, iOS preview.
 
 ## Gap protocol
 

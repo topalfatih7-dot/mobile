@@ -26,6 +26,9 @@ Yeni Form — koç, diyetisyen ve doktor desteğini tek uygulamada toplayan üye
 • Kalori analizi (metin ve foto)
 • Görüntülü seans
 
+Bu uygulama tıbbi cihaz değildir; herhangi bir hastalığı teşhis, tedavi, iyileştirme veya önleme iddiası taşımaz. Tıbbi tavsiye, teşhis veya tedavi için bir sağlık uzmanına danışın.
+Sağlık sorumluluk reddi: https://www.yeniform.com/legal/saglik-sorumluluk-reddi
+
 Gizlilik: https://www.yeniform.com/legal/gizlilik-politikasi
 Üyelik sözleşmesi: https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi
 Destek: https://www.yeniform.com

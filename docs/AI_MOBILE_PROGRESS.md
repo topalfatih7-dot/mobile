@@ -1,8 +1,22 @@
 # Yeni Form Mobile — Progress
 
-> **Son güncelleme:** 2026-08-20 — Test dağıtımı Play Internal AAB (preview APK kapalı)  
+> **Son güncelleme:** 2026-08-21 — Android Play taraması: Daily FGS + izin temizliği; test için yeni AAB (onaylı)  
 > **Her tur:** [`IMPLEMENTATION-LOCK.md`](./mobile/IMPLEMENTATION-LOCK.md) + [`AI_WORKING_RULES.md`](./AI_WORKING_RULES.md)  
 > **Web kaynak:** `projcet/Serenova-F-t` (`src/`)
+
+## 2026-08-21 Android Play tarama (Expo 56 + Play politika)
+
+| Madde | Durum |
+|-------|--------|
+| SDK 56 = compile/target **API 36** (Play 31 Ağu 2026) | ✅ varsayılan |
+| Daily FGS `camera\|microphone` + TR in-call bildirim | ✅ plugin + `useDailyCall` |
+| Webrtc `MediaProjection` / `MEDIA_PROJECTION` AAB’den çıkarıldı | ✅ Play ekran paylaşımı formu olmasın |
+| Kullanılmayan `MEDIA_PLAYBACK` FGS kaldırıldı (expo-video arka plan kapalı) | ✅ |
+| Photo Picker; `READ_MEDIA_*` + `AD_ID` blocked | ✅ |
+| Bildirim ikonu beyaz + şeffaf | ✅ |
+| Listing tıbbi cihaz uyarısı + Health/FGS/UGC form şablonu | ✅ docs |
+| Onaylı yeni `play-store` AAB (Daily FGS) | ⬜ sen — `build:play:android` |
+| Play Internal testers, listing, formlar, App signing SHA | ⬜ sen |
 
 ## 2026-08-20 Play test yolu
 
