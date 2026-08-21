@@ -4,7 +4,7 @@
  * Phases: idle → preview (startCamera) → loading → joined; leave → preview.
  */
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 
 export type DailyParticipant = {
   session_id: string;
@@ -238,7 +238,18 @@ export function useDailyCall() {
     const MediaView = DailyMod.DailyMediaView as ComponentType<DailyMediaViewProps>;
     if (MediaView) setDailyMediaView(() => MediaView);
 
-    const call = Daily.createCallObject() as unknown as DailyCallObject;
+    const call = Daily.createCallObject({
+      reactNativeConfig: {
+        androidInCallNotification: {
+          title: 'Görüntülü görüşme',
+          subtitle: 'Görüşme devam ediyor. Açmak için dokun.',
+        },
+        // Android: FGS ile arka planda kamera akışı. iOS arka planda kamera yok (Apple).
+        disableAutoDeviceManagement: {
+          video: Platform.OS === 'android',
+        },
+      },
+    }) as unknown as DailyCallObject;
     globalCall = call;
     callRef.current = call;
     attachHandlers(call);

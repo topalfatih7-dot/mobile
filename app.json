@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.yeniform.app",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "voip"
         ],
         "NSCameraUsageDescription": "Görüntülü görüşme ve kalori foto analizi için kamera erişimi gerekir.",
         "NSMicrophoneUsageDescription": "Görüntülü görüşme için mikrofon erişimi gerekir.",
@@ -95,6 +96,7 @@
           "recordAudioAndroid": true
         }
       ],
+      "./plugins/withDailyForegroundService",
       "expo-web-browser",
       "expo-video",
       "expo-asset"
