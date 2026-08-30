@@ -3,7 +3,7 @@
  * chat_threads / chat_messages + realtime.
  */
 import { requireSupabase } from '@/services/supabase';
-import { notifyMemberChatMessage, notifyWhatsAppEvent } from '@/services/memberNotifications';
+import { notifyMemberChatMessage } from '@/services/memberNotifications';
 import { notifyStaffChatMessage } from '@/services/staffNotifications';
 import type { ChatContact } from '@/utils/chatContacts';
 import {
@@ -395,12 +395,6 @@ export async function sendChatMessage(
       memberName: memberNameForNotify,
     });
   }
-
-  void notifyWhatsAppEvent('new_chat_message', {
-    threadId,
-    senderType: 'member',
-    memberId,
-  });
 
   return {
     success: true,

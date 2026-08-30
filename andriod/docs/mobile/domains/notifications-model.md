@@ -40,7 +40,6 @@ See `screens/member/notifications.md`.
 
 1. Client: `registerForPushNotifications(userId, { prompt?: boolean })` → Expo token → upsert `device_push_tokens` (RLS own row). Varsayılan **sessiz** (`getPermissions` + token); OS diyaloğu yalnızca `{ prompt: true }` ve status `undetermined` iken. Denied / “Şimdi Değil”: tekrar `requestPermissionsAsync` yok. AppState yeniden kayıt sessiz. Aynı `expo_push_token` başka `user_id` satırlarında silinir (cihaz tek sahibi). Logout / hesap silme: `clearDevicePushToken` satırı + OS banner’ları kapatır; `data.userId` mevcut oturumla eşleşmezse banner/tap yok sayılır.
 2. On `append_member_notification` + `POST /api/application-notify` `{ memberId, notification }`:
-   - WhatsApp fan-out (program/chat, existing)
    - **Expo Push** via `api/_expoPush.js` → `https://exp.host/--/api/v2/push/send`
 3. Respect `members.data.settings.pushNotifs === false` → skip Expo.
 4. Payload `data`: `{ type, staffRole?, ticketId?, action?, threadId?, sessionId?, sessionType?, userId?, ... }` — same navigate map as in-app.

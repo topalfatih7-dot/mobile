@@ -231,20 +231,3 @@ export async function notifyMemberAssignment(opts: {
     { staffRole: opts.staffRole },
   );
 }
-
-/** Web notifyWhatsAppEvent — personel in-app + WA (üye mesajı). */
-export async function notifyWhatsAppEvent(
-  event: string,
-  payload: Record<string, unknown> = {},
-): Promise<void> {
-  if (!supabase) return;
-  try {
-    await postJson('/api/application-notify', {
-      action: 'whatsapp-event',
-      event,
-      ...payload,
-    });
-  } catch {
-    /* ignore */
-  }
-}

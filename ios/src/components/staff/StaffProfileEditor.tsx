@@ -1,6 +1,6 @@
 /**
  * Web parity: Adsız `src/components/staff/StaffProfileEditor.jsx`
- * MOBILE DIFF: tek sütun RN layout. Çalışma günleri / WhatsApp kartları yok (kayıtta mevcut değerler korunur).
+ * MOBILE DIFF: tek sütun RN layout. Çalışma günleri kartları yok (kayıtta mevcut değerler korunur).
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -105,9 +105,6 @@ export function StaffProfileEditor({ staffUser, email, onSaved }: Props) {
   const [phoneCountry, setPhoneCountry] = useState(
     () => phoneFromStaff(normalizeStaffProfile(staffUser)).phoneCountry,
   );
-  const [whatsappNotifs, setWhatsappNotifs] = useState(
-    () => (staffUser?.settings as Record<string, unknown>)?.whatsappNotifs !== false,
-  );
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -123,9 +120,6 @@ export function StaffProfileEditor({ staffUser, email, onSaved }: Props) {
     const phoneBits = phoneFromStaff(next);
     setForm({ ...next, phone: phoneBits.phone });
     setPhoneCountry(phoneBits.phoneCountry);
-    setWhatsappNotifs(
-      (staffUser?.settings as Record<string, unknown>)?.whatsappNotifs !== false,
-    );
   }, [staffUser]);
 
   const districts = useMemo(() => getDistricts(form.city || ''), [form.city]);
@@ -204,7 +198,6 @@ export function StaffProfileEditor({ staffUser, email, onSaved }: Props) {
         workEnd: form.workEnd || '17:00',
         settings: {
           ...((staffUser.settings as Record<string, unknown>) || {}),
-          whatsappNotifs,
         },
       };
       const result = await updateStaffSelfProfile(String(staffUser.id), payload);
