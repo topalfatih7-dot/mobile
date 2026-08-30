@@ -45,6 +45,7 @@ type Props = {
   onLogout?: () => void | Promise<void>;
   loggingOut?: boolean;
   brandHref?: string;
+  profileHref?: string;
 };
 
 const ACCENT_ACTIVE: Record<Accent, { bg: string; fg: string }> = {
@@ -93,6 +94,7 @@ export function PanelDrawer({
   onLogout,
   loggingOut = false,
   brandHref,
+  profileHref,
 }: Props) {
   const insets = useSafeAreaInsets();
   const t = useScaledTheme();
@@ -102,7 +104,7 @@ export function PanelDrawer({
   const backdrop = useSharedValue(0);
   const active = ACCENT_ACTIVE[accent];
   const photo = String(userPhoto || '').trim();
-  const avatarSize = t.ss(40);
+  const avatarSize = t.ss(44);
 
   useEffect(() => {
     if (open) {
@@ -172,20 +174,31 @@ export function PanelDrawer({
           </View>
 
           {(badge || userName) && (
-            <View style={styles.userBlock}>
+            <Pressable
+              accessibilityLabel="Profili aç"
+              accessibilityRole="button"
+              disabled={!profileHref}
+              onPress={() => profileHref && navigate(profileHref)}
+              style={({ pressed }) => [
+                styles.userBlock,
+                profileHref && pressed && styles.userBlockPressed,
+              ]}>
               <View style={styles.userRow}>
                 {photo ? (
                   <Image
                     accessibilityLabel={userName || 'Profil fotoğrafı'}
                     contentFit="cover"
                     source={{ uri: photo }}
-                    style={[styles.avatar, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
+                    style={[
+                      styles.avatar,
+                      { width: avatarSize, height: avatarSize, borderRadius: 14 },
+                    ]}
                   />
                 ) : (
                   <View
                     style={[
                       styles.avatarFallback,
-                      { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
+                      { width: avatarSize, height: avatarSize, borderRadius: 14 },
                     ]}>
                     <Text style={styles.avatarLetter}>{initials(userName || '?') || '?'}</Text>
                   </View>
@@ -211,8 +224,13 @@ export function PanelDrawer({
                     </Text>
                   ) : null}
                 </View>
+                {profileHref ? (
+                  <View style={styles.userChevron}>
+                    <Ionicons color={colors.cream[300]} name="chevron-forward" size={16} />
+                  </View>
+                ) : null}
               </View>
-            </View>
+            </Pressable>
           )}
 
           <ScrollView
@@ -334,32 +352,36 @@ const styles = StyleSheet.create({
   },
   userBlock: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.cream[100],
   },
+  userBlockPressed: { backgroundColor: colors.cream[50] },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     minWidth: 0,
   },
   avatar: {
     backgroundColor: colors.cream[100],
+    borderColor: colors.brand[100],
+    borderWidth: 1.5,
     flexShrink: 0,
+    overflow: 'hidden',
   },
   avatarFallback: {
-    backgroundColor: colors.brand[100],
+    backgroundColor: colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   avatarLetter: {
     fontFamily: fonts.sansSemi,
-    fontSize: 13,
-    color: colors.brand[700],
+    fontSize: 14,
+    color: colors.white,
   },
-  userMeta: { flex: 1, minWidth: 0, gap: 4 },
+  userMeta: { flex: 1, minWidth: 0, gap: 5 },
   roleBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -379,10 +401,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   userName: {
-    fontFamily: fonts.sans,
-    fontSize: 13,
-    color: 'rgba(58,69,80,0.7)',
+    fontFamily: fonts.sansSemi,
+    fontSize: 15,
+    color: colors.cream[900],
     flexShrink: 1,
+  },
+  userChevron: {
+    alignItems: 'center',
+    backgroundColor: colors.cream[100],
+    borderRadius: 8,
+    flexShrink: 0,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
   },
   navScroll: { flex: 1 },
   nav: { padding: 12, gap: 6 },

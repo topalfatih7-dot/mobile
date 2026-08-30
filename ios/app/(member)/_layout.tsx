@@ -446,7 +446,8 @@ export default function MemberLayout() {
       notificationUnreadCount={notificationUnreadCount}
       showNotificationBell
       userName={userName}
-      userPhoto={member?.photo ? String(member.photo) : null}>
+      userPhoto={member?.photo ? String(member.photo) : null}
+      profileHref="/(member)/profile">
       <MemberPushBootstrap />
       <Stack
         screenOptions={{

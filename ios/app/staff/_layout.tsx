@@ -336,7 +336,8 @@ export default function StaffLayout() {
         notificationsHref="/staff/notifications"
         showNotificationBell
         userName={userName}
-        userPhoto={staff?.photo ? String(staff.photo) : null}>
+        userPhoto={staff?.photo ? String(staff.photo) : null}
+        profileHref="/staff/profile">
         <Stack
           screenOptions={{
             headerShown: false,

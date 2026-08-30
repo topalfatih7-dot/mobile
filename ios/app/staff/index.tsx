@@ -59,12 +59,6 @@ function panelTitleForRole(role: string) {
   return 'Koç paneli';
 }
 
-function roleIcon(role: string): keyof typeof Ionicons.glyphMap {
-  if (role === 'dietitian') return 'nutrition-outline';
-  if (role === 'doctor') return 'medkit-outline';
-  return 'barbell-outline';
-}
-
 function workSubtitle(staff: Record<string, unknown> | null | undefined) {
   const workDays = (staff?.workDays as number[]) || [];
   const start = String(staff?.workStart || '').trim();
@@ -236,20 +230,20 @@ export default function StaffOverview() {
   );
 
   const subtitle = `${panelTitleForRole(role)}${workSubtitle(staff)}`;
+  const staffPhoto = String(staff?.photo || '').trim();
 
   return (
-    <PanelScaffold scrollRef={scrollRef} subtitle={subtitle} title={`Merhaba, ${firstName}`}>
+    <PanelScaffold
+      avatarName={String(staff?.name || firstName)}
+      avatarUri={staffPhoto || null}
+      onHeaderPress={() => router.push('/staff/profile' as Href)}
+      scrollRef={scrollRef}
+      subtitle={subtitle}
+      title={`Merhaba, ${firstName}`}>
       {loading && clients.length === 0 ? (
         <InlineSpinner fill />
       ) : (
         <>
-          <FadeIn delay={20}>
-            <View style={styles.roleRow}>
-              <Ionicons color={colors.cream[800]} name={roleIcon(role)} size={16} />
-              <Text style={styles.roleText}>{panelTitleForRole(role)}</Text>
-            </View>
-          </FadeIn>
-
           <FadeIn delay={40}>
             <View style={[styles.kpiRow, isCompact && styles.kpiRowWrap]}>
               <Pressable
@@ -261,12 +255,15 @@ export default function StaffOverview() {
                   isCompact && styles.kpiCompact,
                   pressed && styles.kpiPressed,
                 ]}>
-                <View style={[styles.kpiIcon, { backgroundColor: colors.sage[100] }]}>
-                  <Ionicons color={colors.sage[600]} name="people" size={17} />
+                <View style={[styles.kpiAccent, { backgroundColor: colors.sage[500] }]} />
+                <View style={styles.kpiTop}>
+                  <View style={[styles.kpiIcon, { backgroundColor: colors.sage[100] }]}>
+                    <Ionicons color={colors.sage[600]} name="people" size={18} />
+                  </View>
+                  <KpiValueIn delay={40}>
+                    <Text style={styles.kpiVal}>{clients.length}</Text>
+                  </KpiValueIn>
                 </View>
-                <KpiValueIn delay={40}>
-                  <Text style={styles.kpiVal}>{clients.length}</Text>
-                </KpiValueIn>
                 <Text numberOfLines={2} style={styles.kpiLabel}>
                   Danışan
                 </Text>
@@ -283,12 +280,15 @@ export default function StaffOverview() {
                   isCompact && styles.kpiCompact,
                   pressed && styles.kpiPressed,
                 ]}>
-                <View style={[styles.kpiIcon, { backgroundColor: colors.brand[100] }]}>
-                  <Ionicons color={colors.brand[600]} name="calendar" size={17} />
+                <View style={[styles.kpiAccent, { backgroundColor: colors.brand[500] }]} />
+                <View style={styles.kpiTop}>
+                  <View style={[styles.kpiIcon, { backgroundColor: colors.brand[100] }]}>
+                    <Ionicons color={colors.brand[600]} name="calendar" size={18} />
+                  </View>
+                  <KpiValueIn delay={70}>
+                    <Text style={styles.kpiVal}>{thisWeekCount}</Text>
+                  </KpiValueIn>
                 </View>
-                <KpiValueIn delay={70}>
-                  <Text style={styles.kpiVal}>{thisWeekCount}</Text>
-                </KpiValueIn>
                 <Text numberOfLines={2} style={styles.kpiLabel}>
                   Bu Hafta Randevu
                 </Text>
@@ -305,12 +305,15 @@ export default function StaffOverview() {
                   isCompact && styles.kpiCompact,
                   pressed && styles.kpiPressed,
                 ]}>
-                <View style={[styles.kpiIcon, { backgroundColor: colors.cream[100] }]}>
-                  <Ionicons color={colors.gold[500]} name="clipboard" size={17} />
+                <View style={[styles.kpiAccent, { backgroundColor: colors.gold[500] }]} />
+                <View style={styles.kpiTop}>
+                  <View style={[styles.kpiIcon, { backgroundColor: colors.cream[100] }]}>
+                    <Ionicons color={colors.gold[500]} name="clipboard" size={18} />
+                  </View>
+                  <KpiValueIn delay={100}>
+                    <Text style={styles.kpiVal}>{myPrograms.length}</Text>
+                  </KpiValueIn>
                 </View>
-                <KpiValueIn delay={100}>
-                  <Text style={styles.kpiVal}>{myPrograms.length}</Text>
-                </KpiValueIn>
                 <Text numberOfLines={2} style={styles.kpiLabel}>
                   Oluşturulan Program
                 </Text>
@@ -529,34 +532,37 @@ export default function StaffOverview() {
           ) : null}
 
           <FadeIn delay={130}>
-            <Pressable
-              onPress={() => router.push('/staff/clients' as Href)}
-              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-              <Ionicons color={colors.brand[600]} name="people" size={18} />
-              <Text style={styles.linkText}>Danışanlara git</Text>
-              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/staff/payments' as Href)}
-              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-              <Ionicons color={colors.brand[600]} name="card" size={18} />
-              <Text style={styles.linkText}>Ödemeler</Text>
-              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/staff/messages/admin' as Href)}
-              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-              <Ionicons color={colors.brand[600]} name="shield" size={18} />
-              <Text style={styles.linkText}>Admin mesajları</Text>
-              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/staff/messages/collab' as Href)}
-              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
-              <Ionicons color={colors.brand[600]} name="git-network" size={18} />
-              <Text style={styles.linkText}>Ekip mesajları</Text>
-              <Ionicons color={colors.cream[300]} name="chevron-forward" size={18} style={styles.chevron} />
-            </Pressable>
+            <View style={styles.linkList}>
+              {(
+                [
+                  { href: '/staff/clients', icon: 'people' as const, label: 'Danışanlara git' },
+                  { href: '/staff/payments', icon: 'card' as const, label: 'Ödemeler' },
+                  {
+                    href: '/staff/messages/admin',
+                    icon: 'shield' as const,
+                    label: 'Admin mesajları',
+                  },
+                  {
+                    href: '/staff/messages/collab',
+                    icon: 'git-network' as const,
+                    label: 'Ekip mesajları',
+                  },
+                ] as const
+              ).map((item) => (
+                <Pressable
+                  key={item.href}
+                  onPress={() => router.push(item.href as Href)}
+                  style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}>
+                  <View style={styles.linkIcon}>
+                    <Ionicons color={colors.brand[600]} name={item.icon} size={18} />
+                  </View>
+                  <Text style={styles.linkText}>{item.label}</Text>
+                  <View style={styles.linkChevron}>
+                    <Ionicons color={colors.cream[800]} name="chevron-forward" size={16} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
           </FadeIn>
         </>
       )}
@@ -565,39 +571,51 @@ export default function StaffOverview() {
 }
 
 const styles = StyleSheet.create({
-  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  roleText: { fontFamily: fonts.sans, fontSize: 13, color: colors.cream[800] },
   kpiRow: { flexDirection: 'row', gap: 8 },
   kpiRowWrap: { flexWrap: 'wrap' },
   kpi: {
     flex: 1,
     backgroundColor: colors.white,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     padding: spacing.sm,
+    paddingTop: 12,
     borderWidth: 1,
     borderColor: colors.cream[200],
+    overflow: 'hidden',
+    gap: 4,
   },
   kpiCompact: {
     flexGrow: 1,
     flexBasis: '46%',
     minWidth: '46%',
   },
-  kpiPressed: { backgroundColor: colors.cream[100] },
+  kpiPressed: { backgroundColor: colors.cream[50] },
+  kpiAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
+  kpiTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
   kpiIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.full,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
   },
   kpiVal: {
     fontFamily: fonts.displayExtra,
     fontSize: 22,
     color: colors.brand[700],
-    alignSelf: 'flex-start',
   },
-  kpiLabel: { fontFamily: fonts.sansSemi, fontSize: 11, color: colors.cream[900], marginTop: 2 },
+  kpiLabel: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.cream[900], marginTop: 4 },
   kpiSub: { fontFamily: fonts.sans, fontSize: 10, color: colors.cream[800], marginTop: 1 },
   card: {
     backgroundColor: colors.white,
@@ -663,18 +681,42 @@ const styles = StyleSheet.create({
   timeBadgeText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.brand[700] },
   cancelLink: { marginTop: 8, paddingVertical: 6 },
   cancelLinkText: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.warm[500] },
+  linkList: { gap: 10 },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    minHeight: 44,
+    gap: 12,
+    minHeight: 52,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
-    padding: spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: colors.cream[200],
   },
-  linkRowPressed: { backgroundColor: colors.cream[100] },
-  linkText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.cream[900] },
-  chevron: { marginLeft: 'auto' },
+  linkRowPressed: { backgroundColor: colors.cream[50] },
+  linkIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: colors.brand[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  linkText: {
+    flex: 1,
+    fontFamily: fonts.sansSemi,
+    fontSize: 15,
+    color: colors.cream[900],
+  },
+  linkChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.cream[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
 });

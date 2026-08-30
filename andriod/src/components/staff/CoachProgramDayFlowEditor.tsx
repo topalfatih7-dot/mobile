@@ -92,49 +92,51 @@ function Stepper({
           style={styles.stepperBtn}>
           <Ionicons color={colors.cream[800]} name="remove" size={18} />
         </Pressable>
-        <TextInput
-          ref={inputRef}
-          accessibilityLabel={label}
-          allowFontScaling={false}
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect={false}
-          blurOnSubmit
-          keyboardType={Platform.OS === 'android' ? 'numeric' : 'number-pad'}
-          maxFontSizeMultiplier={MAX_FONT_SIZE_MULTIPLIER}
-          maxLength={String(max).length}
-          onBlur={() => {
-            setFocused(false);
-            commit(draft);
-          }}
-          onChangeText={(t) => {
-            setDraft(digitsOnly(t, max));
-          }}
-          onFocus={() => {
-            setFocused(true);
-            setDraft(String(value));
-            keepVisible();
-            if (Platform.OS === 'web') {
-              requestAnimationFrame(() => {
-                (inputRef.current as unknown as { scrollIntoView?: (o: object) => void })
-                  ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-              });
-            }
-          }}
-          onSubmitEditing={() => Keyboard.dismiss()}
-          returnKeyType="done"
-          scrollEnabled={false}
-          spellCheck={false}
-          style={styles.stepperVal}
-          underlineColorAndroid="transparent"
-          value={focused ? draft : String(value)}
-        />
+        <View style={[styles.stepperValWrap, focused && styles.stepperValWrapFocus]}>
+          <TextInput
+            ref={inputRef}
+            accessibilityLabel={label}
+            allowFontScaling={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect={false}
+            blurOnSubmit
+            keyboardType={Platform.OS === 'android' ? 'numeric' : 'number-pad'}
+            maxFontSizeMultiplier={MAX_FONT_SIZE_MULTIPLIER}
+            maxLength={String(max).length}
+            onBlur={() => {
+              setFocused(false);
+              commit(draft);
+            }}
+            onChangeText={(t) => {
+              setDraft(digitsOnly(t, max));
+            }}
+            onFocus={() => {
+              setFocused(true);
+              setDraft(String(value));
+              keepVisible();
+              if (Platform.OS === 'web') {
+                requestAnimationFrame(() => {
+                  (inputRef.current as unknown as { scrollIntoView?: (o: object) => void })
+                    ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+                });
+              }
+            }}
+            onSubmitEditing={() => Keyboard.dismiss()}
+            returnKeyType="done"
+            scrollEnabled={false}
+            spellCheck={false}
+            style={styles.stepperVal}
+            underlineColorAndroid="transparent"
+            value={focused ? draft : String(value)}
+          />
+        </View>
         <Pressable
           accessibilityLabel={`${label} artır`}
           hitSlop={6}
           onPress={() => bump(1)}
-          style={styles.stepperBtn}>
-          <Ionicons color={colors.cream[800]} name="add" size={18} />
+          style={[styles.stepperBtn, styles.stepperBtnPlus]}>
+          <Ionicons color={colors.brand[700]} name="add" size={18} />
         </Pressable>
       </View>
     </View>
@@ -417,8 +419,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   segTextOn: { color: colors.cream[900] },
-  controls: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  stepper: { gap: 4, minWidth: 112 },
+  controls: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  stepper: { flexGrow: 0, flexShrink: 0, gap: 6 },
   stepperLabel: {
     color: colors.cream[800],
     fontFamily: fonts.sansSemi,
@@ -427,32 +434,56 @@ const styles = StyleSheet.create({
   },
   stepperRow: {
     alignItems: 'center',
-    backgroundColor: colors.cream[50],
-    borderColor: colors.cream[200],
-    borderRadius: radius.md,
-    borderWidth: 1,
+    alignSelf: 'flex-start',
     flexDirection: 'row',
+    flexGrow: 0,
+    flexShrink: 0,
+    gap: 6,
   },
-  stepperRowFocus: {
-    borderColor: colors.brand[400],
-  },
+  stepperRowFocus: {},
   stepperBtn: {
     alignItems: 'center',
-    height: 44,
+    backgroundColor: colors.cream[100],
+    borderColor: colors.cream[200],
+    borderRadius: 12,
+    borderWidth: 1,
+    flexShrink: 0,
+    height: 40,
     justifyContent: 'center',
-    width: 44,
+    width: 40,
+  },
+  stepperBtnPlus: {
+    backgroundColor: colors.brand[50],
+    borderColor: colors.brand[200],
+  },
+  stepperValWrap: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: colors.cream[200],
+    borderRadius: 12,
+    borderWidth: 1,
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 40,
+    justifyContent: 'center',
+    minWidth: 56,
+    width: 56,
+  },
+  stepperValWrapFocus: {
+    borderColor: colors.brand[400],
   },
   stepperVal: {
     color: colors.cream[900],
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 0,
     fontFamily: fonts.displayBold,
     fontSize: 18,
-    height: 44,
-    minWidth: 36,
+    height: 40,
     paddingHorizontal: 0,
     paddingVertical: 0,
     textAlign: 'center',
     textAlignVertical: 'center',
+    width: 56,
     ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
   unitCol: { flex: 1, gap: 4, minWidth: 120 },

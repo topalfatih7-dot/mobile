@@ -24,6 +24,7 @@ type Props = {
   showNotificationBell?: boolean;
   notificationUnreadCount?: number;
   notificationsHref?: string;
+  profileHref?: string;
 };
 
 /** TopBar + Drawer chrome — 3 panel layout’u sarmalar */
@@ -38,6 +39,7 @@ export function PanelChrome({
   showNotificationBell = false,
   notificationUnreadCount = 0,
   notificationsHref = '/(member)/notifications',
+  profileHref,
 }: Props) {
   const { logout, loggingOut } = useAuth();
   const pathname = usePathname();
@@ -98,6 +100,7 @@ export function PanelChrome({
           onClose={() => setOpen(false)}
           onLogout={handleLogout}
           open={open}
+          profileHref={profileHref}
           userName={userName}
           userPhoto={userPhoto}
         />
