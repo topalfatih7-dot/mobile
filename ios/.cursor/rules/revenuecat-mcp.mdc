@@ -1,0 +1,15 @@
+---
+description: RevenueCat — KALDIRILDI (mobil IAP iptal)
+globs:
+alwaysApply: false
+---
+
+# RevenueCat — KALDIRILDI (2026-08-08)
+
+Mobil IAP / RevenueCat **iptal**. Yeni ürün, webhook, SDK veya MCP kurulum işi **yapma**.
+
+- Satın alma / yönetim: web Stripe (`yeniform.com/membership`)
+- Entitlement SoT: Supabase `members`
+- Eski doküman: `docs/mobile/04-payments-iap.md` (deprecated)
+
+Membership işleri için: `.cursor/skills/yeniform-membership-payments/SKILL.md`

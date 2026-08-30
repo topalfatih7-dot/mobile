@@ -1,0 +1,44 @@
+# Yeni Form — Mobil Spesifikasyon (Handoff)
+
+Bu klasör, **web reposuna erişimi olmayan** bir ekibin Expo React Native uygulamasını yazabilmesi için self-contained spesifikasyondur.
+
+**Zorunlu ilk dosya:** [IMPLEMENTATION-LOCK.md](IMPLEMENTATION-LOCK.md) — uydurma yasağı, gap protokolü, UI/API kilidi.
+
+**Tamamlandı:** [COMPLETE.md](COMPLETE.md) — tüm paneller LOCK; skills hazır.
+
+İlgili Cursor skill’leri: [`.cursor/skills/README.md`](../../.cursor/skills/README.md) (bu repo kökü) — iş geldiğinde önce `yeniform-mobile-router`.
+
+## Okuma sırası
+
+0. [IMPLEMENTATION-LOCK.md](IMPLEMENTATION-LOCK.md)
+1. [00-executive-summary.md](00-executive-summary.md)
+2. [01-architecture.md](01-architecture.md)
+3. [02-design-system.md](02-design-system.md)
+4. [03-navigation.md](03-navigation.md)
+5. [04-payments-iap.md](04-payments-iap.md)
+6. [05-auth-onboarding.md](05-auth-onboarding.md)
+7. [domains/](domains/) → [flows/](flows/) → [screens/](screens/) → [contracts/](contracts/) → [appendices/](appendices/)
+
+## Klasörler
+
+| Path | İçerik |
+|------|--------|
+| `domains/` | membership, health catalog, **health-test-retake-lock**, chat, programs, media, realtime, AI, notifications, **water-tracking** |
+| `flows/` | F01–F16 uçtan uca senaryolar |
+| `screens/member\|staff\|admin\|public/` | Ekran spesifikasyonları |
+| `contracts/` | API + DB + env |
+| `appendices/` | inventory, roadmap, handoff, legal, copy |
+| `store/` | iOS mağaza: [`store/ios-app-store.md`](store/ios-app-store.md), [`store/ios-asc-forms.md`](store/ios-asc-forms.md), [`store/ios-listing.tr.md`](store/ios-listing.tr.md), [`store/ios-preview-build.md`](store/ios-preview-build.md) |
+
+## Yazım standardı
+
+- “Kaynağa bakın” tek başına yeterli değil — davranış burada gömülü
+- Paket kapıları: `free\|eko\|eko_diyet\|eko_spor\|diyet\|spor\|doktor\|vip`
+- JSON örnekleri contracts altında
+- Skills ile çapraz: uygulama işi → `yeniform-expo-app`; spec güncelleme → `yeniform-mobile-spec`
+
+## Kararlar
+
+- Expo + Expo Router  
+- Üye + Staff + Admin  
+- Ödeme: web Stripe (mobil IAP yok); **iOS’ta satın alma CTA yok**; entitlement Supabase  

@@ -1,0 +1,43 @@
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+.env
+.env*.local
+
+.DS_Store
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Native credentials — do not commit
+google-services.json
+GoogleService-Info.plist
+*firebase-adminsdk*.json
+firebase-service-account*.json
+
+/ios
+/android
+
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.metro-health-check*
+*.tsbuildinfo
+
+# RevenueCat AI toolkit skills (local)
+.agents/
+
+# Local Metro/QA capture logs
+.cursor/test-logs/
+
+# Machine-local web/spec paths — keep example only
+.local/paths.json
+
+# WhatsApp / camera dumps — store listing değil
+assets/WhatsApp Image *

@@ -1,0 +1,156 @@
+# Public — Login (IMPLEMENTATION LOCK)
+
+- **Expo:** `/(auth)/login`
+- **Web:** `/login` → `src/pages/auth/LoginPage.jsx`
+- **Priority:** P0
+- **Skill:** `yeniform-auth-onboarding`
+
+Bu dosya web davranışının kilididir. Ek alan / farklı redirect uydurma.
+
+---
+
+## Purpose
+
+E-posta/şifre + Google (iOS’ta + Apple) ile oturum; role göre yönlendirme.
+
+## Preconditions
+
+Yok (public). Zaten authenticated ise otomatik redirect (aşağıda).
+
+## Layout (mobil — zorunlu sıra)
+
+**MOBILE DIFF (2026-08-24):** Kartın üstünde marka logosu. Form üstten hizalı (`paddingTop`); dikey ortalama yok (klavye açılınca alan kaybolmasın). Geniş ekranda max-width. Ana ekran butonu yok. **Giriş Yap** + **Kayıt ol** form kartının içinde (scroll ile birlikte); klavyeye yapışık dock yok.
+
+```
+Logo (BrandLogo, variant=logo)
+Beyaz kart:
+  Başlık: Giriş Yap
+  Alt başlık (mevcut cümle)
+  [Email FormField]
+  [Password FormField + show/hide]
+  [Beni hatırla checkbox]
+  [Turnstile / device attestation slot — production]
+  [Primary CTA: Giriş Yap]  // loading iken spinner, disabled
+  **MOBILE DIFF:** SocialAuthButtons yok (Google/Apple kapalı — yalnız e-posta/şifre)
+  Link: Şifremi unuttum → forgot-password
+  Link: Kayıt ol → onboarding
+  **MOBILE DIFF:** Altta tıklanır Kullanım Koşulları + Gizlilik Politikası → web `/legal/...`
+[FormErrorModal when error]
+```
+
+Klavye: `FormKeyboardScroll` (`react-native-keyboard-controller`). Odaklı TextInput klavyenin üstüne kayar; CTA formun içinde. iOS overlay + Android `adjustResize`.
+
+Sol marka video paneli **yalnızca tablet/desktop web**; telefonda tek sütun form (web md altı gibi).
+
+## State
+
+| State | Type | Default |
+|-------|------|---------|
+| email | string | '' |
+| password | string | '' |
+| showPass | bool | false |
+| remember | bool | `getRememberMe()` eşdeğeri (SecureStore) |
+| errors | { email?, password? } | {} |
+| loading | bool | false |
+| turnstileToken | string | '' |
+| errorModal | { open, message } | closed |
+
+## Validation (submit öncesi — birebir)
+
+1. `email = sanitizeEmailInput(email)`
+2. `!isValidEmailAddress(cleanEmail)` → field `email`: **Geçerli e-posta girin**
+3. `password.length < 6` → field `password`: **En az 6 karakter**  
+   (Not: kayıtta PASSWORD_RULES 8+; login’de web bilerek min 6 kullanıyor — **değiştirme**)
+4. Field error varsa modal/toast: email hatası veya password hatası veya **Lütfen formu kontrol edin.**
+5. Turnstile/attestation required ve token yok → **Bot doğrulamasını tamamlayın.**
+
+## API — password login
+
+```http
+POST {API_BASE}/api/auth
+Content-Type: application/json
+
+{
+  "action": "password-login",
+  "email": "<sanitized>",
+  "password": "<plain>",
+  "turnstileToken": "<token or empty>"
+}
+```
+
+### Success (beklenen şekil)
+
+```json
+{
+  "ok": true,
+  "session": {
+    "access_token": "...",
+    "refresh_token": "..."
+  }
+}
+```
+
+Sonra client: `supabase.auth.setSession({ access_token, refresh_token })`.
+
+**MOBILE DIFF:** Web `signOut({ scope: 'local' })` sonra `setSession` (sync `localStorage`). RN AsyncStorage’da `signOut` yazımı yeni oturumu silebiliyor → **Oturum açılamadı**. Mobil: `stopAutoRefresh` + `setSession` (+ bir retry); hydrate `setSession` session’ı ile.
+
+### Errors (mesajları koru)
+
+| Durum | Kullanıcı mesajı |
+|-------|------------------|
+| 429 | API `error` veya **Çok fazla deneme. Lütfen sonra tekrar deneyin.** |
+| bot/turnstile | API error metni |
+| diğer fail | API error veya **E-posta veya şifre hatalı.** |
+| setSession fail | **Oturum açılamadı. Lütfen tekrar deneyin.** |
+| network PROD | **Giriş servisine ulaşılamadı. Sayfayı yenileyip tekrar deneyin.** |
+
+Fail sonrası: turnstile token sıfırla + widget remount.
+
+### Success UX
+
+- Toast: **Hoş geldiniz!**
+- Redirect sırası:
+  1. `redirectTo` (nav state `from`) varsa ve `/login` ile başlamıyorsa → oraya
+  2. else `role === 'admin'` → `/admin`
+  3. else `role === 'staff'` → `/staff` (`/(staff)` Ana Sayfa)
+  4. else → `/(member)/dashboard` (Ana Sayfa)  
+  **MOBILE DIFF (2026-08-24):** Web login default `/profile`; mobil Ana Sayfa (`dashboard` / staff index). Fallback asla `/(member)/profile` olmamalı.
+
+Hatalar `FormErrorModal` ile gösterilir (Alert değil). `postJson(..., { auth: false })` 401’i “Oturum süresi doldu” diye ezmez; API `error` metni kullanılır.
+
+## Already authenticated (mount)
+
+Aynı redirect kuralları; `from` öncelikli.
+
+## Side effects after login (web parity — sunucu/activity)
+
+`login()` içinde: staff list fetch, `roleForUser`, activity log, telegram notify. Mobil aynı `supabaseDb.login` eşdeğerini çağırmalı; telegram’ı client’tan atlama (servis içinde).
+
+## Session revoked
+
+Mount’ta `consumeSessionRevokedMessage()` varsa toast warning 7000ms.
+
+## Nav state message
+
+`location.state.message` varsa toast info bir kez, state’ten temizle.
+
+## Social
+
+**MOBILE DIFF (2026-08-17):** Google / Apple kapalı. Yalnız password-login.
+
+- Web hâlâ Google `oauthAuth` kullanabilir
+- iOS Apple Sign-In store için ileride — şu an yok
+- Callback: `auth/callback` deep link (password/reset/OAuth web handoff)
+
+## Remember me
+
+`setRememberMe(remember)` — token SecureStore vs session-equivalent storage (web: local vs session). `syncAutoRefresh(remember)`.
+
+## Acceptance
+
+- [ ] Yukarıdaki validation mesajları birebir
+- [ ] Production’da yalnızca `/api/auth` password-login
+- [ ] Redirect role tablosu doğru
+- [ ] Captcha yokken production submit engelli
+- [ ] Başarısızda captcha reset
+- [ ] Yeni alan yok

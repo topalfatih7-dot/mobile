@@ -1,0 +1,26 @@
+# Appendix D — Legal Slugs
+
+| Slug | Label |
+|------|-------|
+| uyelik-ve-abonelik-sozlesmesi | Üyelik ve Abonelik Sözleşmesi |
+| mesafeli-hizmet-sozlesmesi | Mesafeli Hizmet Sözleşmesi |
+| iptal-ve-iade-politikasi | İptal ve İade Politikası |
+| kvkk | KVKK Aydınlatma Metni |
+| kvkk-acik-riza-metni | KVKK Açık Rıza Metni |
+| gizlilik-politikasi | Gizlilik Politikası |
+| cerez-politikasi | Çerez Politikası |
+| saglik-verisi-isleme-bilgilendirmesi | Sağlık Verisi İşleme Bilgilendirmesi |
+| veri-saklama-ve-imha-politikasi | Veri Saklama ve İmha Politikası |
+| yapay-zeka-kullanim-politikasi | Yapay Zekâ Kullanım Politikası |
+| topluluk-kurallari | Topluluk Kuralları |
+| saglik-sorumluluk-reddi | Sağlık Sorumluluk Reddi |
+| antrenor-hizmet-standartlari | Antrenör Hizmet Standartları |
+| diyetisyen-hizmet-standartlari | Diyetisyen Hizmet Standartları |
+
+Hesap silme (Play / KVKK self-servis): `https://www.yeniform.com/hesap-silme` (`/account-deletion` → aynı sayfa). Legal slug değil.
+
+Redirects: `/kvkk` → `/legal/kvkk`, `/privacy` → `/legal/gizlilik-politikasi`, `/terms` → `/legal/uyelik-ve-abonelik-sozlesmesi`.
+
+Kanonik web yolu: `https://www.yeniform.com/legal/{slug}` (Play listing bu adresi kullanır).
+
+Onboarding must surface required consents (KVKK açık rıza, sağlık, üyelik) before submit.

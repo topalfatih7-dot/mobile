@@ -1,0 +1,29 @@
+---
+description: Push/FCM — dosyalar yerelde; test binary TestFlight IPA
+alwaysApply: true
+---
+
+# Push / FCM — dosyalar yerelde (iOS)
+
+Kullanıcı FCM dosyalarını koydu. Git’e girmez. Uydurma “push canlı” deme.
+
+## Bu makinede var (kök, gitignore)
+
+- `GoogleService-Info.plist` — iOS, bundle `com.yeniform.app`
+- `google-services.json` bu iOS klasöründe durabilir; **iOS build onu kullanmaz**
+
+`app.config.js` production/preview’da `ios.googleServicesFile` bağlar (dev variant `.dev` paketinde yok). `.easignore` dosyayı EAS’e yükler.
+
+## Test dağıtımı
+
+Test binary = onaylı **`npm run build:ios`** IPA → TestFlight. Kullanıcı açıkça iOS build / Submit demeden **eas build başlatma**.
+
+## Her sohbette
+
+Kısa hatırlat: FCM istemci git’e girmez. Test binary = TestFlight IPA. Onaysız build yok. Android AAB bu klasörden üretilmez.
+
+## Yapma
+
+- Otomatik `eas build`
+- Rebuild + APNs / FCM olmadan push’u tamamlandı sayma
+- Dosyaları git’e ekleme / commit etme

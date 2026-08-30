@@ -1,0 +1,53 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0.2",
+    "copyright": "© 2026 Yeni Form",
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "INFREQUENT_OR_MILD",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "gambling": false,
+      "unrestrictedWebAccess": false,
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE",
+      "seventeenPlus": false
+    },
+    "categories": ["HEALTH_AND_FITNESS"],
+    "info": {
+      "tr": {
+        "title": "Yeni Form",
+        "subtitle": "Koç + diyetisyen + doktor",
+        "description": "Yeni Form — koç, diyetisyen ve doktor desteğini tek uygulamada toplayan üye ve uzman paneli.\n\nÜcretsiz üye ol; ücretli paketleri web üzerinden yönet. Uygulama içi satın alma yoktur. Üyelik yeniform.com üzerinden.\n\n• Atanmış uzmanlarınla mesajlaşma\n• Antrenman programı, beslenme listesi ve takvim\n• Sağlık testi\n• Kalori analizi (metin ve foto)\n• Görüntülü seans\n\nBu uygulama tıbbi cihaz değildir; herhangi bir hastalığı teşhis, tedavi, iyileştirme veya önleme iddiası taşımaz. Tıbbi tavsiye, teşhis veya tedavi için bir sağlık uzmanına danışın.\nSağlık sorumluluk reddi: https://www.yeniform.com/legal/saglik-sorumluluk-reddi\n\nGizlilik: https://www.yeniform.com/legal/gizlilik-politikasi\nÜyelik sözleşmesi: https://www.yeniform.com/legal/uyelik-ve-abonelik-sozlesmesi\nDestek: https://www.yeniform.com",
+        "keywords": [
+          "yeni form",
+          "diyet",
+          "koc",
+          "saglik",
+          "kalori",
+          "antrenman",
+          "fitness",
+          "beslenme"
+        ],
+        "releaseNotes": "İlk sürüm. Üye ve uzman paneli: mesaj, takvim, program, sağlık testi, kalori, görüntülü seans. Uygulama içi satın alma yoktur. Üyelik yeniform.com üzerinden.",
+        "promoText": "Koç, diyetisyen ve doktor desteği. Ücretsiz üye ol. Uygulama içi satın alma yoktur.",
+        "marketingUrl": "https://www.yeniform.com",
+        "supportUrl": "https://www.yeniform.com",
+        "privacyPolicyUrl": "https://www.yeniform.com/legal/gizlilik-politikasi"
+      }
+    },
+    "release": {
+      "automaticRelease": true
+    }
+  }
+}

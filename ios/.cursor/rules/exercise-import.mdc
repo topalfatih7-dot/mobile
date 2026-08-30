@@ -1,0 +1,53 @@
+---
+description: Hareket kütüphanesi import ve video güvenlik kuralları
+globs: scripts/import-exercises.mjs, scripts/dedupe-exercise-db-ids.mjs, scripts/generate-exercise-thumbs.mjs, scripts/faststart-exercise-videos.mjs, scripts/compress-exercise-videos.mjs, scripts/lib/exercise-video-encode.mjs, src/services/supabaseDb.js, src/components/ui/VideoPlayer.jsx, src/components/library/ExerciseVideoThumbnail.jsx, api/auth.js
+alwaysApply: false
+---
+
+# Hareket import & video güvenliği
+
+## Video güvenlik modeli (değiştirme)
+
+1. `exercise-videos` bucket **private** kalır.
+2. `exercises.video_url` yalnızca **storage path** tutar (`gym100-0001.mp4`). Kalıcı public URL **asla** yazılmaz.
+3. Oynatma: `VideoPlayer` → `getExerciseVideoUrl()` → **client-first** `createSignedUrl` (RLS), fallback `POST /api/auth` (`exercise-video-url`) → **15 dakikalık** signed URL.
+4. `video_pending=true` iken signed URL isteği yapılmaz.
+5. Path doğrulama: `^[\w.-]+$`, `..` yasak (`api/auth.js`, `isExerciseVideoStoragePath`).
+6. Kapak görselleri: `exercise-thumbs` **public** bucket. Path = video path uzantısı `.webp` (`gym100-0001.mp4` → `gym100-0001.webp`). DB kolonu yok; `getExerciseThumbUrl()` ile türetilir. Thumbnail için signed URL / `<video>` mount **yok**.
+
+## Encode sözleşmesi (§1.1 — rehber §70)
+
+- Master: MP4 / H.264 High 4.0 / `yuv420p` / ≤1280w / CRF 28 / `-an` / `+faststart`
+- Pipeline: `scripts/lib/exercise-video-encode.mjs` → `npm run videos:compress` (mevcut) + import `--upload-videos`
+- Yalnızca remux (`-c copy`) yetmez; bitrate düşürme zorunlu
+- `.mov` → encode sonrası `.mp4` path + `exercises.video_url` güncelle
+- Operasyon + troubleshooting: `docs/VIDEO_LATENCY_AND_PLAYBACK_RUNBOOK.md` · `AI_PROJE_REHBERI.md` §70
+
+## Import sırası
+
+1. `node scripts/dedupe-exercise-db-ids.mjs` (ID çakışmaları)
+2. `npm run db:migrate` (şema)
+3. `npm run import:exercises:dry` (kontrol)
+4. `node scripts/import-exercises.mjs --upsert-taxonomy` (metadata, video yok)
+5. Video yükleme (ayrı): `node scripts/import-exercises.mjs --upload-videos` (encode §1.1 + thumb)
+6. `node scripts/import-exercises.mjs --sync-video-status`
+7. Mevcut videolar için: `node scripts/generate-exercise-thumbs.mjs`, `node scripts/faststart-exercise-videos.mjs` (yalnız remux), `npm run videos:compress` (bitrate)
+
+## Ertelenen paketler (şimdilik import edilmez)
+
+`face` — manifest: `scripts/data/deferred-exercise-packs.json`
+
+`office` paketi aktif: `npm run import:pack:office` (metadata + encode + thumb)
+
+## İsim / Türkçe
+
+- **İsimler:** JSON’daki İngilizce `name` Türkçeleştirilmez; Title Case uygulanır (`Cable Crunch (Kneeling)`). Senkron: `npm run sync:exercise-names`
+- Açıklama ve talimatlar: `scripts/lib/exercise-translate-tr.mjs` ile İngilizce kaynaktan çevrilebilir; kas/ekipman etiketleri `exerciseTurkish.js` ile Türkçe kalabilir.
+
+## Konum / makine metadata (1600exercisedbpro)
+
+- JSON: `locations` (`office`|`home`|`gym`), `requiresMachine` (`boolean`)
+- DB: `locations text[]`, `requires_machine boolean` — migration `20260707_exercises_location_machine.sql`
+- Import: `normalizeLocations()` + `requires_machine: ex.requiresMachine === true`
+- UI filtreleri: `ExerciseLibraryPage` + `exerciseLibrary.js` `applyFilters`
+- Kurallar: `1600exercisedbpro/_metadata_enrichment/classification_rules.md`
