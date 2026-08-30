@@ -2,6 +2,7 @@
 
 .env
 .env*.local
+.env.vercel.production.local
 !.env.example
 
 node_modules/
@@ -11,6 +12,8 @@ web-build/
 expo-env.d.ts
 .metro-health-check*
 *.tsbuildinfo
+.agents/
+.cursor/test-logs/
 
 *.pem
 *.jks
@@ -22,3 +25,6 @@ google-services.json
 GoogleService-Info.plist
 *firebase-adminsdk*.json
 firebase-service-account*.json
+
+# Local App Store Connect helper (machine npx path + Expo session)
+**/scripts/asc-prepare-review.mjs

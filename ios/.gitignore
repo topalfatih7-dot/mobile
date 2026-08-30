@@ -41,3 +41,7 @@ yarn-error.*
 
 # WhatsApp / camera dumps — store listing değil
 assets/WhatsApp Image *
+
+# Local App Store Connect helper (this machine's npx cache + Expo session)
+scripts/asc-prepare-review.mjs
+
